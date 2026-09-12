@@ -29,5 +29,33 @@ create_symlink() {
 # Install .bashrc
 create_symlink "$DOTFILES_DIR/.bashrc" "$HOME/.bashrc"
 
+# Install .config directories
+mkdir -p "$HOME/.config"
+for dir in hypr quickshell mako kitty fastfetch; do
+    if [ -d "$DOTFILES_DIR/.config/$dir" ]; then
+        create_symlink "$DOTFILES_DIR/.config/$dir" "$HOME/.config/$dir"
+    fi
+done
+
+# Install systemd user services
+mkdir -p "$HOME/.config/systemd/user"
+if [ -d "$DOTFILES_DIR/.config/systemd/user" ]; then
+    for svc in "$DOTFILES_DIR/.config/systemd/user"/*.service; do
+        [ -f "$svc" ] || continue
+        svc_name="$(basename "$svc")"
+        create_symlink "$svc" "$HOME/.config/systemd/user/$svc_name"
+    done
+fi
+
+# Install custom scripts in .local/bin
+mkdir -p "$HOME/.local/bin"
+if [ -d "$DOTFILES_DIR/.local/bin" ]; then
+    for script in "$DOTFILES_DIR/.local/bin"/*; do
+        [ -f "$script" ] || continue
+        script_name="$(basename "$script")"
+        create_symlink "$script" "$HOME/.local/bin/$script_name"
+    done
+fi
+
 echo "Installation complete."
-echo "Please restart your terminal or run: source ~/.bashrc"
+echo "All system configurations and developer tools are now linked."

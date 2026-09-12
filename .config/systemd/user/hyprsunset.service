@@ -1,0 +1,13 @@
+[Unit]
+Description=Hyprland Blue Light Filter Daemon
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/hyprsunset -i
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

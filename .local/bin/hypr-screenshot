@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# hypr-screenshot:
+# Fast Wayland screenshot utility for Hyprland using grim, slurp, and swappy.
+# Supports area selection, full screen, focused window, and annotation.
+
+SAVE_DIR="${HOME}/Pictures/Screenshots"
+mkdir -p "$SAVE_DIR"
+
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+FILENAME="Screenshot_${TIMESTAMP}.png"
+FILEPATH="${SAVE_DIR}/${FILENAME}"
+
+MODE="${1:-area}"
+
+notify_success() {
+    notify-send -a "Screenshot" \
+        -i "$FILEPATH" \
+        -t 3500 \
+        "Screenshot Captured" \
+        "Saved to ~/Pictures/Screenshots and copied to clipboard."
+}
+
+case "$MODE" in
+    "area"|"select"|"region")
+        GEOM=$(slurp -d -c e22b31 -b 00000055 -s 00000000 2>/dev/null)
+        [ -z "$GEOM" ] && exit 0
+        grim -g "$GEOM" "$FILEPATH" || exit 1
+        wl-copy < "$FILEPATH"
+        notify_success
+        ;;
+    "full"|"screen"|"all")
+        grim "$FILEPATH" || exit 1
+        wl-copy < "$FILEPATH"
+        notify_success
+        ;;
+    "window"|"active")
+        GEOM=$(hyprctl activewindow -j | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' 2>/dev/null)
+        if [ -z "$GEOM" ] || [ "$GEOM" = "null,null nullxnull" ]; then
+            grim "$FILEPATH" || exit 1
+        else
+            grim -g "$GEOM" "$FILEPATH" || exit 1
+        fi
+        wl-copy < "$FILEPATH"
+        notify_success
+        ;;
+    "edit"|"swappy")
+        GEOM=$(slurp -d -c e22b31 -b 00000055 -s 00000000 2>/dev/null)
+        [ -z "$GEOM" ] && exit 0
+        TMP_FILE="/tmp/screenshot_edit_${TIMESTAMP}.png"
+        grim -g "$GEOM" "$TMP_FILE" || exit 1
+        swappy -f "$TMP_FILE" -o "$FILEPATH"
+        rm -f "$TMP_FILE"
+        if [ -f "$FILEPATH" ]; then
+            wl-copy < "$FILEPATH"
+            notify_success
+        fi
+        ;;
+    *)
+        echo "Usage: hypr-screenshot [area | full | window | edit]"
+        exit 1
+        ;;
+esac

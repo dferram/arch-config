@@ -1,0 +1,123 @@
+# ~/.config/mako/config
+# Global Notification Settings
+font=Adwaita Sans, sans-serif 10
+width=360
+height=140
+margin=52,16,16,16
+padding=14,18
+border-size=1
+border-radius=14
+border-color=#253754
+background-color=#0b0f17fa
+text-color=#f1f5f9
+progress-color=over #e22b3166
+icons=1
+max-icon-size=36
+icon-border-radius=8
+icon-path=/usr/share/icons/breeze-dark:/usr/share/icons/breeze:/usr/share/icons/Adwaita:/usr/share/icons/hicolor
+default-timeout=4500
+ignore-timeout=1
+layer=overlay
+anchor=top-right
+
+# Mouse and touch actions
+on-button-left=dismiss
+on-button-right=dismiss-all
+on-touch=dismiss
+
+# Urgency Criteria
+[urgency=low]
+border-color=#1e293b
+default-timeout=3000
+
+[urgency=high]
+border-color=#e22b31cc
+default-timeout=8000
+
+# Volume OSD Notification (Modern Cyber-Obsidian Pill)
+[app-name=Volume]
+default-timeout=1500
+history=0
+width=260
+height=46
+padding=10,16
+border-size=2
+border-radius=20
+border-color=#e22b31cc
+background-color=#070a10f8
+text-color=#f1f5f9
+progress-color=over #e22b3166
+icons=1
+max-icon-size=24
+icon-border-radius=6
+format=<b>%s</b>
+
+# Brightness OSD Notification (Modern Cyber-Obsidian Pill)
+[app-name=Brightness]
+default-timeout=1500
+history=0
+width=260
+height=46
+padding=10,16
+border-size=2
+border-radius=20
+border-color=#e22b31cc
+background-color=#070a10f8
+text-color=#f1f5f9
+progress-color=over #e22b3166
+icons=1
+max-icon-size=24
+icon-border-radius=6
+format=<b>%s</b>
+
+# Muted Volume Alert
+[summary="Volume Muted"]
+border-color=#e22b31cc
+progress-color=over #e22b3166
+
+# Calendar Reminders
+[app-name=Recordatorio]
+default-timeout=10000
+border-radius=14
+border-size=2
+border-color=#e22b31cc
+background-color=#070a10fa
+text-color=#f1f5f9
+icons=1
+max-icon-size=32
+icon-border-radius=8
+
+[app-name=Reminders]
+default-timeout=10000
+border-radius=14
+border-size=2
+border-color=#e22b31cc
+background-color=#070a10fa
+text-color=#f1f5f9
+icons=1
+max-icon-size=32
+icon-border-radius=8
+
+# Battery Alerts
+[app-name=Batería]
+default-timeout=10000
+border-radius=14
+border-size=2
+border-color=#e22b31cc
+background-color=#070a10fa
+text-color=#f1f5f9
+icons=1
+max-icon-size=32
+icon-border-radius=8
+
+[app-name=Battery]
+default-timeout=10000
+border-radius=14
+border-size=2
+border-color=#e22b31cc
+background-color=#070a10fa
+text-color=#f1f5f9
+icons=1
+max-icon-size=32
+icon-border-radius=8
+

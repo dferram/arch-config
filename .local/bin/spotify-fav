@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# spotify-fav: Manage favorites for currently playing Spotify / MPRIS track
+set -euo pipefail
+
+FAV_DIR="${HOME}/.local/share/quickshell"
+FAV_FILE="${FAV_DIR}/favorites.json"
+mkdir -p "$FAV_DIR"
+[ ! -f "$FAV_FILE" ] && echo "[]" > "$FAV_FILE"
+
+ACTION="${1:-check}"
+
+get_track_id() {
+    playerctl metadata mpris:trackid 2>/dev/null || echo ""
+}
+
+get_title() {
+    playerctl metadata xesam:title 2>/dev/null || echo ""
+}
+
+get_artist() {
+    playerctl metadata xesam:artist 2>/dev/null || echo ""
+}
+
+get_album() {
+    playerctl metadata xesam:album 2>/dev/null || echo ""
+}
+
+get_url() {
+    playerctl metadata xesam:url 2>/dev/null || echo ""
+}
+
+get_art_url() {
+    playerctl metadata mpris:artUrl 2>/dev/null || echo ""
+}
+
+TRACK_ID=$(get_track_id)
+if [ -z "$TRACK_ID" ]; then
+    echo "false"
+    exit 0
+fi
+
+case "$ACTION" in
+    "check"|"status")
+        IS_FAV=$(jq -r --arg tid "$TRACK_ID" 'map(select(.id == $tid)) | length > 0' "$FAV_FILE" 2>/dev/null || echo "false")
+        echo "$IS_FAV"
+        ;;
+    "toggle")
+        TITLE=$(get_title)
+        ARTIST=$(get_artist)
+        ALBUM=$(get_album)
+        URL=$(get_url)
+        ART_URL=$(get_art_url)
+
+        IS_FAV=$(jq -r --arg tid "$TRACK_ID" 'map(select(.id == $tid)) | length > 0' "$FAV_FILE" 2>/dev/null || echo "false")
+
+        if [ "$IS_FAV" = "true" ]; then
+            # Remove from favorites
+            jq --arg tid "$TRACK_ID" 'map(select(.id != $tid))' "$FAV_FILE" > "${FAV_FILE}.tmp" && mv "${FAV_FILE}.tmp" "$FAV_FILE"
+            notify-send -a "Spotify" "Removed from Favorites" "$TITLE - $ARTIST" -t 3000
+            echo "false"
+        else
+            # Add to favorites
+            ENTRY=$(jq -n \
+                --arg id "$TRACK_ID" \
+                --arg title "$TITLE" \
+                --arg artist "$ARTIST" \
+                --arg album "$ALBUM" \
+                --arg url "$URL" \
+                --arg art "$ART_URL" \
+                --arg date "$(date -Iseconds)" \
+                '{id: $id, title: $title, artist: $artist, album: $album, url: $url, art: $art, date: $date}')
+            jq --argjson entry "$ENTRY" '. + [$entry]' "$FAV_FILE" > "${FAV_FILE}.tmp" && mv "${FAV_FILE}.tmp" "$FAV_FILE"
+            notify-send -a "Spotify" "Added to Favorites ♥" "$TITLE - $ARTIST" -t 3000
+            echo "true"
+        fi
+        ;;
+    "list")
+        cat "$FAV_FILE"
+        ;;
+    *)
+        echo "Usage: spotify-fav [check | toggle | list]"
+        exit 1
+        ;;
+esac

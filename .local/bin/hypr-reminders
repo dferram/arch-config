@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+"""
+hypr-reminders:
+Backend and background notification daemon for calendar events and reminders.
+Supports adding, listing, toggling, deleting reminders, and 5-min-before desktop alerts.
+"""
+
+import sys
+import os
+import json
+import time
+import argparse
+import subprocess
+from datetime import datetime, timedelta
+from pathlib import Path
+
+DATA_DIR = Path.home() / ".local" / "share" / "hypr-reminders"
+DATA_FILE = DATA_DIR / "reminders.json"
+
+DEFAULT_CATEGORIES = {
+    "Colgate-Palmolive": {"color": "#ef4444", "icon": "briefcase"},
+    "Projects": {"color": "#06b6d4", "icon": "folder"},
+    "School": {"color": "#a855f7", "icon": "book"},
+    "Personal": {"color": "#10b981", "icon": "user"},
+    "Health": {"color": "#f59e0b", "icon": "heart"},
+    "Urgent": {"color": "#f97316", "icon": "alert-circle"}
+}
+
+def ensure_data():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not DATA_FILE.exists():
+        DATA_FILE.write_text("[]", encoding="utf-8")
+
+def load_reminders():
+    ensure_data()
+    try:
+        data = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+def save_reminders(reminders):
+    ensure_data()
+    temp_file = DATA_FILE.with_suffix(".tmp")
+    temp_file.write_text(json.dumps(reminders, indent=2, ensure_ascii=False), encoding="utf-8")
+    temp_file.replace(DATA_FILE)
+
+def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes=""):
+    reminders = load_reminders()
+    
+    # Validate date
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        date_str = datetime.now().strftime("%Y-%m-%d")
+
+    # Validate time
+    try:
+        datetime.strptime(time_str, "%H:%M")
+    except ValueError:
+        time_str = "12:00"
+
+    rem_id = f"rem_{int(time.time())}_{len(reminders) + 1}"
+    cat = category if category in DEFAULT_CATEGORIES else "Colgate-Palmolive"
+
+    item = {
+        "id": rem_id,
+        "title": title.strip(),
+        "date": date_str,
+        "time": time_str,
+        "category": cat,
+        "notes": notes.strip(),
+        "done": False,
+        "created_at": datetime.now().isoformat(),
+        "notified_5min": False,
+        "notified_due": False
+    }
+
+    reminders.append(item)
+    reminders.sort(key=lambda x: (x.get("date", ""), x.get("time", "")))
+    save_reminders(reminders)
+    return item
+
+def delete_reminder(rem_id):
+    reminders = load_reminders()
+    new_rems = [r for r in reminders if r.get("id") != rem_id]
+    if len(new_rems) != len(reminders):
+        save_reminders(new_rems)
+        return True
+    return False
+
+def toggle_done(rem_id):
+    reminders = load_reminders()
+    for r in reminders:
+        if r.get("id") == rem_id:
+            r["done"] = not r.get("done", False)
+            save_reminders(reminders)
+            return r
+    return None
+
+def check_and_notify(reminders=None):
+    if reminders is None:
+        reminders = load_reminders()
+    
+    now = datetime.now()
+    changed = False
+
+    for rem in reminders:
+        if rem.get("done", False):
+            continue
+
+        d_str = rem.get("date", "")
+        t_str = rem.get("time", "")
+        try:
+            event_dt = datetime.strptime(f"{d_str} {t_str}", "%Y-%m-%d %H:%M")
+        except Exception:
+            continue
+
+        diff_seconds = (event_dt - now).total_seconds()
+
+        # 5 minutes before notification (between 0 and 310 seconds before event)
+        if 0 <= diff_seconds <= 310 and not rem.get("notified_5min", False):
+            title = f"⏰ Reminder in 5 min: {rem.get('title')}"
+            body = f"Category: {rem.get('category', 'Personal')} | Time: {t_str}"
+            if rem.get("notes"):
+                body += f"\nNote: {rem['notes']}"
+            try:
+                subprocess.run([
+                    "notify-send", "-a", "Reminders",
+                    "-i", "appointment-reminder",
+                    "-u", "normal",
+                    "-t", "9000",
+                    title, body
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+
+            rem["notified_5min"] = True
+            changed = True
+
+        # Exactly at due time (between -60 and 45 seconds)
+        elif -60 <= diff_seconds <= 45 and not rem.get("notified_due", False):
+            title = f"🔔 Event Due: {rem.get('title')}"
+            body = f"Category: {rem.get('category', 'Personal')} | {t_str}"
+            if rem.get("notes"):
+                body += f"\n{rem['notes']}"
+            try:
+                subprocess.run([
+                    "notify-send", "-a", "Reminders",
+                    "-i", "appointment-reminder",
+                    "-u", "critical",
+                    "-t", "12000",
+                    title, body
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+
+            rem["notified_due"] = True
+            changed = True
+
+    if changed:
+        save_reminders(reminders)
+
+def run_daemon():
+    print("Starting hypr-reminders notification daemon...")
+    while True:
+        try:
+            check_and_notify()
+        except Exception as e:
+            print(f"Error in daemon loop: {e}", file=sys.stderr)
+        time.sleep(15)
+
+def main():
+    parser = argparse.ArgumentParser(description="hypr-reminders manager and daemon")
+    subparsers = parser.add_subparsers(dest="command")
+
+    # list
+    list_p = subparsers.add_parser("list")
+    list_p.add_argument("--date", help="Filter by date YYYY-MM-DD")
+    list_p.add_argument("--category", help="Filter by category")
+    list_p.add_argument("--all", action="store_true", help="Include done items")
+
+    # add
+    add_p = subparsers.add_parser("add")
+    add_p.add_argument("title", help="Reminder title")
+    add_p.add_argument("--date", default=datetime.now().strftime("%Y-%m-%d"), help="Date YYYY-MM-DD")
+    add_p.add_argument("--time", default=datetime.now().strftime("%H:%M"), help="Time HH:MM")
+    add_p.add_argument("--category", default="Colgate-Palmolive", help="Category: Colgate-Palmolive, Projects, School, Personal, Health, Urgent")
+    add_p.add_argument("--notes", default="", help="Optional notes")
+
+    # toggle
+    toggle_p = subparsers.add_parser("toggle")
+    toggle_p.add_argument("id", help="Reminder ID")
+
+    # delete
+    del_p = subparsers.add_parser("delete")
+    del_p.add_argument("id", help="Reminder ID")
+
+    # daemon
+    subparsers.add_parser("daemon")
+
+    # check
+    subparsers.add_parser("check")
+
+    args = parser.parse_args()
+
+    if args.command == "list" or not args.command:
+        reminders = load_reminders()
+        date_filter = getattr(args, "date", None)
+        cat_filter = getattr(args, "category", None)
+        if date_filter:
+            reminders = [r for r in reminders if r.get("date") == date_filter]
+        if cat_filter and cat_filter != "All":
+            reminders = [r for r in reminders if r.get("category") == cat_filter]
+        print(json.dumps(reminders, ensure_ascii=False))
+
+    elif args.command == "add":
+        item = add_reminder(args.title, args.date, args.time, args.category, args.notes)
+        print(json.dumps(item, ensure_ascii=False))
+
+    elif args.command == "toggle":
+        res = toggle_done(args.id)
+        print(json.dumps({"success": bool(res), "item": res}, ensure_ascii=False))
+
+    elif args.command == "delete":
+        res = delete_reminder(args.id)
+        print(json.dumps({"success": res}, ensure_ascii=False))
+
+    elif args.command == "daemon":
+        run_daemon()
+
+    elif args.command == "check":
+        check_and_notify()
+        print(json.dumps({"status": "checked"}))
+
+if __name__ == "__main__":
+    main()

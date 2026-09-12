@@ -1,0 +1,256 @@
+#!/usr/bin/env python3
+"""
+hypr-display-manager:
+Manage external monitor layout (Left, Right, Above, Below, Mirror) dynamically
+on Hyprland with live reload, persistence (~/.config/hypr/monitors.lua), and GUI/CLI.
+"""
+
+import sys
+import os
+import json
+import subprocess
+from pathlib import Path
+
+CONFIG_DIR = Path.home() / ".config" / "hypr"
+MONITORS_LUA = CONFIG_DIR / "monitors.lua"
+
+def get_monitors():
+    try:
+        out = subprocess.check_output(["hyprctl", "-j", "monitors", "all"], stderr=subprocess.DEVNULL).decode("utf-8")
+        data = json.loads(out)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+def get_layout_info():
+    monitors = get_monitors()
+    if not monitors:
+        return {"connected": False, "primary": None, "external": None, "position": "none", "position_label": "Disconnected"}
+
+    # Identify primary (prefer eDP-1 or first active)
+    primary = next((m for m in monitors if "eDP" in m.get("name", "")), monitors[0])
+    
+    # Identify external monitor
+    externals = [m for m in monitors if m.get("name") != primary.get("name")]
+    
+    if not externals:
+        return {
+            "connected": False,
+            "primary": {
+                "name": primary.get("name"),
+                "model": primary.get("model", ""),
+                "description": primary.get("description", ""),
+                "width": primary.get("width"),
+                "height": primary.get("height"),
+                "scale": primary.get("scale", 1),
+            },
+            "external": None,
+            "position": "none",
+            "position_label": "Primary display only"
+        }
+
+    ext = externals[0]
+    
+    # Detect current position relative to primary
+    p_x = primary.get("x", 0)
+    p_y = primary.get("y", 0)
+    e_x = ext.get("x", 0)
+    e_y = ext.get("y", 0)
+    mirror_of = ext.get("mirrorOf", "none")
+
+    pos = "right"
+    if mirror_of != "none":
+        pos = "mirror"
+    elif e_x < p_x:
+        pos = "left"
+    elif e_y < p_y:
+        pos = "top"
+    elif e_y > p_y and abs(e_x - p_x) <= 200:
+        pos = "bottom"
+    else:
+        pos = "right"
+
+    labels = {
+        "left": "Left",
+        "right": "Right",
+        "top": "Above",
+        "bottom": "Below",
+        "mirror": "Mirror (Duplicate)"
+    }
+
+    return {
+        "connected": True,
+        "primary": {
+            "name": primary.get("name"),
+            "model": primary.get("model", ""),
+            "description": primary.get("description", ""),
+            "width": primary.get("width"),
+            "height": primary.get("height"),
+            "scale": primary.get("scale", 1),
+            "x": p_x,
+            "y": p_y,
+        },
+        "external": {
+            "name": ext.get("name"),
+            "model": ext.get("model", ""),
+            "description": ext.get("description", ""),
+            "width": ext.get("width"),
+            "height": ext.get("height"),
+            "scale": ext.get("scale", 1),
+            "x": e_x,
+            "y": e_y,
+            "mirrorOf": mirror_of,
+        },
+        "position": pos,
+        "position_label": labels.get(pos, pos.capitalize())
+    }
+
+def set_position(pos):
+    info = get_layout_info()
+    if not info["connected"] or not info["external"]:
+        print("Error: No external monitor detected.", file=sys.stderr)
+        return False
+
+    ext_name = info["external"]["name"]
+    pri_name = info["primary"]["name"]
+
+    pos = pos.lower().strip()
+    hypr_pos = "auto-right"
+    mirror_target = ""
+
+    labels = {
+        "left": "to the Left",
+        "right": "to the Right",
+        "top": "Above",
+        "bottom": "Below",
+        "mirror": "Mirror Mode"
+    }
+
+    if pos == "left":
+        hypr_pos = "auto-left"
+    elif pos == "right":
+        hypr_pos = "auto-right"
+    elif pos == "top":
+        hypr_pos = "auto-up"
+    elif pos == "bottom":
+        hypr_pos = "auto-down"
+    elif pos == "mirror":
+        hypr_pos = "auto"
+        mirror_target = pri_name
+    else:
+        print(f"Error: Invalid position '{pos}'. Use left, right, top, bottom, or mirror.", file=sys.stderr)
+        return False
+
+    # Execute dynamic live change in Hyprland
+    if mirror_target:
+        lua_code = f'hl.monitor({{ output = "{ext_name}", mode = "preferred", position = "{hypr_pos}", scale = 1, mirror = "{mirror_target}" }})'
+    else:
+        lua_code = f'hl.monitor({{ output = "{ext_name}", mode = "preferred", position = "{hypr_pos}", scale = 1, mirror = "" }})'
+
+    try:
+        subprocess.run(["hyprctl", "eval", lua_code], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except Exception as e:
+        print(f"Failed to apply monitor setting to Hyprland: {e}", file=sys.stderr)
+        return False
+
+    # Save to ~/.config/hypr/monitors.lua for persistence
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(MONITORS_LUA, "w", encoding="utf-8") as f:
+            f.write(f"-- Automatically generated by hypr-display-manager\n")
+            if mirror_target:
+                f.write(f'hl.monitor({{\n    output   = "{ext_name}",\n    mode     = "preferred",\n    position = "{hypr_pos}",\n    scale    = 1,\n    mirror   = "{mirror_target}",\n}})\n')
+            else:
+                f.write(f'hl.monitor({{\n    output   = "{ext_name}",\n    mode     = "preferred",\n    position = "{hypr_pos}",\n    scale    = 1,\n    mirror   = "",\n}})\n')
+    except Exception as e:
+        print(f"Warning: Could not save to {MONITORS_LUA}: {e}", file=sys.stderr)
+
+    # Notify user
+    label = labels.get(pos, pos)
+    display_desc = info["external"]["model"] or info["external"]["name"]
+    msg = f"{display_desc} positioned {label}"
+    
+    try:
+        subprocess.run(["notify-send", "-a", "Display Manager", "-i", "video-display", "-t", "3000", "Display Layout", msg], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+    print(f"Success: Display positioned {label}")
+    return True
+
+def show_gui():
+    info = get_layout_info()
+    if not info["connected"]:
+        # Show Zenity info dialog
+        subprocess.run([
+            "zenity", "--info",
+            "--title=Display Layout",
+            "--text=No external display detected.\n\nPlease connect an HDMI or DisplayPort monitor to configure it.",
+            "--width=350"
+        ])
+        return
+
+    ext = info["external"]
+    pri = info["primary"]
+    current_pos = info["position"]
+
+    prompt_text = (
+        f"<b>Primary Display:</b> {pri['name']} ({pri['width']}x{pri['height']})\n"
+        f"<b>Connected Display:</b> {ext['model'] or ext['name']} ({ext['name']})\n\n"
+        "Select placement for external display:"
+    )
+
+    # Zenity radiolist format: [TRUE/FALSE, TAG, DESCRIPTION]
+    items = [
+        ("TRUE" if current_pos == "right" else "FALSE", "right", "➡️  To the Right (Default)"),
+        ("TRUE" if current_pos == "left" else "FALSE", "left", "⬅️  To the Left"),
+        ("TRUE" if current_pos == "top" else "FALSE", "top", "⬆️  Above primary display"),
+        ("TRUE" if current_pos == "bottom" else "FALSE", "bottom", "⬇️  Below primary display"),
+        ("TRUE" if current_pos == "mirror" else "FALSE", "mirror", "🪞  Mirror Display"),
+    ]
+
+    cmd = [
+        "zenity", "--list", "--radiolist",
+        "--title=Display Configuration",
+        f"--text={prompt_text}",
+        "--column=Select", "--column=ID", "--column=Placement",
+        "--hide-column=2",
+        "--width=460", "--height=340"
+    ]
+
+    for selected, tag, desc in items:
+        cmd.extend([selected, tag, desc])
+
+    try:
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if proc.returncode == 0:
+            chosen = proc.stdout.strip()
+            if chosen:
+                set_position(chosen)
+    except Exception as e:
+        print(f"Error running Zenity: {e}", file=sys.stderr)
+
+def main():
+    if len(sys.argv) > 1:
+        arg = sys.argv[1].lower()
+        if arg in ["--json", "-j", "--status", "-s"]:
+            print(json.dumps(get_layout_info(), indent=2))
+            return
+        elif arg in ["--set", "-s"] and len(sys.argv) > 2:
+            set_position(sys.argv[2])
+            return
+        elif arg in ["left", "right", "top", "bottom", "mirror"]:
+            set_position(arg)
+            return
+        elif arg in ["--gui", "-g"]:
+            show_gui()
+            return
+        elif arg in ["--help", "-h"]:
+            print("Usage: hypr-display-manager [--json | --set <left|right|top|bottom|mirror> | --gui]")
+            return
+
+    # Default without args: open GUI
+    show_gui()
+
+if __name__ == "__main__":
+    main()

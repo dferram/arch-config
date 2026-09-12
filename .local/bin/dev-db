@@ -1,0 +1,266 @@
+#!/usr/bin/env python3
+"""
+dev-db: Instant, zero-config local databases via Docker for fullstack development.
+Usage:
+    dev-db up <postgres|redis|mongo|mysql|all>
+    dev-db stop [postgres|redis|mongo|mysql|all]
+    dev-db status
+    dev-db logs <postgres|redis|mongo|mysql>
+    dev-db shell <postgres|redis|mongo>
+    dev-db reset <postgres|redis|mongo|mysql>
+"""
+
+import sys
+import os
+import subprocess
+import shutil
+
+C_RESET  = "\033[0m"
+C_BOLD   = "\033[1m"
+C_DIM    = "\033[2m"
+C_CYAN   = "\033[38;2;56;189;248m"
+C_GREEN  = "\033[38;2;34;197;94m"
+C_YELLOW = "\033[38;2;234;179;8m"
+C_RED    = "\033[38;2;239;68;68m"
+C_PURPLE = "\033[38;2;168;85;247m"
+C_GRAY   = "\033[38;2;148;163;184m"
+
+SERVICES = {
+    "postgres": {
+        "alias": ["pg", "postgresql"],
+        "name": "dev-postgres",
+        "image": "postgres:16-alpine",
+        "ports": ["5432:5432"],
+        "env": [
+            "POSTGRES_USER=postgres",
+            "POSTGRES_PASSWORD=postgres",
+            "POSTGRES_DB=dev"
+        ],
+        "volume": "dev-postgres-data:/var/lib/postgresql/data",
+        "url": "postgresql://postgres:postgres@localhost:5432/dev",
+        "shell": ["psql", "-U", "postgres", "-d", "dev"]
+    },
+    "redis": {
+        "alias": [],
+        "name": "dev-redis",
+        "image": "redis:7-alpine",
+        "ports": ["6379:6379"],
+        "env": [],
+        "volume": "dev-redis-data:/data",
+        "url": "redis://localhost:6379",
+        "shell": ["redis-cli"]
+    },
+    "mongo": {
+        "alias": ["mongodb"],
+        "name": "dev-mongo",
+        "image": "mongo:7",
+        "ports": ["27017:27017"],
+        "env": [],
+        "volume": "dev-mongo-data:/data/db",
+        "url": "mongodb://localhost:27017",
+        "shell": ["mongosh"]
+    },
+    "mysql": {
+        "alias": ["mariadb"],
+        "name": "dev-mysql",
+        "image": "mysql:8",
+        "ports": ["3306:3306"],
+        "env": [
+            "MYSQL_ROOT_PASSWORD=root",
+            "MYSQL_DATABASE=dev"
+        ],
+        "volume": "dev-mysql-data:/var/lib/mysql",
+        "url": "mysql://root:root@localhost:3306/dev",
+        "shell": ["mysql", "-uroot", "-proot", "dev"]
+    }
+}
+
+def get_docker_prefix():
+    if not shutil.which("docker"):
+        print(f"{C_RED}Error: docker is not installed or not in PATH.{C_RESET}")
+        sys.exit(1)
+    
+    # Try direct docker
+    res = subprocess.run(["docker", "ps"], capture_output=True)
+    if res.returncode == 0:
+        return ["docker"]
+    
+    # If permission denied, check if running in terminal (interactive)
+    if sys.stdin.isatty():
+        return ["sudo", "docker"]
+    
+    # Non-interactive and no permission
+    print(f"{C_YELLOW}Docker socket permission denied.{C_RESET}")
+    print(f"{C_DIM}Run 'newgrp docker' or re-login to enable rootless docker.{C_RESET}")
+    return ["sudo", "-n", "docker"]
+
+def resolve_service(name):
+    name = name.lower()
+    for svc_key, cfg in SERVICES.items():
+        if name == svc_key or name in cfg["alias"]:
+            return svc_key
+    return None
+
+def start_service(svc_key, dcmd):
+    cfg = SERVICES[svc_key]
+    c_name = cfg["name"]
+
+    inspect = subprocess.run(dcmd + ["inspect", "-f", "{{.State.Running}}", c_name], capture_output=True, text=True)
+    if inspect.returncode == 0:
+        running = inspect.stdout.strip() == "true"
+        if running:
+            print(f"  {C_GREEN}✔ {c_name} is already running!{C_RESET}")
+        else:
+            print(f"  Starting existing {c_name}...")
+            subprocess.run(dcmd + ["start", c_name], check=True)
+            print(f"  {C_GREEN}✔ {c_name} started!{C_RESET}")
+    else:
+        print(f"  Creating and starting {c_name} ({cfg['image']})...")
+        run_cmd = dcmd + [
+            "run", "-d",
+            "--name", c_name,
+            "-v", cfg["volume"]
+        ]
+        for p in cfg["ports"]:
+            run_cmd.extend(["-p", p])
+        for e in cfg["env"]:
+            run_cmd.extend(["-e", e])
+        run_cmd.append(cfg["image"])
+
+        res = subprocess.run(run_cmd, capture_output=True, text=True)
+        if res.returncode != 0:
+            print(f"  {C_RED}Failed to start container: {res.stderr.strip()}{C_RESET}")
+            return
+        print(f"  {C_GREEN}✔ {c_name} created & started!{C_RESET}")
+
+    print(f"  {C_BOLD}Connection URL:{C_RESET} {C_CYAN}{cfg['url']}{C_RESET}\n")
+
+def stop_service(svc_key, dcmd):
+    cfg = SERVICES[svc_key]
+    c_name = cfg["name"]
+    inspect = subprocess.run(dcmd + ["inspect", "-f", "{{.State.Running}}", c_name], capture_output=True, text=True)
+    if inspect.returncode == 0:
+        if inspect.stdout.strip() == "true":
+            print(f"  Stopping {c_name}...")
+            subprocess.run(dcmd + ["stop", c_name], check=True)
+            print(f"  {C_YELLOW}✔ {c_name} stopped.{C_RESET}")
+        else:
+            print(f"  {C_DIM}{c_name} is already stopped.{C_RESET}")
+    else:
+        print(f"  {C_DIM}{c_name} does not exist.{C_RESET}")
+
+def show_status(dcmd):
+    print(f"\n{C_BOLD}{C_CYAN}┏━ LOCAL DEV DATABASES STATUS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓{C_RESET}\n")
+    print(f"  {C_BOLD}{C_GRAY}{'SERVICE':<12} {'CONTAINER':<15} {'STATUS':<12} {'PORTS':<14} {'CONNECTION URL'}{C_RESET}")
+    print(f"  {C_GRAY}{'─' * 80}{C_RESET}")
+
+    for svc_key, cfg in SERVICES.items():
+        c_name = cfg["name"]
+        inspect = subprocess.run(dcmd + ["inspect", "-f", "{{.State.Status}}", c_name], capture_output=True, text=True)
+        if inspect.returncode == 0:
+            status = inspect.stdout.strip()
+            if status == "running":
+                status_colored = f"{C_BOLD}{C_GREEN}running{C_RESET}"
+            else:
+                status_colored = f"{C_YELLOW}{status}{C_RESET}"
+        else:
+            status_colored = f"{C_DIM}not created{C_RESET}"
+
+        ports_str = ", ".join(cfg["ports"])
+        print(f"  {C_BOLD}{svc_key:<12}{C_RESET} {c_name:<15} {status_colored:<21} {ports_str:<14} {C_CYAN}{cfg['url']}{C_RESET}")
+
+    print(f"\n{C_BOLD}{C_CYAN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛{C_RESET}")
+    print(f"  {C_DIM}Commands: dev-db up <svc>, dev-db stop [svc|all], dev-db shell <svc>{C_RESET}\n")
+
+def main():
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help", "help"):
+        print(f"\n{C_BOLD}Usage:{C_RESET} dev-db <action> [service]")
+        print("\nActions:")
+        print("  up, start <svc|all>       Start database container (e.g. 'dev-db up postgres')")
+        print("  stop [svc|all]            Stop container(s) to free RAM & battery")
+        print("  status                    Show running/stopped database status")
+        print("  logs <svc>                Follow container logs")
+        print("  shell <svc>               Drop into interactive CLI (psql, redis-cli, mongosh)")
+        print("  reset <svc>               Wipe container and persistent volume")
+        print("\nSupported services: postgres, redis, mongo, mysql\n")
+        sys.exit(0)
+
+    dcmd = get_docker_prefix()
+    action = args[0].lower()
+
+    if action in ("up", "start"):
+        target = args[1].lower() if len(args) > 1 else "all"
+        if target == "all":
+            for s in SERVICES:
+                start_service(s, dcmd)
+        else:
+            svc = resolve_service(target)
+            if not svc:
+                print(f"{C_RED}Unknown service: {target}. Choices: {', '.join(SERVICES.keys())}{C_RESET}")
+                sys.exit(1)
+            start_service(svc, dcmd)
+
+    elif action == "stop":
+        target = args[1].lower() if len(args) > 1 else "all"
+        if target == "all":
+            for s in SERVICES:
+                stop_service(s, dcmd)
+        else:
+            svc = resolve_service(target)
+            if not svc:
+                print(f"{C_RED}Unknown service: {target}. Choices: {', '.join(SERVICES.keys())}{C_RESET}")
+                sys.exit(1)
+            stop_service(svc, dcmd)
+
+    elif action == "status":
+        show_status(dcmd)
+
+    elif action == "logs":
+        if len(args) < 2:
+            print(f"{C_RED}Please specify a service to view logs.{C_RESET}")
+            sys.exit(1)
+        svc = resolve_service(args[1])
+        if not svc:
+            print(f"{C_RED}Unknown service: {args[1]}{C_RESET}")
+            sys.exit(1)
+        subprocess.run(dcmd + ["logs", "-f", "--tail=50", SERVICES[svc]["name"]])
+
+    elif action in ("shell", "cli"):
+        if len(args) < 2:
+            print(f"{C_RED}Please specify a service to connect to (e.g. 'dev-db shell postgres').{C_RESET}")
+            sys.exit(1)
+        svc = resolve_service(args[1])
+        if not svc:
+            print(f"{C_RED}Unknown service: {args[1]}{C_RESET}")
+            sys.exit(1)
+        cfg = SERVICES[svc]
+        c_name = cfg["name"]
+        cmd = dcmd + ["exec", "-it", c_name] + cfg["shell"]
+        os.execvp(cmd[0], cmd)
+
+    elif action == "reset":
+        if len(args) < 2:
+            print(f"{C_RED}Please specify a service to reset.{C_RESET}")
+            sys.exit(1)
+        svc = resolve_service(args[1])
+        if not svc:
+            print(f"{C_RED}Unknown service: {args[1]}{C_RESET}")
+            sys.exit(1)
+        cfg = SERVICES[svc]
+        c_name = cfg["name"]
+        vol_name = cfg["volume"].split(":")[0]
+        print(f"{C_YELLOW}Removing container {c_name} and volume {vol_name}...{C_RESET}")
+        subprocess.run(dcmd + ["rm", "-f", c_name], stderr=subprocess.DEVNULL)
+        subprocess.run(dcmd + ["volume", "rm", "-f", vol_name], stderr=subprocess.DEVNULL)
+        print(f"{C_GREEN}✔ Reset complete. Start fresh with: dev-db up {svc}{C_RESET}")
+
+    else:
+        svc = resolve_service(action)
+        if svc:
+            start_service(svc, dcmd)
+        else:
+            print(f"{C_RED}Unknown action or service: {action}. Type 'dev-db help'{C_RESET}")
+
+if __name__ == "__main__":
+    main()

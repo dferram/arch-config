@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""
+killport: Terminate processes holding specific ports.
+Usage:
+    killport <port> [port2 ...]
+    killport -f <port>   (Force immediate kill with SIGKILL -9)
+"""
+
+import sys
+import os
+import re
+import time
+import signal
+import subprocess
+
+C_RESET  = "\033[0m"
+C_BOLD   = "\033[1m"
+C_DIM    = "\033[2m"
+C_GREEN  = "\033[38;2;34;197;94m"
+C_YELLOW = "\033[38;2;234;179;8m"
+C_RED    = "\033[38;2;239;68;68m"
+C_CYAN   = "\033[38;2;56;189;248m"
+
+def get_pids_for_port(port_str):
+    try:
+        raw = subprocess.check_output(["ss", "-tulpnH"], text=True, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        print(f"{C_RED}Error running ss: {e}{C_RESET}")
+        return []
+
+    pids_info = []
+    seen_pids = set()
+
+    for line in raw.strip().splitlines():
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        local = parts[4] if parts[0].lower() in ("tcp", "udp") and len(parts) > 4 else parts[3]
+        line_port = local.rsplit(":", 1)[-1]
+
+        if line_port == str(port_str):
+            matches = re.findall(r'\"([^\"]+)\",pid=(\d+)', line)
+            for proc, pid_str in matches:
+                pid = int(pid_str)
+                if pid not in seen_pids:
+                    seen_pids.add(pid)
+                    # get cmdline
+                    cmd = "-"
+                    try:
+                        with open(f"/proc/{pid}/cmdline", "rb") as f:
+                            cmd = f.read().replace(b"\x00", b" ").strip().decode("utf-8", errors="replace")[:60]
+                    except Exception:
+                        pass
+                    pids_info.append({"pid": pid, "proc": proc, "cmd": cmd})
+
+    return pids_info
+
+def kill_process(pid, proc_name, force=False):
+    if force:
+        os.kill(pid, signal.SIGKILL)
+        return True
+
+    # Try graceful SIGTERM first
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return True
+
+    # Check if process terminates within 1 second
+    for _ in range(10):
+        time.sleep(0.1)
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+
+    # Force SIGKILL if still running
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return True
+
+    return True
+
+def main():
+    args = sys.argv[1:]
+    if not args or "-h" in args or "--help" in args:
+        print(f"\n{C_BOLD}Usage:{C_RESET} killport [-f] <port> [port2 ...]")
+        print("  -f, --force    Force immediate termination (SIGKILL)\n")
+        sys.exit(0)
+
+    force = False
+    ports = []
+    for a in args:
+        if a in ("-f", "--force"):
+            force = True
+        elif a.isdigit():
+            ports.append(a)
+        else:
+            print(f"{C_RED}Error: '{a}' is not a valid port number.{C_RESET}")
+            sys.exit(1)
+
+    if not ports:
+        print(f"{C_RED}Error: Please specify at least one port number.{C_RESET}")
+        sys.exit(1)
+
+    for port in ports:
+        print(f"\n{C_BOLD}{C_CYAN}Checking port {port}...{C_RESET}")
+        targets = get_pids_for_port(port)
+        if not targets:
+            print(f"  {C_YELLOW}No listening process found on port {port}.{C_RESET}")
+            continue
+
+        for t in targets:
+            pid = t["pid"]
+            proc = t["proc"]
+            cmd = t["cmd"]
+            print(f"  Found {C_BOLD}{proc}{C_RESET} (PID {C_YELLOW}{pid}{C_RESET}) - {C_DIM}{cmd}{C_RESET}")
+            try:
+                kill_process(pid, proc, force=force)
+                print(f"  {C_GREEN}✔ Terminated PID {pid} ({proc}){C_RESET}")
+            except PermissionError:
+                print(f"  {C_RED}✖ Permission denied to terminate PID {pid}. Try: sudo killport {port}{C_RESET}")
+            except ProcessLookupError:
+                print(f"  {C_DIM}Process {pid} already exited.{C_RESET}")
+            except Exception as e:
+                print(f"  {C_RED}✖ Failed to terminate PID {pid}: {e}{C_RESET}")
+
+        # Final check
+        time.sleep(0.2)
+        remaining = get_pids_for_port(port)
+        if not remaining:
+            print(f"  {C_BOLD}{C_GREEN}Port {port} is now free!{C_RESET}")
+        else:
+            print(f"  {C_YELLOW}Port {port} still has {len(remaining)} remaining process(es).{C_RESET}")
+
+    print()
+
+if __name__ == "__main__":
+    main()

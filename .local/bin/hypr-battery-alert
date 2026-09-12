@@ -1,0 +1,242 @@
+#!/usr/bin/env python3
+"""
+hypr-battery-alert:
+Battery level notification daemon and monitor for Hyprland / Arch Linux.
+Dispatches audio and visual alerts when battery reaches 10% and 5%.
+"""
+
+import os
+import sys
+import time
+import signal
+import subprocess
+from pathlib import Path
+
+# Paths & Audio
+SOUND_WARNING = "/usr/share/sounds/freedesktop/stereo/dialog-warning.oga"
+SOUND_CRITICAL = "/usr/share/sounds/freedesktop/stereo/suspend-error.oga"
+
+SYSFS_BAT = Path("/sys/class/power_supply/BAT0")
+SYSFS_AC = Path("/sys/class/power_supply/AC0")
+
+# ANSI colors for CLI output
+C_RESET  = "\033[0m"
+C_BOLD   = "\033[1m"
+C_DIM    = "\033[2m"
+C_GREEN  = "\033[38;2;34;197;94m"
+C_YELLOW = "\033[38;2;234;179;8m"
+C_PEACH  = "\033[38;2;251;146;60m"
+C_RED    = "\033[38;2;239;68;68m"
+C_CYAN   = "\033[38;2;56;189;248m"
+
+
+def get_battery_info():
+    """Reads capacity, status and AC connection from sysfs with UPower fallback."""
+    capacity = -1
+    status = "Unknown"
+    on_ac = False
+
+    # Check sysfs first (fastest, kernel-native)
+    if SYSFS_BAT.exists():
+        try:
+            cap_file = SYSFS_BAT / "capacity"
+            stat_file = SYSFS_BAT / "status"
+            if cap_file.exists():
+                capacity = int(cap_file.read_text().strip())
+            if stat_file.exists():
+                status = stat_file.read_text().strip()
+        except Exception:
+            pass
+
+    if SYSFS_AC.exists():
+        try:
+            ac_file = SYSFS_AC / "online"
+            if ac_file.exists():
+                on_ac = (ac_file.read_text().strip() == "1")
+        except Exception:
+            pass
+
+    # UPower fallback if capacity is still unknown
+    if capacity < 0 or status == "Unknown":
+        try:
+            out = subprocess.check_output(
+                ["upower", "-i", "/org/freedesktop/UPower/devices/battery_BAT0"],
+                stderr=subprocess.DEVNULL
+            ).decode()
+            for line in out.splitlines():
+                line = line.strip()
+                if line.startswith("percentage:"):
+                    capacity = int(float(line.split(":")[1].replace("%", "").strip()))
+                elif line.startswith("state:"):
+                    status = line.split(":")[1].strip().capitalize()
+        except Exception:
+            pass
+
+    is_charging = (status.lower() in ["charging", "full"]) or on_ac
+    return capacity, status, is_charging
+
+
+def play_sound(sound_path):
+    """Play alert sound asynchronously via paplay / pw-play / canberra-gtk-play."""
+    if not sound_path or not os.path.exists(sound_path):
+        return
+    try:
+        if subprocess.call(["which", "paplay"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+            subprocess.Popen(["paplay", sound_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif subprocess.call(["which", "pw-play"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+            subprocess.Popen(["pw-play", sound_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif subprocess.call(["which", "canberra-gtk-play"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+            subprocess.Popen(["canberra-gtk-play", "-f", sound_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+
+def send_alert(level, current_pct=None):
+    """Send desktop notification and sound for 10% or 5% battery."""
+    pct = current_pct if current_pct is not None else level
+
+    if level == 5:
+        title = f"Batería crítica ({pct}%)"
+        body = "Nivel de batería críticamente bajo. Conecte el adaptador de corriente inmediatamente."
+        urgency = "critical"
+        icon = "battery-empty-symbolic"
+        timeout_ms = "10000"
+        sound = SOUND_CRITICAL
+    else:
+        title = f"Batería baja ({pct}%)"
+        body = "Nivel de batería al 10%. Conecte el adaptador de corriente."
+        urgency = "critical"  # critical ensures Mako displays red outline and stays prominent
+        icon = "battery-caution-symbolic"
+        timeout_ms = "7000"
+        sound = SOUND_WARNING
+
+    env = dict(os.environ)
+    env["LC_ALL"] = "C.UTF-8"
+    env["LANG"] = "en_US.UTF-8"
+
+    try:
+        subprocess.run([
+            "notify-send",
+            "-a", "Battery",
+            "-i", icon,
+            "-u", urgency,
+            "-t", timeout_ms,
+            "-h", f"int:value:{pct}",
+            "-h", "string:x-canonical-private-synchronous:battery-alert",
+            "-h", "string:synchronous:battery-alert",
+            title,
+            body
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False, env=env)
+    except Exception as e:
+        sys.stderr.write(f"Error sending notification: {e}\n")
+
+    play_sound(sound)
+
+
+def daemon_loop():
+    """Main daemon loop monitoring battery percentage."""
+    print("[hypr-battery-alert] Starting battery alert daemon...", flush=True)
+
+    notified_10 = False
+    notified_5 = False
+
+    def handle_sigterm(signum, frame):
+        print("\n[hypr-battery-alert] Terminating daemon cleanly.", flush=True)
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+    signal.signal(signal.SIGINT, handle_sigterm)
+
+    while True:
+        try:
+            capacity, status, is_charging = get_battery_info()
+
+            if capacity >= 0:
+                if is_charging:
+                    # Battery is charging or plugged in: reset alert triggers with hysteresis
+                    if capacity > 12:
+                        notified_10 = False
+                    if capacity > 7:
+                        notified_5 = False
+                else:
+                    # Discharging on battery
+                    if capacity <= 5:
+                        if not notified_5:
+                            print(f"[hypr-battery-alert] Triggering 5% critical alert (level: {capacity}%)", flush=True)
+                            send_alert(5, capacity)
+                            notified_5 = True
+                            notified_10 = True
+                    elif capacity <= 10:
+                        if not notified_10:
+                            print(f"[hypr-battery-alert] Triggering 10% low battery alert (level: {capacity}%)", flush=True)
+                            send_alert(10, capacity)
+                            notified_10 = True
+
+                    # Hysteresis reset if user charged briefly or battery bounced
+                    if capacity > 12:
+                        notified_10 = False
+                    if capacity > 7 and not (capacity <= 5):
+                        notified_5 = False
+
+            # Frequency: poll every 10s if low battery discharging, else 25s
+            if not is_charging and 0 <= capacity <= 15:
+                time.sleep(10)
+            else:
+                time.sleep(25)
+
+        except Exception as e:
+            sys.stderr.write(f"[hypr-battery-alert] Unexpected error: {e}\n")
+            time.sleep(15)
+
+
+def print_status():
+    capacity, status, is_charging = get_battery_info()
+    stat_color = C_GREEN if is_charging else (C_RED if capacity <= 10 else C_CYAN)
+
+    print(f"\n{C_BOLD}{C_CYAN}┏━ BATTERY ALERT STATUS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓{C_RESET}")
+    print(f"  Level:      {stat_color}{capacity}%{C_RESET}")
+    print(f"  Status:     {status}")
+    print(f"  Power Mode: {'AC / Charging' if is_charging else 'On Battery (Discharging)'}")
+    print(f"  Thresholds: Alert at {C_PEACH}10%{C_RESET} and {C_RED}5%{C_RESET}")
+    print(f"{C_BOLD}{C_CYAN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛{C_RESET}\n")
+
+
+def print_help():
+    print(f"""
+{C_BOLD}hypr-battery-alert{C_RESET} - Battery level alert monitor for Hyprland
+
+Usage:
+  hypr-battery-alert daemon     Run the background monitoring daemon
+  hypr-battery-alert status     Show current battery status and alert config
+  hypr-battery-alert test [10|5] Trigger a test notification and sound alert
+  hypr-battery-alert help       Show this message
+""")
+
+
+def main():
+    if len(sys.argv) < 2:
+        print_status()
+        return
+
+    cmd = sys.argv[1].lower().strip()
+
+    if cmd == "daemon":
+        daemon_loop()
+    elif cmd == "status":
+        print_status()
+    elif cmd == "test":
+        target = 10
+        if len(sys.argv) >= 3 and sys.argv[2] in ["5", "10"]:
+            target = int(sys.argv[2])
+        print(f"Triggering test alert for {target}%...")
+        send_alert(target, target)
+        print("Alert dispatched successfully.")
+    elif cmd in ["-h", "--help", "help"]:
+        print_help()
+    else:
+        print(f"Unknown command: '{cmd}'. Run 'hypr-battery-alert help' for usage.")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

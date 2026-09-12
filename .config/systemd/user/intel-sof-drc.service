@@ -1,0 +1,11 @@
+[Unit]
+Description=Enable Intel SOF Audio Hardware DRC for Huawei MateBook
+After=pipewire.service wireplumber.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/amixer -c 0 cset numid=36 on
+RemainAfterExit=yes
+
+[Install]
+WantedBy=default.target

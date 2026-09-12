@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+"""
+ports: Fast, colorized listening port inspector for developers.
+Usage:
+    ports          (List all listening TCP ports)
+    ports -a       (List all TCP and UDP ports)
+    ports <query>  (Filter by port number, process name, or command)
+"""
+
+import sys
+import os
+import re
+import subprocess
+
+C_RESET  = "\033[0m"
+C_BOLD   = "\033[1m"
+C_DIM    = "\033[2m"
+C_CYAN   = "\033[38;2;56;189;248m"
+C_GREEN  = "\033[38;2;34;197;94m"
+C_YELLOW = "\033[38;2;234;179;8m"
+C_RED    = "\033[38;2;239;68;68m"
+C_PURPLE = "\033[38;2;168;85;247m"
+C_GRAY   = "\033[38;2;148;163;184m"
+
+def get_cmdline(pid):
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            content = f.read().replace(b"\x00", b" ").strip()
+            return content.decode("utf-8", errors="replace")[:65]
+    except Exception:
+        return "-"
+
+def main():
+    args = sys.argv[1:]
+    show_all = "-a" in args or "--all" in args
+    query = ""
+    for a in args:
+        if a not in ("-a", "--all"):
+            query = a.lower().strip()
+            break
+
+    flags = ["-tulpnH"] if show_all else ["-tlnpH"]
+    try:
+        raw = subprocess.check_output(["ss"] + flags, text=True, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        print(f"{C_RED}Error running ss: {e}{C_RESET}")
+        sys.exit(1)
+
+    lines = raw.strip().splitlines()
+    if not lines or (len(lines) == 1 and not lines[0].strip()):
+        print(f"{C_YELLOW}No listening ports found.{C_RESET}")
+        return
+
+    entries = []
+    seen = set()
+
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+
+        if parts[0].lower() in ("tcp", "udp"):
+            proto = parts[0].upper()
+            local = parts[4] if len(parts) > 4 else parts[3]
+        else:
+            proto = "TCP"
+            local = parts[3]
+
+        port_str = local.rsplit(":", 1)[-1]
+        try:
+            port_num = int(port_str)
+        except ValueError:
+            port_num = 999999
+
+        matches = re.findall(r'\"([^\"]+)\",pid=(\d+)', line)
+        if not matches:
+            matches = [("-", "-")]
+
+        for proc, pid in matches:
+            key = (proto, port_str, pid)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            cmd = get_cmdline(pid) if pid != "-" else "-"
+            entries.append({
+                "proto": proto,
+                "port_num": port_num,
+                "port": port_str,
+                "address": local,
+                "proc": proc,
+                "pid": pid,
+                "cmd": cmd
+            })
+
+    # Sort by port number
+    entries.sort(key=lambda x: (x["port_num"], x["proto"]))
+
+    # Filter
+    if query:
+        entries = [
+            e for e in entries
+            if query in e["port"] or query in e["proc"].lower() or query in e["cmd"].lower() or query in e["proto"].lower()
+        ]
+
+    title = "ACTIVE LISTENING PORTS" if not show_all else "ACTIVE LISTENING PORTS (TCP + UDP)"
+    print(f"\n{C_BOLD}{C_CYAN}┏━ {title} ━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓{C_RESET}")
+    if query:
+        print(f"  {C_DIM}Filtering by: '{query}'{C_RESET}")
+
+    if not entries:
+        print(f"\n  {C_YELLOW}No matching listening ports found.{C_RESET}\n")
+        print(f"{C_BOLD}{C_CYAN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛{C_RESET}\n")
+        return
+
+    # Header
+    print(f"\n  {C_BOLD}{C_GRAY}{'PORT':<8} {'PROTO':<6} {'PID':<8} {'PROCESS':<18} {'COMMAND / DETAILS'}{C_RESET}")
+    print(f"  {C_GRAY}{'─' * 72}{C_RESET}")
+
+    for e in entries:
+        port_color = C_GREEN if e["port_num"] in (80, 443, 3000, 5173, 8000, 8080) else (C_PURPLE if e["port_num"] in (5432, 6379, 27017, 3306) else C_CYAN)
+        print(f"  {C_BOLD}{port_color}{e['port']:<8}{C_RESET} {C_DIM}{e['proto']:<6}{C_RESET} {C_YELLOW}{e['pid']:<8}{C_RESET} {C_BOLD}{e['proc']:<18}{C_RESET} {C_DIM}{e['cmd']}{C_RESET}")
+
+    print(f"\n{C_BOLD}{C_CYAN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛{C_RESET}")
+    print(f"  {C_DIM}Tip: Free a port with 'killport <port>' (e.g. 'killport 3000'){C_RESET}\n")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""
+laptop-report: Instant diagnostic and health report for Huawei MateBook on Arch Linux.
+"""
+
+import sys
+import glob
+import shutil
+import subprocess
+from pathlib import Path
+
+# ANSI Colors
+C_RESET  = "\033[0m"
+C_BOLD   = "\033[1m"
+C_DIM    = "\033[2m"
+C_CYAN   = "\033[38;2;56;189;248m"
+C_GREEN  = "\033[38;2;34;197;94m"
+C_YELLOW = "\033[38;2;234;179;8m"
+C_RED    = "\033[38;2;239;68;68m"
+C_PURPLE = "\033[38;2;168;85;247m"
+C_GRAY   = "\033[38;2;100;116;139m"
+
+def bar(percent, length=20, color=C_GREEN):
+    filled = int(round(length * (percent / 100.0)))
+    filled = max(0, min(length, filled))
+    return f"{color}{'━' * filled}{C_GRAY}{'━' * (length - filled)}{C_RESET}"
+
+def get_battery_info():
+    b = Path("/sys/class/power_supply/BAT0")
+    if not b.exists():
+        return None
+    try:
+        efd = int((b / "energy_full_design").read_text()) / 1e6
+        ef  = int((b / "energy_full").read_text()) / 1e6
+        en  = int((b / "energy_now").read_text()) / 1e6
+        pct = int((b / "capacity").read_text().strip())
+        stat = (b / "status").read_text().strip()
+        cycles = (b / "cycle_count").read_text().strip() if (b / "cycle_count").exists() else "N/A"
+        power_w = int((b / "power_now").read_text()) / 1e6 if (b / "power_now").exists() else 0.0
+        health = (ef / efd) * 100.0 if efd > 0 else 100.0
+
+        # Charge threshold
+        thresh = "Disabled"
+        t_file = Path("/sys/devices/platform/huawei-wmi/charge_control_thresholds")
+        if t_file.exists():
+            thresh = t_file.read_text().strip()
+
+        return {
+            "design_wh": efd,
+            "full_wh": ef,
+            "now_wh": en,
+            "percent": pct,
+            "status": stat,
+            "cycles": cycles,
+            "power_w": power_w,
+            "health": health,
+            "threshold": thresh
+        }
+    except Exception as e:
+        return None
+
+def get_power_profile():
+    try:
+        res = subprocess.run(["powerprofilesctl", "get"], capture_output=True, text=True, timeout=1)
+        return res.stdout.strip()
+    except Exception:
+        return "Unknown"
+
+def get_temperatures():
+    sensors = {}
+    for h in glob.glob("/sys/class/hwmon/hwmon*"):
+        p = Path(h)
+        name = (p / "name").read_text().strip() if (p / "name").exists() else "chip"
+        temps = [int(t.read_text()) // 1000 for t in p.glob("temp*_input") if t.is_file()]
+        if temps:
+            sensors[name] = max(temps)
+    return sensors
+
+def get_disk_and_ram():
+    total, used, free = shutil.disk_usage("/")
+    disk_pct = (used / total) * 100.0
+    disk_total_gb = total / (1024**3)
+    disk_used_gb = used / (1024**3)
+
+    ram_total_gb = 0
+    ram_used_gb = 0
+    ram_pct = 0
+    meminfo = Path("/proc/meminfo")
+    if meminfo.exists():
+        lines = meminfo.read_text().splitlines()
+        mt = ma = 0
+        for l in lines:
+            if l.startswith("MemTotal:"):
+                mt = int(l.split()[1])
+            elif l.startswith("MemAvailable:"):
+                ma = int(l.split()[1])
+        if mt > 0:
+            ram_total_gb = mt / (1024**2)
+            ram_used_gb = (mt - ma) / (1024**2)
+            ram_pct = (ram_used_gb / ram_total_gb) * 100.0
+
+    return {
+        "disk_used": disk_used_gb,
+        "disk_total": disk_total_gb,
+        "disk_pct": disk_pct,
+        "ram_used": ram_used_gb,
+        "ram_total": ram_total_gb,
+        "ram_pct": ram_pct,
+    }
+
+def main():
+    print(f"\n{C_BOLD}{C_CYAN}┏━ LAPTOP DIAGNOSTIC & HEALTH REPORT ━━━━━━━━━━━━━━━━━━━━━━━━━┓{C_RESET}")
+
+    # Model header
+    product = "Huawei MateBook 14"
+    p_path = Path("/sys/class/dmi/id/product_name")
+    if p_path.exists():
+        product = f"Huawei {p_path.read_text().strip()}"
+    print(f"  {C_BOLD}Machine:{C_RESET} {product} {C_DIM}(Intel Core Ultra / Meteor Lake){C_RESET}")
+
+    # Battery section
+    bat = get_battery_info()
+    if bat:
+        h_color = C_GREEN if bat['health'] >= 80 else (C_YELLOW if bat['health'] >= 70 else C_RED)
+        p_color = C_GREEN if bat['percent'] >= 40 else (C_YELLOW if bat['percent'] >= 20 else C_RED)
+        print(f"\n  {C_BOLD}{C_PURPLE}󰁹 Battery & Energy{C_RESET}")
+        print(f"    Charge Level:   {bar(bat['percent'], 16, p_color)}  {C_BOLD}{bat['percent']}%{C_RESET} {C_DIM}({bat['status']}){C_RESET}")
+        print(f"    Battery Health: {bar(bat['health'], 16, h_color)}  {h_color}{bat['health']:.1f}%{C_RESET} {C_DIM}(Full: {bat['full_wh']:.1f}Wh / Design: {bat['design_wh']:.1f}Wh){C_RESET}")
+        print(f"    Cycle Count:    {C_BOLD}{bat['cycles']}{C_RESET} cycles")
+        print(f"    Real-time Draw: {C_CYAN}{bat['power_w']:.2f} W{C_RESET}")
+        print(f"    Health Cap:     {C_GREEN}Active ({bat['threshold']}){C_RESET} {C_DIM}[Limits charge to protect lithium cells]{C_RESET}")
+
+    # Power Profile
+    profile = get_power_profile()
+    prof_icon = "🚀" if profile == "performance" else ("🍃" if profile == "power-saver" else "⚖️")
+    print(f"\n  {C_BOLD}{C_CYAN}⚡ Power Management{C_RESET}")
+    print(f"    Active Profile: {prof_icon} {C_BOLD}{profile.capitalize()}{C_RESET} {C_DIM}(Managed by power-profiles-daemon){C_RESET}")
+
+    # Thermals
+    temps = get_temperatures()
+    print(f"\n  {C_BOLD}{C_YELLOW}🌡️ Thermals & Sensors{C_RESET}")
+    cpu_t = temps.get('coretemp', temps.get('acpitz', 0))
+    nvme_t = temps.get('nvme', 0)
+    wifi_t = temps.get('iwlwifi_1', 0)
+    t_color = C_GREEN if cpu_t < 60 else (C_YELLOW if cpu_t < 80 else C_RED)
+    print(f"    CPU Package:    {t_color}{cpu_t}°C{C_RESET} {bar(cpu_t, 12, t_color)}")
+    if nvme_t > 0:
+        print(f"    NVMe Storage:   {C_CYAN}{nvme_t}°C{C_RESET}")
+    if wifi_t > 0:
+        print(f"    Wireless Chip:  {C_CYAN}{wifi_t}°C{C_RESET}")
+
+    # Resources
+    res = get_disk_and_ram()
+    print(f"\n  {C_BOLD}{C_GREEN}🧠 Storage & Memory{C_RESET}")
+    print(f"    RAM Usage:      {bar(res['ram_pct'], 16, C_CYAN)}  {res['ram_used']:.1f}/{res['ram_total']:.1f} GiB {C_DIM}({res['ram_pct']:.0f}%){C_RESET}")
+    print(f"    SSD Root (/):   {bar(res['disk_pct'], 16, C_PURPLE)}  {res['disk_used']:.1f}/{res['disk_total']:.1f} GB {C_DIM}({res['disk_pct']:.0f}%){C_RESET}")
+
+    print(f"{C_BOLD}{C_CYAN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛{C_RESET}\n")
+
+if __name__ == "__main__":
+    main()

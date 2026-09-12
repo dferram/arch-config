@@ -9,13 +9,14 @@ This repository contains personal system configuration files (dotfiles) for Arch
 
 ## Core Components
 
-The primary component currently tracked is the `.bashrc` configuration, which provides:
+The repository tracks the full desktop environment, system daemons, and developer workflow:
 
-*   **Modern Core Utilities Integration:** Aliases to replace standard GNU coreutils with modern Rust-based alternatives (`eza` for `ls`, `bat` for `cat`).
-*   **Directory Navigation:** Integration with `zoxide` for intelligent, fast directory switching.
-*   **Fuzzy Searching:** Integration with `fzf` for interactive command history search and file finding, featuring syntax-highlighted previews.
-*   **Custom Prompt (PS1):** A custom, high-contrast shell prompt featuring a dark theme, carmine red accents (`#e22b31` / `#ff787d`), and dynamic Git repository status tracking.
-*   **Developer Shortcuts:** Dedicated aliases for common tasks (`lazydocker`, `laptop-report`, `dust`, `killport`, `dev-db`).
+*   **Shell Configuration (`.bashrc`):** Aliases, modern CLI tools (`eza`, `bat`, `zoxide`, `fzf`), and carmine red prompt with Git status tracking.
+*   **Window Management (`.config/hypr`):** Complete Hyprland setup including display configurations, workspace bindings, and floating rules for utilities like `wifi-manager` and `blueman-manager`.
+*   **Desktop Status Bar (`.config/quickshell`):** Custom status bar featuring liquid glass styling, dynamic workspaces, media controls, and reactive widgets for battery, audio, and network.
+*   **Notification Engine (`.config/mako`):** Notification rules and dark obsidian glass theming with sound integration.
+*   **System Daemons (`.config/systemd/user`):** Background services for battery alerts (`hypr-battery-alert.service`), calendar reminders, and audio jack auto-switching.
+*   **Developer CLI Tools (`.local/bin`):** Custom utilities for battery monitoring (`hypr-battery-alert`), cheatsheets (`cmds`), dev databases (`dev-db`), port management (`killport`, `ports`), and system diagnostics (`laptop-report`).
 
 ## System Requirements
 
@@ -26,31 +27,32 @@ To utilize these configurations optimally, the following packages must be instal
 *   `bat` (Modern `cat` replacement)
 *   `zoxide` (Intelligent `cd` command)
 *   `fzf` (Command-line fuzzy finder)
+*   `hyprland`, `quickshell`, `mako` (Desktop environment & notification daemon)
 
 ### Installation of Dependencies
 
 You can install the required dependencies using `pacman`:
 
 ```bash
-sudo pacman -S git eza bat zoxide fzf
+sudo pacman -S git eza bat zoxide fzf mako kitty
 ```
 
-If you are using AUR helpers for specific developer tools (like `lazydocker` or `dust`), ensure they are installed via your preferred AUR helper (e.g., `yay` or `paru`).
+If you are using AUR helpers for specific developer tools (like `quickshell`, `lazydocker` or `dust`), ensure they are installed via your preferred AUR helper (e.g., `yay` or `paru`).
 
 ## Installation Instructions
 
 The provided `install.sh` script automates the deployment of these configurations by creating symbolic links from this repository to your home directory. Existing files will be backed up automatically to `~/.dotfiles_backup/`.
 
-1. Clone this repository into your home directory:
+1. Clone this repository into your personal directory:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/dotfiles.git ~/dotfiles
+git clone https://github.com/dferram/arch-config.git ~/Personal/dotfiles
 ```
 
 2. Navigate into the repository:
 
 ```bash
-cd ~/dotfiles
+cd ~/Personal/dotfiles
 ```
 
 3. Make the installation script executable:
@@ -75,8 +77,17 @@ source ~/.bashrc
 
 ```text
 .
-├── .bashrc       # Shell configuration, aliases, and custom prompt
-├── .gitignore    # Git tracking exclusions
-├── install.sh    # Deployment and symlink generation script
-└── README.md     # Technical documentation
+├── .bashrc              # Shell configuration, aliases, and custom prompt
+├── .gitignore           # Git tracking exclusions
+├── install.sh           # Deployment and symlink generation script
+├── README.md            # Technical documentation
+├── .config/
+│   ├── fastfetch/       # System info configuration
+│   ├── hypr/            # Hyprland window manager & display configuration
+│   ├── kitty/           # Terminal emulator settings
+│   ├── mako/            # Notification daemon styling
+│   ├── quickshell/      # Modern top bar widgets and liquid glass theme
+│   └── systemd/user/    # Background services (battery alert, reminders)
+└── .local/
+    └── bin/             # Custom developer scripts and monitoring daemons
 ```

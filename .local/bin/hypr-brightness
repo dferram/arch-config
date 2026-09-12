@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""
+hypr-brightness:
+Manage screen backlight brightness smoothly via systemd-logind DBus without root/sudo.
+"""
+
+import sys
+import glob
+import subprocess
+from pathlib import Path
+
+def find_backlight():
+    devices = glob.glob("/sys/class/backlight/*")
+    if not devices:
+        return None
+    # Prefer intel_backlight or first available
+    for dev in devices:
+        if "intel" in dev:
+            return Path(dev)
+    return Path(devices[0])
+
+def get_brightness_info():
+    dev = find_backlight()
+    if not dev:
+        return None, 0, 0, 0
+    try:
+        cur = int((dev / "brightness").read_text().strip())
+        max_b = int((dev / "max_brightness").read_text().strip())
+        pct = max(1, min(100, round((cur / max_b) * 100)))
+        return dev.name, cur, max_b, pct
+    except Exception:
+        return None, 0, 0, 0
+
+def set_brightness(target_pct):
+    name, cur, max_b, pct = get_brightness_info()
+    if not name or max_b <= 0:
+        print("Error: No backlight device found.", file=sys.stderr)
+        return False
+
+    target_pct = max(1, min(100, target_pct))
+    raw_val = max(1, min(max_b, round((target_pct / 100.0) * max_b)))
+
+    cmd = [
+        "busctl", "call", "org.freedesktop.login1",
+        "/org/freedesktop/login1/session/auto",
+        "org.freedesktop.login1.Session",
+        "SetBrightness", "ssu",
+        "backlight", name, str(raw_val)
+    ]
+    try:
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except Exception as e:
+        print(f"Failed to set brightness: {e}", file=sys.stderr)
+        return False
+
+    # Notify user
+    try:
+        subprocess.run([
+            "notify-send", "-a", "Brightness",
+            "-i", "display-brightness-symbolic",
+            "-t", "1500",
+            "-h", f"int:value:{target_pct}",
+            "-h", "string:x-canonical-private-synchronous:brightness",
+            "-h", "string:synchronous:brightness",
+            f"Brightness {target_pct}%"
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+    return True
+
+def main():
+    if len(sys.argv) < 2:
+        name, cur, max_b, pct = get_brightness_info()
+        print(f"{pct}%")
+        return
+
+    action = sys.argv[1].lower().strip()
+    name, cur, max_b, pct = get_brightness_info()
+
+    step = 5
+    if len(sys.argv) > 2:
+        try:
+            step = int(sys.argv[2].replace("%", ""))
+        except ValueError:
+            step = 5
+
+    if action in ["up", "+", "increase"]:
+        set_brightness(pct + step)
+    elif action in ["down", "-", "decrease"]:
+        set_brightness(pct - step)
+    elif action in ["set", "s"]:
+        if len(sys.argv) > 2:
+            try:
+                target = int(sys.argv[2].replace("%", ""))
+                set_brightness(target)
+            except ValueError:
+                print("Usage: hypr-brightness set <percentage>")
+    elif action in ["get", "status", "-g"]:
+        print(f"{pct}%")
+    elif action.endswith("%") or action.isdigit():
+        set_brightness(int(action.replace("%", "")))
+    else:
+        print("Usage: hypr-brightness [up | down | set <pct> | get]")
+
+if __name__ == "__main__":
+    main()

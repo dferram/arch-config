@@ -1,0 +1,12 @@
+[Unit]
+Description=Hyprland Calendar Reminders Background Notification Daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/home/ferram/.local/bin/hypr-reminders daemon
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

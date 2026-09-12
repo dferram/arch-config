@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+"""
+hypr-wallpaper: Dynamic Wallpaper & Liquid Glass Accent Theming for Hyprland + Quickshell
+Extracts the dominant vibrant accent colors from any wallpaper and applies them
+dynamically to Quickshell (bar & icons), Hyprland window borders, and Mako notifications,
+while preserving the Apple-style Liquid Glass Obsidian frosted base 100% intact.
+"""
+
+import sys
+import os
+import subprocess
+import colorsys
+import re
+from pathlib import Path
+
+HOME = Path.home()
+THEME_QML = HOME / ".config/quickshell/theme/Theme.qml"
+HYPRPAPER_CONF = HOME / ".config/hypr/hyprpaper.conf"
+HYPRLAND_LUA = HOME / ".config/hypr/hyprland.lua"
+MAKO_CONF = HOME / ".config/mako/config"
+HYPRLOCK_CONF = HOME / ".config/hypr/hyprlock.conf"
+PICTURES_DIR = HOME / "Pictures"
+
+def extract_vibrant_accent(image_path: Path):
+    """
+    Extracts the most representative vibrant accent color from the wallpaper.
+    Samples pixels via ffmpeg downscaling and scores based on saturation, value, and frequency.
+    """
+    cmd = [
+        "ffmpeg", "-y", "-v", "error", "-i", str(image_path),
+        "-vf", "scale=150:150", "-vframes", "1",
+        "-f", "image2pipe", "-vcodec", "ppm", "-"
+    ]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    header = proc.stdout.readline()
+    dims = proc.stdout.readline()
+    while dims.startswith(b'#'):
+        dims = proc.stdout.readline()
+    w, h = map(int, dims.split())
+    _ = proc.stdout.readline()
+    raw_bytes = proc.stdout.read(w * h * 3)
+
+    buckets = {}
+    for i in range(0, len(raw_bytes), 3):
+        r, g, b = raw_bytes[i], raw_bytes[i+1], raw_bytes[i+2]
+        h_val, s_val, v_val = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+
+        # Ignore nearly black, nearly white, or completely desaturated grays
+        if v_val < 0.20 or v_val > 0.98 or s_val < 0.28:
+            continue
+
+        # Quantize hue into 24 bins (15 degrees each)
+        bin_idx = int((h_val % 1.0) * 24)
+        score = (s_val ** 1.5) * (v_val ** 1.2)
+
+        if bin_idx not in buckets:
+            buckets[bin_idx] = {"score": 0.0, "pixels": []}
+        buckets[bin_idx]["score"] += score
+        buckets[bin_idx]["pixels"].append((score, r, g, b, h_val, s_val, v_val))
+
+    if not buckets:
+        # Fallback to default vivid crimson
+        return (255, 59, 48), (255, 105, 97), (183, 28, 28), (224, 108, 117)
+
+    # Pick bucket with highest cumulative vibrant score
+    best_bin = max(buckets.keys(), key=lambda k: buckets[k]["score"])
+    best_pixels = buckets[best_bin]["pixels"]
+    # Sort by individual pixel vibrancy
+    best_pixels.sort(key=lambda p: p[0], reverse=True)
+    top_p = best_pixels[0]
+
+    h_base = top_p[4]
+    s_base = max(0.65, min(0.95, top_p[5]))
+    v_base = max(0.75, min(0.98, top_p[6]))
+
+    # Derive primary accent
+    r1, g1, b1 = [int(c * 255) for c in colorsys.hsv_to_rgb(h_base, s_base, v_base)]
+    # Derive light accent (frost/highlight)
+    r_light, g_light, b_light = [int(c * 255) for c in colorsys.hsv_to_rgb(h_base, max(0.40, s_base * 0.65), min(1.0, v_base * 1.15))]
+    # Derive deep accent (active/focus)
+    r_deep, g_deep, b_deep = [int(c * 255) for c in colorsys.hsv_to_rgb(h_base, min(1.0, s_base * 1.1), max(0.45, v_base * 0.60))]
+    # Derive muted accent
+    r_muted, g_muted, b_muted = [int(c * 255) for c in colorsys.hsv_to_rgb(h_base, max(0.35, s_base * 0.55), min(0.95, v_base * 0.95))]
+
+    return (r1, g1, b1), (r_light, g_light, b_light), (r_deep, g_deep, b_deep), (r_muted, g_muted, b_muted)
+
+def to_hex(rgb):
+    return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+
+def apply_wallpaper(image_path: Path):
+    if not image_path.exists():
+        print(f"Error: Archivo no encontrado: {image_path}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"[*] Analizando colores vibrantes de: {image_path.name}")
+    accent, light, deep, muted = extract_vibrant_accent(image_path)
+    hex_acc = to_hex(accent)
+    hex_light = to_hex(light)
+    hex_deep = to_hex(deep)
+    hex_muted = to_hex(muted)
+
+    print(f"  -> Acento Principal: {hex_acc}")
+    print(f"  -> Acento Claro:     {hex_light}")
+    print(f"  -> Acento Profundo:  {hex_deep}")
+    print(f"  -> Acento Suave:     {hex_muted}")
+
+    # 1. Configurar Hyprpaper
+    HYPRPAPER_CONF.parent.mkdir(parents=True, exist_ok=True)
+    hyprpaper_content = f"""splash = false
+
+wallpaper {{
+    monitor =
+    path = {image_path.resolve()}
+}}
+"""
+    HYPRPAPER_CONF.write_text(hyprpaper_content)
+    subprocess.run(["hyprctl", "hyprpaper", "wallpaper", f"eDP-1,{image_path.resolve()}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    # 2. Actualizar Theme.qml manteniendo intacto el Liquid Glass obsidian base
+    if THEME_QML.exists():
+        qml_text = THEME_QML.read_text()
+        palette_block = f"""    // Refined Accent Palette (Dynamic Wallpaper Accents)
+    readonly property color blue: "{hex_acc}"       // Primary Dynamic Accent
+    readonly property color blueLight: "{hex_light}"  // Highlights & Glow
+    readonly property color blueDeep: "{hex_deep}"   // Deep State
+    readonly property color blueMuted: "{hex_muted}"  // Soft Accent
+    readonly property color cyan: "{hex_light}"       // Secondary Glow
+    readonly property color frost: "#f1f5f9"      // Crystalline White
+    readonly property color indigo: "{hex_deep}"     // Sub-accent
+    readonly property color sky: blueLight
+    readonly property color mauve: blue"""
+
+        # Replace palette
+        pattern = r"    // Refined (?:Apple Accent Palette|Accent Palette).*?\n    readonly property color mauve: blue"
+        if re.search(pattern, qml_text, flags=re.DOTALL):
+            new_qml = re.sub(pattern, palette_block, qml_text, flags=re.DOTALL)
+            THEME_QML.write_text(new_qml)
+            print("  [OK] Theme.qml actualizado (Liquid Glass 100% preservado)")
+
+    # 3. Actualizar bordes de ventanas en Hyprland
+    border_lua = f"hl.config({{ general = {{ col = {{ active_border = {{ colors = {{'rgba({hex_acc[1:]}ee)', 'rgba({hex_light[1:]}ee)'}}, angle = 45 }} }} }} }})"
+    subprocess.run(["hyprctl", "eval", border_lua], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if HYPRLAND_LUA.exists():
+        lua_text = HYPRLAND_LUA.read_text()
+        lua_text = re.sub(
+            r"(?<![a-zA-Z0-9_])active_border\s*=.*?\n",
+            f"active_border   = {{ colors = {{'rgba({hex_acc[1:]}ee)', 'rgba({hex_light[1:]}ee)'}}, angle = 45 }},\n",
+            lua_text
+        )
+        HYPRLAND_LUA.write_text(lua_text)
+        print("  [OK] Bordes de Hyprland actualizados")
+
+    # 4. Actualizar Mako
+    if MAKO_CONF.exists():
+        mako_text = MAKO_CONF.read_text()
+        mako_text = re.sub(r"progress-color=over #[0-9a-fA-F]{6,8}", f"progress-color=over {hex_acc}66", mako_text)
+        mako_text = re.sub(r"border-color=#[0-9a-fA-F]{6,8}", lambda m: f"border-color={hex_acc}cc" if ("38bdf8" in m.group(0) or "ff3b30" in m.group(0) or "ef4444" in m.group(0)) else m.group(0), mako_text)
+        MAKO_CONF.write_text(mako_text)
+        subprocess.run(["makoctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("  [OK] Notificaciones Mako actualizadas")
+
+    # 5. Reiniciar Quickshell para recargar la barra instantáneamente
+    import time
+    subprocess.run(["killall", "-q", "-w", "quickshell"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(0.4)
+    subprocess.Popen(["quickshell", "-d"], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print("  [OK] Barra Quickshell recargada con éxito!")
+
+def main():
+    if len(sys.argv) > 1:
+        target = Path(sys.argv[1]).expanduser()
+    else:
+        # Check current hyprpaper config or spiderman image
+        target = PICTURES_DIR / "spiderman.jpg"
+        if not target.exists():
+            target = HOME / "Downloads/spider-man-brand-new-day-4dx-nk.jpg"
+
+    apply_wallpaper(target)
+
+if __name__ == "__main__":
+    main()

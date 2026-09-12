@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+"""
+cmds: Fast, color-coded cheatsheet for all custom tools, aliases, and shortcuts.
+Usage:
+    cmds          (Show all commands)
+    cmds <query>  (Filter commands matching query)
+"""
+
+import sys
+
+C_RESET  = "\033[0m"
+C_BOLD   = "\033[1m"
+C_DIM    = "\033[2m"
+C_CYAN   = "\033[38;2;56;189;248m"
+C_GREEN  = "\033[38;2;34;197;94m"
+C_YELLOW = "\033[38;2;234;179;8m"
+C_RED    = "\033[38;2;239;68;68m"
+C_PURPLE = "\033[38;2;168;85;247m"
+C_ORANGE = "\033[38;2;251;146;60m"
+C_GRAY   = "\033[38;2;148;163;184m"
+
+SECTIONS = [
+    {
+        "title": "FULLSTACK DEVELOPER TOOLS",
+        "color": C_CYAN,
+        "items": [
+            ("ports", "Ports: View active listening TCP ports, PIDs & commands ('ports 3000')"),
+            ("killport", "Killport: Free blocked ports cleanly ('killport 3000', 'killport -f 8080')"),
+            ("dev-db", "Dev-DB: Instant Docker databases ('dev-db up postgres|redis|mongo')"),
+            ("ld", "Lazydocker: Real-time container dashboard, logs & restart controls"),
+            ("d", "Dust: Visual disk analyzer (find & kill bloated node_modules)"),
+            ("gh", "GitHub CLI: Manage PRs, issues, clones (e.g. 'gh pr create')"),
+            ("bun", "Fastest TypeScript/JS runtime & bundler ('bun dev', 'bun test')"),
+            ("pnpm", "Disk-saving Node package manager (shared content storage)"),
+            ("uv", "Rust-powered Python package manager ('uv pip install ...')"),
+            ("http", "HTTPie: Colorized human-friendly API testing ('http :3000/api')"),
+        ]
+    },
+    {
+        "title": "LAPTOP DIAGNOSTICS & HARDWARE",
+        "color": C_PURPLE,
+        "items": [
+            ("lr", "Laptop Report: Live battery health, wattage, thermals & stats"),
+            ("hypr-battery-alert [status|test]", "Battery Alert: Monitor & notify on low battery (10% & 5%)"),
+            ("sudo powertop", "PowerTop: Process-by-process battery drain in Watts"),
+            ("sudo intel_gpu_top", "Intel Arc GPU load, render engines & wattage"),
+            ("cat .../charge_control_thresholds", "Huawei battery threshold (currently capped at 70-80%)"),
+        ]
+    },
+    {
+        "title": "SYSTEM SECURITY & MAINTENANCE",
+        "color": C_GREEN,
+        "items": [
+            ("sudo ufw status", "Check active firewall status & blocked connections"),
+            ("sudo timeshift --create", "Create an immediate safety restore point"),
+            ("timeshift-gtk", "Open graphical system restore & snapshot manager"),
+            ("systemctl --user restart pipewire", "Restart audio engine / Noise-Canceling mic"),
+        ]
+    },
+    {
+        "title": "HYPRLAND DESKTOP KEYBINDINGS",
+        "color": C_YELLOW,
+        "items": [
+            ("Super + H", "Quick Cheatsheet Floating Popup (press any key to dismiss)"),
+            ("Super + Q", "Open Terminal (Kitty)"),
+            ("Super + W", "Open Browser (Chromium with Wayland & VA-API GPU accel)"),
+            ("Super + A", "Open Antigravity IDE"),
+            ("Super + L", "Lock Screen (Hyprlock with fingerprint support)"),
+            ("Super + V", "Clipboard History Menu (wl-clip-persist active)"),
+            ("Super + E", "Open File Manager"),
+            ("Super + Space", "Toggle Floating Window"),
+            ("Super + F", "Toggle Fullscreen Window"),
+            ("Print / F11", "Area screenshot (automatically saved & copied to clipboard)"),
+            ("Ctrl + Print", "Interactive screenshot annotation with Swappy"),
+            ("Super + F10", "Toggle Warm Night Light (Hyprsunset)"),
+            ("3-Finger Swipe", "Switch workspaces horizontally on trackpad"),
+        ]
+    }
+]
+
+def main():
+    query = sys.argv[1].lower().strip() if len(sys.argv) > 1 else ""
+
+    print(f"\n{C_BOLD}{C_CYAN}┏━ SYSTEM & DEVELOPER CHEATSHEET ━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓{C_RESET}")
+    if query:
+        print(f"  {C_DIM}Filtering commands matching: '{query}'{C_RESET}")
+
+    matched_total = 0
+
+    for sec in SECTIONS:
+        filtered_items = []
+        for cmd, desc in sec["items"]:
+            if not query or query in cmd.lower() or query in desc.lower() or query in sec["title"].lower():
+                filtered_items.append((cmd, desc))
+
+        if not filtered_items:
+            continue
+
+        matched_total += len(filtered_items)
+        print(f"\n  {C_BOLD}{sec['color']}{sec['title']}{C_RESET}")
+        for cmd, desc in filtered_items:
+            dots = 28 - len(cmd)
+            dots_str = f"{C_GRAY}{'·' * max(2, dots)}{C_RESET}"
+            print(f"    {C_BOLD}{C_CYAN}{cmd:<12}{C_RESET} {dots_str} {desc}")
+
+    if matched_total == 0:
+        print(f"\n  {C_RED}No commands found matching '{query}'.{C_RESET}")
+        print(f"  {C_DIM}Type 'cmds' to see the full list.{C_RESET}")
+
+    print(f"\n{C_BOLD}{C_CYAN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛{C_RESET}")
+    print(f"  {C_DIM}Tip: Type 'cmds <keyword>' to filter (e.g. 'cmds git', 'cmds port', 'cmds db'){C_RESET}\n")
+
+if __name__ == "__main__":
+    main()
