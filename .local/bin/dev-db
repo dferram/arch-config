@@ -109,11 +109,11 @@ def start_service(svc_key, dcmd):
     if inspect.returncode == 0:
         running = inspect.stdout.strip() == "true"
         if running:
-            print(f"  {C_GREEN}✔ {c_name} is already running!{C_RESET}")
+            print(f"  {C_GREEN}{c_name} is already running.{C_RESET}")
         else:
             print(f"  Starting existing {c_name}...")
             subprocess.run(dcmd + ["start", c_name], check=True)
-            print(f"  {C_GREEN}✔ {c_name} started!{C_RESET}")
+            print(f"  {C_GREEN}{c_name} started.{C_RESET}")
     else:
         print(f"  Creating and starting {c_name} ({cfg['image']})...")
         run_cmd = dcmd + [
@@ -131,7 +131,7 @@ def start_service(svc_key, dcmd):
         if res.returncode != 0:
             print(f"  {C_RED}Failed to start container: {res.stderr.strip()}{C_RESET}")
             return
-        print(f"  {C_GREEN}✔ {c_name} created & started!{C_RESET}")
+        print(f"  {C_GREEN}{c_name} created & started.{C_RESET}")
 
     print(f"  {C_BOLD}Connection URL:{C_RESET} {C_CYAN}{cfg['url']}{C_RESET}\n")
 
@@ -143,7 +143,7 @@ def stop_service(svc_key, dcmd):
         if inspect.stdout.strip() == "true":
             print(f"  Stopping {c_name}...")
             subprocess.run(dcmd + ["stop", c_name], check=True)
-            print(f"  {C_YELLOW}✔ {c_name} stopped.{C_RESET}")
+            print(f"  {C_YELLOW}{c_name} stopped.{C_RESET}")
         else:
             print(f"  {C_DIM}{c_name} is already stopped.{C_RESET}")
     else:
@@ -253,7 +253,7 @@ def main():
         print(f"{C_YELLOW}Removing container {c_name} and volume {vol_name}...{C_RESET}")
         subprocess.run(dcmd + ["rm", "-f", c_name], stderr=subprocess.DEVNULL)
         subprocess.run(dcmd + ["volume", "rm", "-f", vol_name], stderr=subprocess.DEVNULL)
-        print(f"{C_GREEN}✔ Reset complete. Start fresh with: dev-db up {svc}{C_RESET}")
+        print(f"{C_GREEN}Reset complete. Start fresh with: dev-db up {svc}{C_RESET}")
 
     else:
         svc = resolve_service(action)

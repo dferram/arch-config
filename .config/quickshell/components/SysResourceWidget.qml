@@ -219,7 +219,7 @@ Item {
                         anchors.centerIn: parent
                         spacing: 6
                         Text {
-                            text: "⚡ Open btop Monitor"
+                            text: "Open btop Monitor"
                             color: theme.blueLight
                             font.pixelSize: 11
                             font.weight: Font.DemiBold

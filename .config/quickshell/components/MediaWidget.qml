@@ -390,11 +390,13 @@ Item {
                         }
 
                         // Generic note fallback if none
-                        Text {
+                        Image {
                             anchors.centerIn: parent
+                            width: 36
+                            height: 36
                             visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && !root.isInstagram && !root.isSpotify && !root.isYouTube
-                            text: "🎵"
-                            font.pixelSize: 32
+                            source: root.defaultMediaSvgUri
+                            fillMode: Image.PreserveAspectFit
                         }
                     }
 
@@ -429,7 +431,7 @@ Item {
                         Text {
                             visible: root.trackAlbum !== ""
                             width: parent.width
-                            text: "💿 " + root.trackAlbum
+                            text: root.trackAlbum
                             color: theme.textMuted
                             font.family: theme.fontFamily
                             font.pixelSize: 10
@@ -490,11 +492,12 @@ Item {
                         radius: 18
                         color: prevMa.containsMouse ? theme.surfaceHover : "transparent"
                         anchors.verticalCenter: parent.verticalCenter
-                        Text {
+                        Image {
                             anchors.centerIn: parent
-                            text: "⏮"
-                            color: theme.textSub
-                            font.pixelSize: 15
+                            width: 14
+                            height: 14
+                            source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='%2394a3b8'><polygon points='19,20 9,12 19,4'/><line x1='5' y1='4' x2='5' y2='20' stroke='%2394a3b8' stroke-width='2.5'/></svg>"
+                            fillMode: Image.PreserveAspectFit
                         }
                         MouseArea {
                             id: prevMa
@@ -515,12 +518,14 @@ Item {
                         color: playMa.containsMouse ? Qt.darker(root.mediaAccentColor, 1.15) : root.mediaAccentColor
                         anchors.verticalCenter: parent.verticalCenter
 
-                        Text {
+                        Image {
                             anchors.centerIn: parent
-                            text: root.isPlaying ? "⏸" : "▶"
-                            color: "#ffffff"
-                            font.pixelSize: 17
-                            font.weight: Font.Bold
+                            width: 16
+                            height: 16
+                            source: root.isPlaying ?
+                                "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='%23ffffff'><rect x='6' y='4' width='4' height='16' rx='1'/><rect x='14' y='4' width='4' height='16' rx='1'/></svg>" :
+                                "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='%23ffffff'><polygon points='6,4 20,12 6,20'/></svg>"
+                            fillMode: Image.PreserveAspectFit
                         }
 
                         MouseArea {
@@ -541,11 +546,12 @@ Item {
                         radius: 18
                         color: nextMa.containsMouse ? theme.surfaceHover : "transparent"
                         anchors.verticalCenter: parent.verticalCenter
-                        Text {
+                        Image {
                             anchors.centerIn: parent
-                            text: "⏭"
-                            color: theme.textSub
-                            font.pixelSize: 15
+                            width: 14
+                            height: 14
+                            source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='%2394a3b8'><polygon points='5,4 15,12 5,20'/><line x1='19' y1='4' x2='19' y2='20' stroke='%2394a3b8' stroke-width='2.5'/></svg>"
+                            fillMode: Image.PreserveAspectFit
                         }
                         MouseArea {
                             id: nextMa

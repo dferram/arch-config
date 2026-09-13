@@ -70,7 +70,7 @@ case "$ACTION" in
                 --arg date "$(date -Iseconds)" \
                 '{id: $id, title: $title, artist: $artist, album: $album, url: $url, art: $art, date: $date}')
             jq --argjson entry "$ENTRY" '. + [$entry]' "$FAV_FILE" > "${FAV_FILE}.tmp" && mv "${FAV_FILE}.tmp" "$FAV_FILE"
-            notify-send -a "Spotify" "Added to Favorites ♥" "$TITLE - $ARTIST" -t 3000
+            notify-send -a "Spotify" "Added to Favorites" "$TITLE - $ARTIST" -t 3000
             echo "true"
         fi
         ;;

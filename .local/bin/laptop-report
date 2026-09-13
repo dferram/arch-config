@@ -123,7 +123,7 @@ def main():
     if bat:
         h_color = C_GREEN if bat['health'] >= 80 else (C_YELLOW if bat['health'] >= 70 else C_RED)
         p_color = C_GREEN if bat['percent'] >= 40 else (C_YELLOW if bat['percent'] >= 20 else C_RED)
-        print(f"\n  {C_BOLD}{C_PURPLE}󰁹 Battery & Energy{C_RESET}")
+        print(f"\n  {C_BOLD}{C_PURPLE}Battery & Energy{C_RESET}")
         print(f"    Charge Level:   {bar(bat['percent'], 16, p_color)}  {C_BOLD}{bat['percent']}%{C_RESET} {C_DIM}({bat['status']}){C_RESET}")
         print(f"    Battery Health: {bar(bat['health'], 16, h_color)}  {h_color}{bat['health']:.1f}%{C_RESET} {C_DIM}(Full: {bat['full_wh']:.1f}Wh / Design: {bat['design_wh']:.1f}Wh){C_RESET}")
         print(f"    Cycle Count:    {C_BOLD}{bat['cycles']}{C_RESET} cycles")
@@ -132,13 +132,12 @@ def main():
 
     # Power Profile
     profile = get_power_profile()
-    prof_icon = "🚀" if profile == "performance" else ("🍃" if profile == "power-saver" else "⚖️")
-    print(f"\n  {C_BOLD}{C_CYAN}⚡ Power Management{C_RESET}")
-    print(f"    Active Profile: {prof_icon} {C_BOLD}{profile.capitalize()}{C_RESET} {C_DIM}(Managed by power-profiles-daemon){C_RESET}")
+    print(f"\n  {C_BOLD}{C_CYAN}Power Management{C_RESET}")
+    print(f"    Active Profile: {C_BOLD}{profile.capitalize()}{C_RESET} {C_DIM}(Managed by power-profiles-daemon){C_RESET}")
 
     # Thermals
     temps = get_temperatures()
-    print(f"\n  {C_BOLD}{C_YELLOW}🌡️ Thermals & Sensors{C_RESET}")
+    print(f"\n  {C_BOLD}{C_YELLOW}Thermals & Sensors{C_RESET}")
     cpu_t = temps.get('coretemp', temps.get('acpitz', 0))
     nvme_t = temps.get('nvme', 0)
     wifi_t = temps.get('iwlwifi_1', 0)
@@ -151,7 +150,7 @@ def main():
 
     # Resources
     res = get_disk_and_ram()
-    print(f"\n  {C_BOLD}{C_GREEN}🧠 Storage & Memory{C_RESET}")
+    print(f"\n  {C_BOLD}{C_GREEN}Storage & Memory{C_RESET}")
     print(f"    RAM Usage:      {bar(res['ram_pct'], 16, C_CYAN)}  {res['ram_used']:.1f}/{res['ram_total']:.1f} GiB {C_DIM}({res['ram_pct']:.0f}%){C_RESET}")
     print(f"    SSD Root (/):   {bar(res['disk_pct'], 16, C_PURPLE)}  {res['disk_used']:.1f}/{res['disk_total']:.1f} GB {C_DIM}({res['disk_pct']:.0f}%){C_RESET}")
 

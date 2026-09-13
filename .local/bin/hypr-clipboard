@@ -6,7 +6,7 @@ ACTION="${1:-menu}"
 
 case "$ACTION" in
     "menu"|"list"|"show")
-        ITEM=$(cliphist list | rofi -dmenu -p "📋 Clipboard" \
+        ITEM=$(cliphist list | rofi -dmenu -p "Clipboard" \
             -theme-str 'window {width: 50%; border: 1px; border-color: #e22b31; border-radius: 12px; background-color: #0b0f17fa; padding: 12px;} listview {lines: 10; spacing: 4px;} element {border-radius: 6px; padding: 6px 10px; text-color: #f1f5f9;} element selected {background-color: #331518; text-color: #ff787d; border: 1px; border-color: #e22b31;} inputbar {children: [prompt, entry]; text-color: #e22b31; margin: 0 0 10px 0;} entry {text-color: #f1f5f9;} prompt {text-color: #e22b31; font-weight: bold; margin: 0 8px 0 0;}')
         if [ -n "$ITEM" ]; then
             echo "$ITEM" | cliphist decode | wl-copy

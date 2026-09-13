@@ -118,13 +118,13 @@ def main():
             print(f"  Found {C_BOLD}{proc}{C_RESET} (PID {C_YELLOW}{pid}{C_RESET}) - {C_DIM}{cmd}{C_RESET}")
             try:
                 kill_process(pid, proc, force=force)
-                print(f"  {C_GREEN}✔ Terminated PID {pid} ({proc}){C_RESET}")
+                print(f"  {C_GREEN}Terminated PID {pid} ({proc}){C_RESET}")
             except PermissionError:
-                print(f"  {C_RED}✖ Permission denied to terminate PID {pid}. Try: sudo killport {port}{C_RESET}")
+                print(f"  {C_RED}Permission denied to terminate PID {pid}. Try: sudo killport {port}{C_RESET}")
             except ProcessLookupError:
                 print(f"  {C_DIM}Process {pid} already exited.{C_RESET}")
             except Exception as e:
-                print(f"  {C_RED}✖ Failed to terminate PID {pid}: {e}{C_RESET}")
+                print(f"  {C_RED}Failed to terminate PID {pid}: {e}{C_RESET}")
 
         # Final check
         time.sleep(0.2)

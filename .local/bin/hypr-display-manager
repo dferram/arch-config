@@ -202,11 +202,11 @@ def show_gui():
 
     # Zenity radiolist format: [TRUE/FALSE, TAG, DESCRIPTION]
     items = [
-        ("TRUE" if current_pos == "right" else "FALSE", "right", "➡️  To the Right (Default)"),
-        ("TRUE" if current_pos == "left" else "FALSE", "left", "⬅️  To the Left"),
-        ("TRUE" if current_pos == "top" else "FALSE", "top", "⬆️  Above primary display"),
-        ("TRUE" if current_pos == "bottom" else "FALSE", "bottom", "⬇️  Below primary display"),
-        ("TRUE" if current_pos == "mirror" else "FALSE", "mirror", "🪞  Mirror Display"),
+        ("TRUE" if current_pos == "right" else "FALSE", "right", "To the Right (Default)"),
+        ("TRUE" if current_pos == "left" else "FALSE", "left", "To the Left"),
+        ("TRUE" if current_pos == "top" else "FALSE", "top", "Above primary display"),
+        ("TRUE" if current_pos == "bottom" else "FALSE", "bottom", "Below primary display"),
+        ("TRUE" if current_pos == "mirror" else "FALSE", "mirror", "Mirror Display"),
     ]
 
     cmd = [

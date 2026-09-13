@@ -120,7 +120,7 @@ def check_and_notify(reminders=None):
 
         # 5 minutes before notification (between 0 and 310 seconds before event)
         if 0 <= diff_seconds <= 310 and not rem.get("notified_5min", False):
-            title = f"⏰ Reminder in 5 min: {rem.get('title')}"
+            title = f"Reminder in 5 min: {rem.get('title')}"
             body = f"Category: {rem.get('category', 'Personal')} | Time: {t_str}"
             if rem.get("notes"):
                 body += f"\nNote: {rem['notes']}"
@@ -140,7 +140,7 @@ def check_and_notify(reminders=None):
 
         # Exactly at due time (between -60 and 45 seconds)
         elif -60 <= diff_seconds <= 45 and not rem.get("notified_due", False):
-            title = f"🔔 Event Due: {rem.get('title')}"
+            title = f"Event Due: {rem.get('title')}"
             body = f"Category: {rem.get('category', 'Personal')} | {t_str}"
             if rem.get("notes"):
                 body += f"\n{rem['notes']}"
