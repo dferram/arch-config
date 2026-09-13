@@ -24,6 +24,17 @@ SECTIONS = [
         "title": "FULLSTACK DEVELOPER TOOLS",
         "color": C_CYAN,
         "items": [
+            ("top / htop", "Process Monitor: Interactive dashboard for CPU, RAM & IO (btop)"),
+            ("p", "Project Jump: Instant interactive jump to Personal/Projects via fzf"),
+            ("rgf [query]", "Find in Code: Search text with ripgrep & open at exact line"),
+            ("fkill", "Kill Process: Interactive fuzzy process killer (multi-select Tab)"),
+            ("v [file]", "Fuzzy Edit: Search & open file directly in Neovim (fzf + bat)"),
+            ("vc [file]", "Fuzzy Code: Search & open file directly in Antigravity IDE"),
+            ("clip / paste", "Wayland Clipboard: Pipe output directly to/from clipboard"),
+            ("mkcd <dir>", "Make & Enter: Create folder and cd into it in one step"),
+            ("extract <file>", "Smart Extract: Unpack any archive (.tar.gz, .zip, .7z) cleanly"),
+            ("loc [port]", "Open Localhost: Instant open http://localhost:<port> in Chromium"),
+            ("web <query|url>", "Web Search: Open URL or Google query in Chromium from CLI"),
             ("ports", "Ports: View active listening TCP ports, PIDs & commands ('ports 3000')"),
             ("killport", "Killport: Free blocked ports cleanly ('killport 3000', 'killport -f 8080')"),
             ("dev-db", "Dev-DB: Instant Docker databases ('dev-db up postgres|redis|mongo')"),
@@ -62,6 +73,10 @@ SECTIONS = [
         "color": C_YELLOW,
         "items": [
             ("Super + H", "Quick Cheatsheet Floating Popup (press any key to dismiss)"),
+            ("Super + B", "Open Btop Live Resource & Process Monitor (floating)"),
+            ("Super + Tab / S-Tab", "Cycle forward / backward between open windows"),
+            ("Super + Shift + Arrows", "Move/swap active tiled window position"),
+            ("Super + Alt + Arrows", "Smoothly resize active window width and height"),
             ("Super + Q", "Open Terminal (Kitty)"),
             ("Super + W", "Open Browser (Chromium with Wayland & VA-API GPU accel)"),
             ("Super + A", "Open Antigravity IDE"),
@@ -74,6 +89,40 @@ SECTIONS = [
             ("Ctrl + Print", "Interactive screenshot annotation with Swappy"),
             ("Super + F10", "Toggle Warm Night Light (Hyprsunset)"),
             ("3-Finger Swipe", "Switch workspaces horizontally on trackpad"),
+        ]
+    },
+    {
+        "title": "KITTY MOUSE-FREE NAVIGATION & HINTS",
+        "color": C_ORANGE,
+        "items": [
+            ("Ctrl + Shift + E", "Hints: Open URLs visible on screen with letters (zero mouse)"),
+            ("Ctrl + Shift + P > F", "Hints: Copy visible file path directly to clipboard"),
+            ("Ctrl + Shift + P > L", "Hints: Copy visible line directly to clipboard"),
+            ("Ctrl + Shift + P > W", "Hints: Copy visible word directly to clipboard"),
+            ("Ctrl + Shift + P > H", "Hints: Copy commit / docker hash to clipboard"),
+            ("Ctrl + Shift + J / K", "Smooth scroll line down / up without mouse wheel"),
+            ("Ctrl + Shift + U / D", "Scroll half-page up / down with keyboard"),
+            ("Ctrl + Shift + T", "New tab in current working directory"),
+            ("Ctrl + Shift + Enter", "Split window in current working directory"),
+            ("Ctrl + Shift + [ / ]", "Switch to previous / next tab in Kitty"),
+        ]
+    },
+    {
+        "title": "CHROMIUM MOUSE-FREE BROWSING",
+        "color": C_CYAN,
+        "items": [
+            ("F7", "Caret Browsing: Text cursor on page (select with Shift+Arrows, 0 mouse!)"),
+            ("Ctrl + L / Alt + D", "Focus URL Address bar (instantly ready to type or copy)"),
+            ("Ctrl + T / Ctrl + W", "Open new tab / Close current active tab"),
+            ("Ctrl + Shift + T", "Reopen last closed tab (undo tab close)"),
+            ("Ctrl + Tab / S-Tab", "Switch to next / previous tab in Chromium"),
+            ("Ctrl + 1..8 / 9", "Jump directly to tab 1-8 / Jump directly to last tab"),
+            ("Space / Shift+Space", "Smooth page down / page up without mouse wheel"),
+            ("Ctrl + F / F3", "Search text on page (Enter/Shift+Enter for next/prev)"),
+            ("Alt + Left / Right", "Back / Forward in browsing history"),
+            ("F12 / Ctrl+Shift+I", "DevTools (Inside: Ctrl+P to fuzzy open file, Ctrl+Shift+P for palette)"),
+            ("Ctrl + Shift + C", "DevTools Inspect element mode (navigate DOM with arrows)"),
+            ("Vimium C ('f' key)", "Vimium: Key hint labels on all links/buttons (type to click)"),
         ]
     }
 ]

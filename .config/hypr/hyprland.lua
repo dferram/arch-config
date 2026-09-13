@@ -279,6 +279,7 @@ hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))    -- dwindle only
 hl.bind(mainMod .. " + H", hl.dsp.exec_cmd("kitty --class cheatsheet-popup -e bash -c '/home/ferram/.local/bin/cmds; echo -e \"\\n  \\033[2mPress any key to close...\\033[0m\"; read -n 1 -s -r'"))
+hl.bind(mainMod .. " + B", hl.dsp.exec_cmd("kitty --class btop-popup -e btop"))
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
 
 -- Move focus with mainMod + arrow keys
@@ -286,6 +287,22 @@ hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left" }))
 hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
 hl.bind(mainMod .. " + up",    hl.dsp.focus({ direction = "up" }))
 hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }))
+
+-- Cycle windows without mouse (Super + Tab / Super + Shift + Tab)
+hl.bind(mainMod .. " + Tab",         hl.dsp.window.cycle_next())
+hl.bind(mainMod .. " + SHIFT + Tab", hl.dsp.window.cycle_next({ prev = true }))
+
+-- Move active window in tiled layout without mouse (Super + Shift + Arrows)
+hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "left" }))
+hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "right" }))
+hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "up" }))
+hl.bind(mainMod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "down" }))
+
+-- Resize active window smoothly without mouse (Super + Alt + Arrows)
+hl.bind(mainMod .. " + ALT + right", hl.dsp.window.resize({ x = 40, y = 0, relative = true }), { repeating = true })
+hl.bind(mainMod .. " + ALT + left",  hl.dsp.window.resize({ x = -40, y = 0, relative = true }), { repeating = true })
+hl.bind(mainMod .. " + ALT + up",    hl.dsp.window.resize({ x = 0, y = -40, relative = true }), { repeating = true })
+hl.bind(mainMod .. " + ALT + down",  hl.dsp.window.resize({ x = 0, y = 40, relative = true }), { repeating = true })
 
 -- Switch workspaces with mainMod + [0-9]
 -- Move active window to a workspace with mainMod + SHIFT + [0-9]
@@ -446,4 +463,14 @@ hl.window_rule({
     center = true,
     size   = "880 620",
 })
+
+-- Btop live resource monitor floating windowrule
+hl.window_rule({
+    name   = "float-btop",
+    match  = { class = "btop-popup" },
+    float  = true,
+    center = true,
+    size   = "960 640",
+})
+
 

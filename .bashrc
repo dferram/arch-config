@@ -69,4 +69,128 @@ alias d="dust"
 alias kp="killport"
 alias db="dev-db"
 
+# --- Navegación rápida de directorios ---
+alias ..="cd .."
+alias ...="cd ../.."
+alias ....="cd ../../.."
+alias .....="cd ../../../.."
+
+# --- Portapapeles Wayland interactivo ---
+alias clip="wl-copy"
+alias paste="wl-paste"
+
+# --- Monitor de recursos del sistema ---
+if command -v btop &>/dev/null; then
+    alias top="btop"
+    alias htop="btop"
+fi
+
+# --- Recarga rápida de entorno ---
+alias reload="source ~/.bashrc && echo 'Configuración de Bash recargada.'"
+
+# --- Buscadores interactivos sin mouse (FZF) ---
+# Saltar al instante a cualquier proyecto
+p() {
+    local target
+    target=$(fd -t d -d 1 . ~/Personal ~/Projects ~/Colgate-Palmolive 2>/dev/null | fzf --height 40% --reverse --prompt="📂 Proyecto > ")
+    [ -n "$target" ] && cd "$target"
+}
+
+# Abrir archivo interactivamente en editor de terminal (nvim)
+v() {
+    local target
+    if [ $# -gt 0 ]; then
+        ${EDITOR:-nvim} "$@"
+    else
+        target=$(fzf --preview 'bat --color=always --style=numbers,changes --line-range :300 {} 2>/dev/null || cat {} 2>/dev/null')
+        [ -n "$target" ] && ${EDITOR:-nvim} "$target"
+    fi
+}
+
+# Abrir archivo interactivamente en Antigravity IDE
+vc() {
+    local target
+    if [ $# -gt 0 ]; then
+        code "$@"
+    else
+        target=$(fzf --preview 'bat --color=always --style=numbers,changes --line-range :300 {} 2>/dev/null || cat {} 2>/dev/null')
+        [ -n "$target" ] && code "$target"
+    fi
+}
+
+# Buscar texto dentro de archivos con ripgrep + fzf y abrir en la línea exacta
+rgf() {
+    local match
+    match=$(rg --column --line-number --no-heading --color=always --smart-case "${*:-}" 2>/dev/null | \
+        fzf --ansi \
+            --delimiter : \
+            --preview 'bat --color=always --style=numbers,changes --highlight-line {2} {1} 2>/dev/null' \
+            --preview-window 'right:60%:+{2}-5' \
+            --prompt="🔎 Buscar en código > ")
+
+    if [ -n "$match" ]; then
+        local file=$(echo "$match" | cut -d: -f1)
+        local line=$(echo "$match" | cut -d: -f2)
+        ${EDITOR:-nvim} "+$line" "$file"
+    fi
+}
+
+# Matar procesos de forma interactiva con fzf (TAB para multiselección, ENTER para matar)
+fkill() {
+    local pid
+    pid=$(ps -f -u "$USER" | sed 1d | fzf -m --height 45% --reverse --prompt="☠️ Matar proceso > " --header='[fkill] TAB: multiselección | ENTER: matar proceso' | awk '{print $2}')
+    if [ -n "$pid" ]; then
+        echo "$pid" | xargs kill -${1:-9} 2>/dev/null && echo "Proceso(s) $pid finalizado(s)."
+    fi
+}
+
+# Crear directorio y entrar de inmediato
+mkcd() {
+    mkdir -p "$1" && cd "$1"
+}
+
+# Descomprimir cualquier archivo sin recordar flags
+extract() {
+    if [ -f "$1" ]; then
+        case "$1" in
+            *.tar.bz2)   tar xjf "$1"     ;;
+            *.tar.gz)    tar xzf "$1"     ;;
+            *.bz2)       bunzip2 "$1"     ;;
+            *.rar)       unrar x "$1"     ;;
+            *.gz)        gunzip "$1"      ;;
+            *.tar)       tar xf "$1"      ;;
+            *.tbz2)      tar xjf "$1"     ;;
+            *.tgz)       tar xzf "$1"     ;;
+            *.zip)       unzip "$1"       ;;
+            *.Z)         uncompress "$1"  ;;
+            *.7z)        7z x "$1"        ;;
+            *.tar.xz)    tar xf "$1"      ;;
+            *)           echo "No se reconoce el formato de compresión de '$1'" ;;
+        esac
+    else
+        echo "'$1' no es un archivo válido"
+    fi
+}
+
+# --- Acceso rápido a Web y Localhost en Chromium ---
+# Abrir localhost en Chromium (ej: 'loc' para :3000, 'loc 5173', 'loc 8080')
+loc() {
+    local port="${1:-3000}"
+    chromium "http://localhost:$port" &>/dev/null &
+}
+
+# Abrir URL o buscar en Google desde la terminal
+web() {
+    if [ -z "$1" ]; then
+        chromium &>/dev/null &
+    elif [[ "$1" =~ ^https?:// ]] || [[ "$1" =~ ^localhost ]]; then
+        chromium "$1" &>/dev/null &
+    else
+        chromium "https://www.google.com/search?q=$*" &>/dev/null &
+    fi
+}
+
+
+
+
 
