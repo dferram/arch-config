@@ -11,114 +11,111 @@ import sys
 C_RESET  = "\033[0m"
 C_BOLD   = "\033[1m"
 C_DIM    = "\033[2m"
-C_CYAN   = "\033[38;2;137;180;250m"
-C_GREEN  = "\033[38;2;166;227;161m"
-C_YELLOW = "\033[38;2;249;226;175m"
-C_RED    = "\033[38;2;243;139;168m"
-C_PURPLE = "\033[38;2;203;166;247m"
-C_ORANGE = "\033[38;2;250;179;135m"
+C_RED    = "\033[38;2;243;139;168m" # Soft red
+C_RED_D  = "\033[38;2;230;69;83m"   # Darker red
+C_ORANGE = "\033[38;2;250;179;135m" # Orange/Red
 C_GRAY   = "\033[38;2;108;112;134m"
-C_ARCH   = "\033[38;2;23;147;209m"
+C_WHITE  = "\033[38;2;205;214;244m"
 
 SECTIONS = [
     {
-        "title": "BASH & TERMINAL NAVIGATION (No Mouse)",
-        "color": C_GREEN,
+        "title": "BASH & TERMINAL NAVIGATION",
+        "color": C_RED_D,
         "items": [
-            ("z <dir>", "Zoxide: Instant smart jump to any directory (e.g. 'z hona')"),
-            ("p", "Project Jump: Interactive fuzzy finder for ~/Personal and ~/Projects"),
-            ("Ctrl + R", "FZF History: Search and execute past commands interactively"),
-            ("Ctrl + T", "FZF Files: Search files in current folder interactively"),
-            ("v [file]", "Fuzzy Edit: Search & open file directly in Neovim (fzf + bat)"),
-            ("vc [file]", "Fuzzy Code: Search & open file directly in Antigravity IDE"),
-            ("rgf [query]", "Find in Code: Search text with ripgrep & open at exact line"),
-            ("fkill", "Kill Process: Interactive fuzzy process killer (multi-select Tab)"),
-            ("mkcd <dir>", "Make & Enter: Create folder and cd into it in one step"),
-            ("extract <file>", "Smart Extract: Unpack any archive (.tar.gz, .zip, .7z) cleanly"),
-            ("clip / paste", "Wayland Clipboard: Pipe terminal output to/from clipboard"),
+            ("z <dir>", "Zoxide: Instant jump to any directory (e.g. 'z hona')"),
+            ("p", "Project Jump: Interactive fuzzy finder for projects"),
+            ("Ctrl + R", "FZF History: Search and execute past commands"),
+            ("Ctrl + T", "FZF Files: Search files in current folder"),
+            ("v [file]", "Fuzzy Edit: Search & open file in Neovim (fzf+bat)"),
+            ("vc [file]", "Fuzzy Code: Search & open file in Antigravity IDE"),
+            ("rgf [query]", "Find in Code: Search text with ripgrep & open line"),
+            ("fkill", "Kill Process: Interactive fuzzy process killer"),
+            ("mkcd <dir>", "Make & Enter: Create folder and cd into it"),
+            ("extract <f>", "Smart Extract: Unpack archive (.tar.gz, .zip)"),
+            ("clip/paste", "Wayland Clipboard: Pipe output to/from clipboard"),
         ]
     },
     {
-        "title": "HYPRLAND DESKTOP (No Mouse)",
-        "color": C_PURPLE,
+        "title": "HYPRLAND DESKTOP",
+        "color": C_ORANGE,
         "items": [
-            ("Super + H", "Quick Cheatsheet Floating Popup (press any key to dismiss)"),
+            ("Super + H", "Quick Cheatsheet Floating Popup (any key to close)"),
             ("Super + Q", "Open Terminal (Kitty)"),
             ("Super + R", "App Launcher (Rofi/Wofi)"),
             ("Super + E", "Open File Manager"),
-            ("Super + V", "Clipboard History Menu (wl-clip-persist active)"),
+            ("Super + V", "Clipboard History Menu (wl-clip-persist)"),
             ("Super + C", "Close current active window"),
             ("Super + Space", "Toggle Floating Window"),
             ("Super + F", "Toggle Fullscreen Window"),
             ("Super + Tab", "Cycle forward between open windows"),
-            ("Super + Arrows", "Move focus to window (Left/Right/Up/Down)"),
-            ("Super + Shift + Arr", "Move window position (Left/Right/Up/Down)"),
-            ("Super + Alt + Arr", "Smoothly resize active window width and height"),
+            ("Super + Arr", "Move focus to window (Left/Right/Up/Down)"),
+            ("S+Shift+Arr", "Move window position (Left/Right/Up/Down)"),
+            ("S+Alt+Arr", "Smoothly resize active window width and height"),
             ("Super + 1..9", "Switch to workspace 1-9"),
-            ("Super + Shift + 1..9", "Move active window to workspace 1-9"),
-            ("Super + º (grave)", "Toggle 'Magic' Scratchpad Workspace (hidden desktop)"),
-            ("Super + Shift + º", "Send window to 'Magic' Scratchpad"),
+            ("S+Shift+1..9", "Move active window to workspace 1-9"),
+            ("Super + º", "Toggle 'Magic' Scratchpad Workspace (hidden)"),
+            ("S+Shift+º", "Send window to 'Magic' Scratchpad"),
             ("Super + B", "Open Btop Live Resource Monitor (floating)"),
-            ("Print / F11", "Area screenshot (automatically saved & copied to clipboard)"),
+            ("Print / F11", "Area screenshot (saved & copied to clipboard)"),
             ("Super + F10", "Toggle Warm Night Light (Hyprsunset)"),
         ]
     },
     {
-        "title": "CHROMIUM & VIMIUM (No Mouse)",
-        "color": C_CYAN,
+        "title": "CHROMIUM & VIMIUM",
+        "color": C_RED_D,
         "items": [
-            ("f", "Vimium: Show keyboard hints on all links/buttons (type to click)"),
+            ("f", "Vimium: Show keyboard hints on links (type to click)"),
             ("j / k", "Vimium: Scroll down / up smoothly"),
             ("J / K", "Vimium: Switch to left / right tab"),
-            ("o", "Vimium: Open omnibar to search history and bookmarks"),
+            ("o", "Vimium: Open omnibar to search history/bookmarks"),
             ("x / X", "Vimium: Close current tab / Reopen last closed tab"),
             ("H / L", "Vimium: Go Back / Forward in browsing history"),
-            ("Ctrl + L", "Focus URL Address bar (instantly ready to type)"),
-            ("Ctrl + T / Ctrl + W", "Open new tab / Close current active tab"),
-            ("Ctrl + Shift + T", "Reopen last closed tab (undo tab close)"),
+            ("Ctrl + L", "Focus URL Address bar (ready to type)"),
+            ("Ctrl + T/W", "Open new tab / Close current active tab"),
+            ("Ctrl+Shift+T", "Reopen last closed tab (undo tab close)"),
             ("Ctrl + Tab", "Switch to next tab in Chromium"),
         ]
     },
     {
         "title": "FULLSTACK DEVELOPER TOOLS",
-        "color": C_YELLOW,
+        "color": C_ORANGE,
         "items": [
-            ("top / htop", "Process Monitor: Interactive dashboard for CPU, RAM & IO (btop)"),
-            ("loc [port]", "Open Localhost: Instant open http://localhost:<port> in Chromium"),
-            ("web <query|url>", "Web Search: Open URL or Google query in Chromium from CLI"),
-            ("ports", "Ports: View active listening TCP ports, PIDs & commands ('ports 3000')"),
-            ("killport", "Killport: Free blocked ports cleanly ('killport 3000', 'killport -f 8080')"),
-            ("dev-db", "Dev-DB: Instant Docker databases ('dev-db up postgres|redis|mongo')"),
-            ("ld", "Lazydocker: Real-time container dashboard, logs & restart controls"),
-            ("d", "Dust: Visual disk analyzer (find & kill bloated node_modules)"),
-            ("gh", "GitHub CLI: Manage PRs, issues, clones (e.g. 'gh pr create')"),
-            ("bun / pnpm", "Fastest JS runtime & Disk-saving Node package manager"),
-            ("uv", "Rust-powered Python package manager ('uv pip install ...')"),
-            ("http", "HTTPie: Colorized human-friendly API testing ('http :3000/api')"),
+            ("top / htop", "Process Monitor: Interactive CPU/RAM dashboard"),
+            ("loc [port]", "Open Localhost: Instant open localhost:<port>"),
+            ("web <url>", "Web Search: Open URL or Google query in Chromium"),
+            ("ports", "Ports: View active TCP ports, PIDs & commands"),
+            ("killport", "Killport: Free blocked ports ('killport 3000')"),
+            ("dev-db", "Dev-DB: Instant Docker databases ('dev-db up redis')"),
+            ("ld", "Lazydocker: Real-time container dashboard & logs"),
+            ("d", "Dust: Visual disk analyzer (find big node_modules)"),
+            ("gh", "GitHub CLI: Manage PRs, issues, clones"),
+            ("bun / pnpm", "Fastest JS runtime & Disk-saving Node package mgr"),
+            ("uv", "Rust-powered Python package manager"),
+            ("http", "HTTPie: Colorized human-friendly API testing"),
         ]
     },
     {
         "title": "SYSTEM & LAPTOP DIAGNOSTICS",
-        "color": C_ORANGE,
+        "color": C_RED_D,
         "items": [
-            ("lr", "Laptop Report: Live battery health, wattage, thermals & stats"),
-            ("sudo powertop", "PowerTop: Process-by-process battery drain in Watts"),
-            ("sudo intel_gpu_top", "Intel Arc GPU load, render engines & wattage"),
-            ("sudo ufw status", "Check active firewall status & blocked connections"),
-            ("sudo timeshift --c", "Create an immediate safety system restore point"),
-            ("sysctl restart pipe", "Restart audio engine (systemctl --user restart pipewire)"),
+            ("lr", "Laptop Report: Live battery health, thermals & stats"),
+            ("sudo powertop", "PowerTop: Process-by-process battery drain"),
+            ("intel_gpu_top", "Intel Arc GPU load, render engines & wattage"),
+            ("sudo ufw", "Check active firewall status & blocked connections"),
+            ("sudo timeshift", "Create an immediate safety system restore point"),
+            ("sysctl restart", "Restart audio engine (systemctl --user restart pipewire)"),
         ]
     }
 ]
 
 ARCH_LOGO = f"""
-{C_ARCH}      /\\      {C_BOLD}{C_CYAN}╭──────────────────────────────────────────╮
-{C_ARCH}     /  \\     {C_BOLD}{C_CYAN}│  {C_BOLD}ARCH LINUX - TERMINAL CHEATSHEET{C_CYAN}        │
-{C_ARCH}    /    \\    {C_BOLD}{C_CYAN}│  {C_RESET}{C_DIM}Master your keyboard-driven workflow.{C_BOLD}{C_CYAN}   │
-{C_ARCH}   /      \\   {C_BOLD}{C_CYAN}╰──────────────────────────────────────────╯
-{C_ARCH}  /   ,,   \\  
-{C_ARCH} /   |  |   \\ 
-{C_ARCH}/_-''    ''-_\\{C_RESET}
+{C_RED}      /\\      {C_BOLD}{C_RED_D}╭──────────────────────────────────────────╮
+{C_RED}     /  \\     {C_BOLD}{C_RED_D}│  {C_BOLD}ARCH LINUX - TERMINAL CHEATSHEET{C_RED_D}        │
+{C_RED}    /    \\    {C_BOLD}{C_RED_D}╰──────────────────────────────────────────╯
+{C_RED}   /      \\   
+{C_RED}  /   ,,   \\  
+{C_RED} /   |  |   \\ 
+{C_RED}/_-''    ''-_\\{C_RESET}
 """
 
 def main():
@@ -147,9 +144,9 @@ def main():
             is_last = (i == len(filtered_items) - 1)
             branch = "└─" if is_last else "├─"
             
-            dots = 22 - len(cmd)
+            dots = 14 - len(cmd)
             dots_str = f"{C_GRAY}{'·' * max(2, dots)}{C_RESET}"
-            print(f" {C_BOLD}{sec['color']} │  {C_BOLD}{C_CYAN}{cmd:<18}{C_RESET} {dots_str} {desc}")
+            print(f" {C_BOLD}{sec['color']} {branch}  {C_BOLD}{C_RED}{cmd:<14}{C_RESET} {dots_str} {C_WHITE}{desc}{C_RESET}")
             
         print() # Spacer
 
