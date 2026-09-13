@@ -5,6 +5,9 @@
 # If not running interactively, don't do anything
 [[ $- != *i* ]] && return
 
+# --- Bash Line Editor (Sugerencias Visuales y Color) ---
+source ~/.local/share/blesh/ble.sh
+
 # --- Aliases para Comandos ---
 if command -v eza &>/dev/null; then
     alias ls='eza --icons --group-directories-first'
@@ -40,24 +43,10 @@ if command -v fzf &>/dev/null; then
     fi
 fi
 
-# --- Prompt Armónico (Tema Oscuro + Acento Rojo #e22b31 / #ff787d) ---
-set_bash_prompt() {
-    local branch
-    branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
-    local git_info=""
-    if [ -n "$branch" ]; then
-        if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-            # Con cambios pendientes: rojo carmesí (#e22b31) con asterisco
-            git_info=" \[\e[38;2;226;43;49m\e[1m\](${branch}*)\[\e[0m\]"
-        else
-            # Repositorio limpio: coral suave (#ff787d)
-            git_info=" \[\e[38;2;255;150;155m\](${branch})\[\e[0m\]"
-        fi
-    fi
-    # usuario@equipo en blanco hielo nítido (#f5f5f5), directorio en rojo vibrante (#ff6b6b), símbolo $ en rojo carmesí
-    PS1="\[\e[38;2;245;245;245m\e[1m\]\u@\h\[\e[0m\e[38;2;100;100;100m\]:\[\e[38;2;255;107;107m\e[1m\]\w\[\e[0m\]${git_info} \[\e[38;2;226;43;49m\e[1m\]\$\[\e[0m\] "
-}
-PROMPT_COMMAND=set_bash_prompt
+# --- Prompt (Starship) ---
+if command -v starship &>/dev/null; then
+    eval "$(starship init bash)"
+fi
 
 # Added by Antigravity CLI installer
 export PATH="/home/ferram/.local/bin:$PATH"
@@ -152,21 +141,7 @@ mkcd() {
 # Descomprimir cualquier archivo sin recordar flags
 extract() {
     if [ -f "$1" ]; then
-        case "$1" in
-            *.tar.bz2)   tar xjf "$1"     ;;
-            *.tar.gz)    tar xzf "$1"     ;;
-            *.bz2)       bunzip2 "$1"     ;;
-            *.rar)       unrar x "$1"     ;;
-            *.gz)        gunzip "$1"      ;;
-            *.tar)       tar xf "$1"      ;;
-            *.tbz2)      tar xjf "$1"     ;;
-            *.tgz)       tar xzf "$1"     ;;
-            *.zip)       unzip "$1"       ;;
-            *.Z)         uncompress "$1"  ;;
-            *.7z)        7z x "$1"        ;;
-            *.tar.xz)    tar xf "$1"      ;;
-            *)           echo "No se reconoce el formato de compresión de '$1'" ;;
-        esac
+        bsdtar -xf "$1"
     else
         echo "'$1' no es un archivo válido"
     fi
@@ -194,3 +169,12 @@ web() {
 
 
 
+
+# --- Autocompletado ---
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+  fi
+fi

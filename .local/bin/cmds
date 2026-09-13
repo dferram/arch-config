@@ -11,28 +11,79 @@ import sys
 C_RESET  = "\033[0m"
 C_BOLD   = "\033[1m"
 C_DIM    = "\033[2m"
-C_CYAN   = "\033[38;2;56;189;248m"
-C_GREEN  = "\033[38;2;34;197;94m"
-C_YELLOW = "\033[38;2;234;179;8m"
-C_RED    = "\033[38;2;239;68;68m"
-C_PURPLE = "\033[38;2;168;85;247m"
-C_ORANGE = "\033[38;2;251;146;60m"
-C_GRAY   = "\033[38;2;148;163;184m"
+C_CYAN   = "\033[38;2;137;180;250m"
+C_GREEN  = "\033[38;2;166;227;161m"
+C_YELLOW = "\033[38;2;249;226;175m"
+C_RED    = "\033[38;2;243;139;168m"
+C_PURPLE = "\033[38;2;203;166;247m"
+C_ORANGE = "\033[38;2;250;179;135m"
+C_GRAY   = "\033[38;2;108;112;134m"
+C_ARCH   = "\033[38;2;23;147;209m"
 
 SECTIONS = [
     {
-        "title": "FULLSTACK DEVELOPER TOOLS",
-        "color": C_CYAN,
+        "title": "BASH & TERMINAL NAVIGATION (No Mouse)",
+        "color": C_GREEN,
         "items": [
-            ("top / htop", "Process Monitor: Interactive dashboard for CPU, RAM & IO (btop)"),
-            ("p", "Project Jump: Instant interactive jump to Personal/Projects via fzf"),
-            ("rgf [query]", "Find in Code: Search text with ripgrep & open at exact line"),
-            ("fkill", "Kill Process: Interactive fuzzy process killer (multi-select Tab)"),
+            ("z <dir>", "Zoxide: Instant smart jump to any directory (e.g. 'z hona')"),
+            ("p", "Project Jump: Interactive fuzzy finder for ~/Personal and ~/Projects"),
+            ("Ctrl + R", "FZF History: Search and execute past commands interactively"),
+            ("Ctrl + T", "FZF Files: Search files in current folder interactively"),
             ("v [file]", "Fuzzy Edit: Search & open file directly in Neovim (fzf + bat)"),
             ("vc [file]", "Fuzzy Code: Search & open file directly in Antigravity IDE"),
-            ("clip / paste", "Wayland Clipboard: Pipe output directly to/from clipboard"),
+            ("rgf [query]", "Find in Code: Search text with ripgrep & open at exact line"),
+            ("fkill", "Kill Process: Interactive fuzzy process killer (multi-select Tab)"),
             ("mkcd <dir>", "Make & Enter: Create folder and cd into it in one step"),
             ("extract <file>", "Smart Extract: Unpack any archive (.tar.gz, .zip, .7z) cleanly"),
+            ("clip / paste", "Wayland Clipboard: Pipe terminal output to/from clipboard"),
+        ]
+    },
+    {
+        "title": "HYPRLAND DESKTOP (No Mouse)",
+        "color": C_PURPLE,
+        "items": [
+            ("Super + H", "Quick Cheatsheet Floating Popup (press any key to dismiss)"),
+            ("Super + Q", "Open Terminal (Kitty)"),
+            ("Super + R", "App Launcher (Rofi/Wofi)"),
+            ("Super + E", "Open File Manager"),
+            ("Super + V", "Clipboard History Menu (wl-clip-persist active)"),
+            ("Super + C", "Close current active window"),
+            ("Super + Space", "Toggle Floating Window"),
+            ("Super + F", "Toggle Fullscreen Window"),
+            ("Super + Tab", "Cycle forward between open windows"),
+            ("Super + Arrows", "Move focus to window (Left/Right/Up/Down)"),
+            ("Super + Shift + Arr", "Move window position (Left/Right/Up/Down)"),
+            ("Super + Alt + Arr", "Smoothly resize active window width and height"),
+            ("Super + 1..9", "Switch to workspace 1-9"),
+            ("Super + Shift + 1..9", "Move active window to workspace 1-9"),
+            ("Super + º (grave)", "Toggle 'Magic' Scratchpad Workspace (hidden desktop)"),
+            ("Super + Shift + º", "Send window to 'Magic' Scratchpad"),
+            ("Super + B", "Open Btop Live Resource Monitor (floating)"),
+            ("Print / F11", "Area screenshot (automatically saved & copied to clipboard)"),
+            ("Super + F10", "Toggle Warm Night Light (Hyprsunset)"),
+        ]
+    },
+    {
+        "title": "CHROMIUM & VIMIUM (No Mouse)",
+        "color": C_CYAN,
+        "items": [
+            ("f", "Vimium: Show keyboard hints on all links/buttons (type to click)"),
+            ("j / k", "Vimium: Scroll down / up smoothly"),
+            ("J / K", "Vimium: Switch to left / right tab"),
+            ("o", "Vimium: Open omnibar to search history and bookmarks"),
+            ("x / X", "Vimium: Close current tab / Reopen last closed tab"),
+            ("H / L", "Vimium: Go Back / Forward in browsing history"),
+            ("Ctrl + L", "Focus URL Address bar (instantly ready to type)"),
+            ("Ctrl + T / Ctrl + W", "Open new tab / Close current active tab"),
+            ("Ctrl + Shift + T", "Reopen last closed tab (undo tab close)"),
+            ("Ctrl + Tab", "Switch to next tab in Chromium"),
+        ]
+    },
+    {
+        "title": "FULLSTACK DEVELOPER TOOLS",
+        "color": C_YELLOW,
+        "items": [
+            ("top / htop", "Process Monitor: Interactive dashboard for CPU, RAM & IO (btop)"),
             ("loc [port]", "Open Localhost: Instant open http://localhost:<port> in Chromium"),
             ("web <query|url>", "Web Search: Open URL or Google query in Chromium from CLI"),
             ("ports", "Ports: View active listening TCP ports, PIDs & commands ('ports 3000')"),
@@ -41,98 +92,42 @@ SECTIONS = [
             ("ld", "Lazydocker: Real-time container dashboard, logs & restart controls"),
             ("d", "Dust: Visual disk analyzer (find & kill bloated node_modules)"),
             ("gh", "GitHub CLI: Manage PRs, issues, clones (e.g. 'gh pr create')"),
-            ("bun", "Fastest TypeScript/JS runtime & bundler ('bun dev', 'bun test')"),
-            ("pnpm", "Disk-saving Node package manager (shared content storage)"),
+            ("bun / pnpm", "Fastest JS runtime & Disk-saving Node package manager"),
             ("uv", "Rust-powered Python package manager ('uv pip install ...')"),
             ("http", "HTTPie: Colorized human-friendly API testing ('http :3000/api')"),
         ]
     },
     {
-        "title": "LAPTOP DIAGNOSTICS & HARDWARE",
-        "color": C_PURPLE,
-        "items": [
-            ("lr", "Laptop Report: Live battery health, wattage, thermals & stats"),
-            ("hypr-battery-alert [status|test]", "Battery Alert: Monitor & notify on low battery (10% & 5%)"),
-            ("sudo powertop", "PowerTop: Process-by-process battery drain in Watts"),
-            ("sudo intel_gpu_top", "Intel Arc GPU load, render engines & wattage"),
-            ("cat .../charge_control_thresholds", "Huawei battery threshold (currently capped at 70-80%)"),
-        ]
-    },
-    {
-        "title": "SYSTEM SECURITY & MAINTENANCE",
-        "color": C_GREEN,
-        "items": [
-            ("sudo ufw status", "Check active firewall status & blocked connections"),
-            ("sudo timeshift --create", "Create an immediate safety restore point"),
-            ("timeshift-gtk", "Open graphical system restore & snapshot manager"),
-            ("systemctl --user restart pipewire", "Restart audio engine / Noise-Canceling mic"),
-        ]
-    },
-    {
-        "title": "HYPRLAND DESKTOP KEYBINDINGS",
-        "color": C_YELLOW,
-        "items": [
-            ("Super + H", "Quick Cheatsheet Floating Popup (press any key to dismiss)"),
-            ("Super + B", "Open Btop Live Resource & Process Monitor (floating)"),
-            ("Super + Tab / S-Tab", "Cycle forward / backward between open windows"),
-            ("Super + Shift + Arrows", "Move/swap active tiled window position"),
-            ("Super + Alt + Arrows", "Smoothly resize active window width and height"),
-            ("Super + Q", "Open Terminal (Kitty)"),
-            ("Super + W", "Open Browser (Chromium with Wayland & VA-API GPU accel)"),
-            ("Super + A", "Open Antigravity IDE"),
-            ("Super + L", "Lock Screen (Hyprlock with fingerprint support)"),
-            ("Super + V", "Clipboard History Menu (wl-clip-persist active)"),
-            ("Super + E", "Open File Manager"),
-            ("Super + Space", "Toggle Floating Window"),
-            ("Super + F", "Toggle Fullscreen Window"),
-            ("Print / F11", "Area screenshot (automatically saved & copied to clipboard)"),
-            ("Ctrl + Print", "Interactive screenshot annotation with Swappy"),
-            ("Super + F10", "Toggle Warm Night Light (Hyprsunset)"),
-            ("3-Finger Swipe", "Switch workspaces horizontally on trackpad"),
-        ]
-    },
-    {
-        "title": "KITTY MOUSE-FREE NAVIGATION & HINTS",
+        "title": "SYSTEM & LAPTOP DIAGNOSTICS",
         "color": C_ORANGE,
         "items": [
-            ("Ctrl + Shift + E", "Hints: Open URLs visible on screen with letters (zero mouse)"),
-            ("Ctrl + Shift + P > F", "Hints: Copy visible file path directly to clipboard"),
-            ("Ctrl + Shift + P > L", "Hints: Copy visible line directly to clipboard"),
-            ("Ctrl + Shift + P > W", "Hints: Copy visible word directly to clipboard"),
-            ("Ctrl + Shift + P > H", "Hints: Copy commit / docker hash to clipboard"),
-            ("Ctrl + Shift + J / K", "Smooth scroll line down / up without mouse wheel"),
-            ("Ctrl + Shift + U / D", "Scroll half-page up / down with keyboard"),
-            ("Ctrl + Shift + T", "New tab in current working directory"),
-            ("Ctrl + Shift + Enter", "Split window in current working directory"),
-            ("Ctrl + Shift + [ / ]", "Switch to previous / next tab in Kitty"),
-        ]
-    },
-    {
-        "title": "CHROMIUM MOUSE-FREE BROWSING",
-        "color": C_CYAN,
-        "items": [
-            ("F7", "Caret Browsing: Text cursor on page (select with Shift+Arrows, 0 mouse!)"),
-            ("Ctrl + L / Alt + D", "Focus URL Address bar (instantly ready to type or copy)"),
-            ("Ctrl + T / Ctrl + W", "Open new tab / Close current active tab"),
-            ("Ctrl + Shift + T", "Reopen last closed tab (undo tab close)"),
-            ("Ctrl + Tab / S-Tab", "Switch to next / previous tab in Chromium"),
-            ("Ctrl + 1..8 / 9", "Jump directly to tab 1-8 / Jump directly to last tab"),
-            ("Space / Shift+Space", "Smooth page down / page up without mouse wheel"),
-            ("Ctrl + F / F3", "Search text on page (Enter/Shift+Enter for next/prev)"),
-            ("Alt + Left / Right", "Back / Forward in browsing history"),
-            ("F12 / Ctrl+Shift+I", "DevTools (Inside: Ctrl+P to fuzzy open file, Ctrl+Shift+P for palette)"),
-            ("Ctrl + Shift + C", "DevTools Inspect element mode (navigate DOM with arrows)"),
-            ("Vimium C ('f' key)", "Vimium: Key hint labels on all links/buttons (type to click)"),
+            ("lr", "Laptop Report: Live battery health, wattage, thermals & stats"),
+            ("sudo powertop", "PowerTop: Process-by-process battery drain in Watts"),
+            ("sudo intel_gpu_top", "Intel Arc GPU load, render engines & wattage"),
+            ("sudo ufw status", "Check active firewall status & blocked connections"),
+            ("sudo timeshift --c", "Create an immediate safety system restore point"),
+            ("sysctl restart pipe", "Restart audio engine (systemctl --user restart pipewire)"),
         ]
     }
 ]
 
+ARCH_LOGO = f"""
+{C_ARCH}      /\\      {C_BOLD}{C_CYAN}╭──────────────────────────────────────────╮
+{C_ARCH}     /  \\     {C_BOLD}{C_CYAN}│  {C_BOLD}ARCH LINUX - TERMINAL CHEATSHEET{C_CYAN}        │
+{C_ARCH}    /    \\    {C_BOLD}{C_CYAN}│  {C_RESET}{C_DIM}Master your keyboard-driven workflow.{C_BOLD}{C_CYAN}   │
+{C_ARCH}   /      \\   {C_BOLD}{C_CYAN}╰──────────────────────────────────────────╯
+{C_ARCH}  /   ,,   \\  
+{C_ARCH} /   |  |   \\ 
+{C_ARCH}/_-''    ''-_\\{C_RESET}
+"""
+
 def main():
     query = sys.argv[1].lower().strip() if len(sys.argv) > 1 else ""
 
-    print(f"\n{C_BOLD}{C_CYAN}┏━ SYSTEM & DEVELOPER CHEATSHEET ━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓{C_RESET}")
+    print(ARCH_LOGO)
+    
     if query:
-        print(f"  {C_DIM}Filtering commands matching: '{query}'{C_RESET}")
+        print(f"  {C_DIM}Filtering commands matching: '{query}'{C_RESET}\n")
 
     matched_total = 0
 
@@ -146,18 +141,23 @@ def main():
             continue
 
         matched_total += len(filtered_items)
-        print(f"\n  {C_BOLD}{sec['color']}{sec['title']}{C_RESET}")
-        for cmd, desc in filtered_items:
-            dots = 28 - len(cmd)
+        print(f" {C_BOLD}{sec['color']} ┌─ {sec['title']}{C_RESET}")
+        
+        for i, (cmd, desc) in enumerate(filtered_items):
+            is_last = (i == len(filtered_items) - 1)
+            branch = "└─" if is_last else "├─"
+            
+            dots = 22 - len(cmd)
             dots_str = f"{C_GRAY}{'·' * max(2, dots)}{C_RESET}"
-            print(f"    {C_BOLD}{C_CYAN}{cmd:<12}{C_RESET} {dots_str} {desc}")
+            print(f" {C_BOLD}{sec['color']} │  {C_BOLD}{C_CYAN}{cmd:<18}{C_RESET} {dots_str} {desc}")
+            
+        print() # Spacer
 
     if matched_total == 0:
         print(f"\n  {C_RED}No commands found matching '{query}'.{C_RESET}")
         print(f"  {C_DIM}Type 'cmds' to see the full list.{C_RESET}")
 
-    print(f"\n{C_BOLD}{C_CYAN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛{C_RESET}")
-    print(f"  {C_DIM}Tip: Type 'cmds <keyword>' to filter (e.g. 'cmds git', 'cmds port', 'cmds db'){C_RESET}\n")
+    print(f"  {C_DIM}Tip: Type 'cmds <keyword>' to filter (e.g. 'cmds git', 'cmds hypr', 'cmds vim'){C_RESET}\n")
 
 if __name__ == "__main__":
     main()

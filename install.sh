@@ -26,16 +26,23 @@ create_symlink() {
     ln -s "$source_file" "$target_file"
 }
 
-# Install .bashrc
+# Install .bashrc and git configs
 create_symlink "$DOTFILES_DIR/.bashrc" "$HOME/.bashrc"
+create_symlink "$DOTFILES_DIR/.gitconfig" "$HOME/.gitconfig"
+create_symlink "$DOTFILES_DIR/.gitconfig-local" "$HOME/.gitconfig-local"
 
 # Install .config directories
 mkdir -p "$HOME/.config"
-for dir in hypr quickshell mako kitty fastfetch; do
+for dir in hypr quickshell mako kitty fastfetch easyeffects; do
     if [ -d "$DOTFILES_DIR/.config/$dir" ]; then
         create_symlink "$DOTFILES_DIR/.config/$dir" "$HOME/.config/$dir"
     fi
 done
+
+# Install starship.toml
+if [ -f "$DOTFILES_DIR/.config/starship.toml" ]; then
+    create_symlink "$DOTFILES_DIR/.config/starship.toml" "$HOME/.config/starship.toml"
+fi
 
 # Install systemd user services
 mkdir -p "$HOME/.config/systemd/user"

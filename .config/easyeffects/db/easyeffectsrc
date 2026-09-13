@@ -1,0 +1,10 @@
+[Presets]
+lastLoadedOutputPreset=Laptop_Boost
+
+[StreamOutputs]
+mostUsedPresets=Huawei MateBook - Max Loudness & Clarity,Laptop_Boost
+plugins=equalizer#0,exciter#0,autogain#0,limiter#0
+usedPresets=Huawei MateBook - Max Loudness & Clarity:6,Laptop_Boost:2
+
+[Window]
+height=441
