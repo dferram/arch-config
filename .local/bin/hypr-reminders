@@ -98,6 +98,17 @@ def toggle_done(rem_id):
             return r
     return None
 
+CUSTOM_ICON = Path.home() / ".local" / "share" / "icons" / "calendar-3d.svg"
+ICON_REMINDER = str(CUSTOM_ICON) if CUSTOM_ICON.exists() else "preferences-system-time"
+
+def play_sound(sound_name="message"):
+    sound_path = Path("/usr/share/sounds/freedesktop/stereo") / f"{sound_name}.oga"
+    if sound_path.exists():
+        try:
+            subprocess.Popen(["pw-play", str(sound_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
 def check_and_notify(reminders=None):
     if reminders is None:
         reminders = load_reminders()
@@ -120,23 +131,27 @@ def check_and_notify(reminders=None):
 
         # 5 minutes before notification (between 0 and 310 seconds before event)
         if 0 <= diff_seconds <= 310 and not rem.get("notified_5min", False):
-            title = f"Reminder in 5 min: {rem.get('title')}"
+            mins_left = max(1, int(round(diff_seconds / 60)))
+            time_label = f"{mins_left} min" if mins_left > 1 else "1 min"
+            title = f"Reminder in {time_label}: {rem.get('title')}"
             body = f"Category: {rem.get('category', 'Personal')} | Time: {t_str}"
             if rem.get("notes"):
                 body += f"\nNote: {rem['notes']}"
             try:
                 subprocess.run([
                     "notify-send", "-a", "Reminders",
-                    "-i", "appointment-reminder",
+                    "-i", ICON_REMINDER,
                     "-u", "normal",
                     "-t", "9000",
                     title, body
                 ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                play_sound("message")
             except Exception:
                 pass
 
             rem["notified_5min"] = True
             changed = True
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Sent alert for upcoming event: {rem.get('title')}", flush=True)
 
         # Exactly at due time (between -60 and 45 seconds)
         elif -60 <= diff_seconds <= 45 and not rem.get("notified_due", False):
@@ -147,27 +162,51 @@ def check_and_notify(reminders=None):
             try:
                 subprocess.run([
                     "notify-send", "-a", "Reminders",
-                    "-i", "appointment-reminder",
+                    "-i", ICON_REMINDER,
                     "-u", "critical",
                     "-t", "12000",
+                    title, body
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                play_sound("alarm-clock-elapsed")
+            except Exception:
+                pass
+
+            rem["notified_due"] = True
+            changed = True
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Sent due alert for: {rem.get('title')}", flush=True)
+
+        # Catch-up missed reminder if system was asleep/suspended/off (within 3 hours)
+        elif -10800 <= diff_seconds < -60 and not rem.get("notified_due", False):
+            title = f"Missed Event: {rem.get('title')}"
+            body = f"Was due today at {t_str} ({rem.get('category', 'Personal')})"
+            if rem.get("notes"):
+                body += f"\n{rem['notes']}"
+            try:
+                subprocess.run([
+                    "notify-send", "-a", "Reminders",
+                    "-i", ICON_REMINDER,
+                    "-u", "normal",
+                    "-t", "8000",
                     title, body
                 ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except Exception:
                 pass
 
             rem["notified_due"] = True
+            rem["notified_5min"] = True
             changed = True
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Sent catch-up alert for missed event: {rem.get('title')}", flush=True)
 
     if changed:
         save_reminders(reminders)
 
 def run_daemon():
-    print("Starting hypr-reminders notification daemon...")
+    print("Starting hypr-reminders notification daemon...", flush=True)
     while True:
         try:
             check_and_notify()
         except Exception as e:
-            print(f"Error in daemon loop: {e}", file=sys.stderr)
+            print(f"Error in daemon loop: {e}", file=sys.stderr, flush=True)
         time.sleep(15)
 
 def main():
