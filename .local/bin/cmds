@@ -103,6 +103,7 @@ SECTIONS = [
             ("intel_gpu_top", "Intel Arc GPU load, render engines & wattage"),
             ("sudo ufw", "Check active firewall status & blocked connections"),
             ("sudo timeshift", "Create an immediate safety system restore point"),
+            ("pw_top", "PipeWire Top: Live audio streams, latency & DSP monitor"),
             ("sysctl restart", "Restart audio engine (systemctl --user restart pipewire)"),
         ]
     }
