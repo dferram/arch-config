@@ -100,20 +100,20 @@ Item {
         return theme.blue;
     }
 
-    // Refined horizontal capsule battery icon with sleek proportions and centered nub
+    // Lucide horizontal battery icon (matching Night Mode aesthetic)
     property string iconDataUri: {
         let col = theme.urlColor(root.batteryColor);
         let fillW = Math.max(1.8, Math.min(12.0, (currentPercent / 100.0) * 12.0));
         let nub = "<path d='M19 10.2 h1.2 c0.6 0 1.0 0.4 1.0 1.0 v1.6 c0 0.6 -0.4 1.0 -1.0 1.0 H19' fill='" + col + "'/>";
         if (isCharging) {
             return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
-                   "<rect x='2.5' y='6' width='16' height='12' rx='3.0' stroke='" + col + "' stroke-width='1.8'/>" + nub +
-                   "<path d='M11.5 6.8 L7.5 12 h4 L9.5 17.2 L14.5 11.5 h-4 z' fill='" + col + "'/></svg>";
+                   "<rect x='2.5' y='6.5' width='16' height='11' rx='2.5' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>" + nub +
+                   "<path d='M11.5 7 L8 12 h3.5 L9.5 17 L14 11.5 h-3 z' fill='" + col + "'/></svg>";
         } else {
             return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
-                   "<rect x='2.5' y='6' width='16' height='12' rx='3.0' stroke='" + col + "' stroke-width='1.8'/>" + nub +
-                   "<rect x='4.5' y='8' width='12' height='8' rx='1.5' fill='" + col + "' fill-opacity='0.16'/>" +
-                   "<rect x='4.5' y='8' width='" + fillW + "' height='8' rx='1.5' fill='" + col + "'/></svg>";
+                   "<rect x='2.5' y='6.5' width='16' height='11' rx='2.5' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>" + nub +
+                   "<rect x='4.5' y='8.5' width='12' height='7' rx='1.2' fill='" + col + "' fill-opacity='0.16'/>" +
+                   "<rect x='4.5' y='8.5' width='" + fillW + "' height='7' rx='1.2' fill='" + col + "'/></svg>";
         }
     }
 
@@ -186,7 +186,7 @@ Item {
                         }
                         Text {
                             visible: !root.isCharging && root.currentPercent <= 10
-                            text: root.currentPercent <= 5 ? "Batería Crítica: Conectar cargador" : "Batería Baja: Conectar cargador"
+                            text: root.currentPercent <= 5 ? "Critical Battery: Connect charger" : "Low Battery: Connect charger"
                             color: root.batteryColor
                             font.family: theme.fontFamily
                             font.pixelSize: 10

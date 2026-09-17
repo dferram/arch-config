@@ -24,13 +24,14 @@ Item {
     property string currentPosition: "right"
     property string positionLabel: "Right"
 
-    // Modern monitor SVG icon
+    // Lucide monitor SVG icon (matching Night Mode aesthetic)
     property string iconDataUri: {
         let col = theme.urlColor(root.hasExternal ? theme.blue : theme.textMuted);
         return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
-               "<rect x='3' y='3.5' width='18' height='13' rx='2' stroke='" + col + "' stroke-width='1.8'/>" +
-               "<path d='M9 19.5 h6 M12 16.5 v3' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round'/>" +
-               (root.hasExternal ? "<circle cx='18' cy='6.5' r='1.8' fill='" + theme.urlColor(theme.green) + "'/>" : "") +
+               "<rect x='2' y='3' width='20' height='14' rx='2.5' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>" +
+               "<line x1='8' y1='21' x2='16' y2='21' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>" +
+               "<line x1='12' y1='17' x2='12' y2='21' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>" +
+               (root.hasExternal ? "<circle cx='18' cy='7' r='1.6' fill='" + theme.urlColor(theme.green) + "' stroke='none'/>" : "") +
                "</svg>";
     }
 

@@ -7,6 +7,32 @@ import "theme"
 ShellRoot {
     id: shell
 
+    // Central OSD Event Broker for smooth cross-component synchronization
+    QtObject {
+        id: osdService
+        property string osdType: "volume"
+        property int level: 50
+        property bool isMuted: false
+        signal triggered()
+
+        function show(type, val, muted) {
+            osdType = type;
+            level = Math.max(0, Math.min(100, val));
+            isMuted = !!muted;
+            triggered();
+        }
+    }
+
+    // Desktop Notification Daemon with Dynamic App Colors & Moving LED Border
+    NotificationOverlay {
+        osdService: osdService
+    }
+
+    // Top-Center Dynamic Island Liquid Glass OSD for Volume & Brightness
+    OsdOverlay {
+        osdService: osdService
+    }
+
     Variants {
         model: Quickshell.screens
 

@@ -96,16 +96,16 @@ def send_alert(level, current_pct=None):
     pct = current_pct if current_pct is not None else level
 
     if level == 5:
-        title = f"Batería crítica ({pct}%)"
-        body = "Nivel de batería críticamente bajo. Conecte el adaptador de corriente inmediatamente."
+        title = f"Critical Battery ({pct}%)"
+        body = "Battery level is critically low. Connect the charger immediately."
         urgency = "critical"
         icon = "battery-empty-symbolic"
         timeout_ms = "10000"
         sound = SOUND_CRITICAL
     else:
-        title = f"Batería baja ({pct}%)"
-        body = "Nivel de batería al 10%. Conecte el adaptador de corriente."
-        urgency = "critical"  # critical ensures Mako displays red outline and stays prominent
+        title = f"Low Battery ({pct}%)"
+        body = f"Battery level at {pct}%. Connect the charger soon."
+        urgency = "critical"  # critical ensures notification stays prominent
         icon = "battery-caution-symbolic"
         timeout_ms = "7000"
         sound = SOUND_WARNING

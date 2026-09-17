@@ -31,6 +31,20 @@ def get_brightness_info():
     except Exception:
         return None, 0, 0, 0
 
+def get_brightness_color():
+    try:
+        res = subprocess.check_output(["/home/ferram/.local/bin/hypr-night-mode", "status"], stderr=subprocess.DEVNULL).decode().strip()
+        if res == "on":
+            return "#f59e0b"
+    except Exception:
+        pass
+    return "#fbbf24"
+
+def make_bar(pct, total=10, fill_color='#fbbf24'):
+    filled = max(0, min(total, round((pct / 100.0) * total)))
+    empty = total - filled
+    return f"<span color='{fill_color}'>{'▬' * filled}</span><span color='#ffffff18'>{'▬' * empty}</span>"
+
 def set_brightness(target_pct):
     name, cur, max_b, pct = get_brightness_info()
     if not name or max_b <= 0:
@@ -54,14 +68,15 @@ def set_brightness(target_pct):
         return False
 
     # Notify user
+    icon = "brightness-low-symbolic" if target_pct < 40 else "brightness-high-symbolic"
     try:
         subprocess.run([
             "notify-send", "-a", "Brightness",
-            "-i", "display-brightness-symbolic",
-            "-t", "1500",
-            "-h", f"int:value:{target_pct}",
+            "-i", icon,
+            "-t", "1200",
             "-h", "string:x-canonical-private-synchronous:brightness",
             "-h", "string:synchronous:brightness",
+            "-h", f"int:value:{target_pct}",
             f"Brightness {target_pct}%"
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:

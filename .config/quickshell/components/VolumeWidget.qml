@@ -18,6 +18,17 @@ Item {
 
     property int volumeLevel: 100
     property bool isMuted: false
+    property var osdService: null
+
+    Connections {
+        target: root.osdService
+        function onTriggered() {
+            if (root.osdService && root.osdService.osdType === "volume") {
+                root.volumeLevel = root.osdService.level;
+                root.isMuted = root.osdService.isMuted;
+            }
+        }
+    }
 
     // Auto-dismiss timer: automatically closes popup after 3.5s of inactivity
     Timer {
@@ -82,29 +93,29 @@ Item {
         execProc.running = true;
     }
 
-    // High quality dynamic Volume SVG Icon
+    // High quality Lucide Volume SVG Icon (matching Night Mode aesthetic)
     property string iconDataUri: {
-        let col = root.isMuted ? "%23ef4444" : "%2338bdf8";
+        let col = root.isMuted ? "%23ef4444" : "%23ffffff";
         if (root.isMuted) {
-            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
-                   "<path d='M11 5L6 9H2v6h4l5 4V5z' fill='" + col + "'/>" +
-                   "<line x1='22' y1='9' x2='16' y2='15' stroke='" + col + "' stroke-width='2' stroke-linecap='round'/>" +
-                   "<line x1='16' y1='9' x2='22' y2='15' stroke='" + col + "' stroke-width='2' stroke-linecap='round'/>" +
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>" +
+                   "<polygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/>" +
+                   "<line x1='22' y1='9' x2='16' y2='15'/>" +
+                   "<line x1='16' y1='9' x2='22' y2='15'/>" +
                    "</svg>";
         } else if (root.volumeLevel === 0) {
-            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
-                   "<path d='M11 5L6 9H2v6h4l5 4V5z' fill='" + col + "'/>" +
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>" +
+                   "<polygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/>" +
                    "</svg>";
         } else if (root.volumeLevel < 50) {
-            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
-                   "<path d='M11 5L6 9H2v6h4l5 4V5z' fill='" + col + "'/>" +
-                   "<path d='M15.5 8.5a5 5 0 0 1 0 7' stroke='" + col + "' stroke-width='2' stroke-linecap='round'/>" +
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>" +
+                   "<polygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/>" +
+                   "<path d='M15.54 8.46a5 5 0 0 1 0 7.07'/>" +
                    "</svg>";
         } else {
-            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
-                   "<path d='M11 5L6 9H2v6h4l5 4V5z' fill='" + col + "'/>" +
-                   "<path d='M15.5 8.5a5 5 0 0 1 0 7' stroke='" + col + "' stroke-width='2' stroke-linecap='round'/>" +
-                   "<path d='M19 5a9.5 9.5 0 0 1 0 14' stroke='" + col + "' stroke-width='2' stroke-linecap='round'/>" +
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>" +
+                   "<polygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/>" +
+                   "<path d='M15.54 8.46a5 5 0 0 1 0 7.07'/>" +
+                   "<path d='M19.07 4.93a10 10 0 0 1 0 14.14'/>" +
                    "</svg>";
         }
     }
@@ -174,77 +185,144 @@ Item {
                 spacing: 12
 
                 // Header
-                Row {
+                Item {
                     width: parent.width
-                    spacing: 10
+                    height: 32
 
-                    Rectangle {
-                        width: 32
-                        height: 32
-                        radius: theme.radiusSmall
-                        color: root.isMuted ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.15) : Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.15)
-                        border.color: root.isMuted ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.3) : Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.3)
-                        border.width: 1
+                    Row {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 10
 
-                        Image {
-                            anchors.centerIn: parent
-                            width: 18
-                            height: 18
-                            source: root.iconDataUri
+                        Rectangle {
+                            width: 32
+                            height: 32
+                            radius: theme.radiusSmall
+                            color: root.isMuted ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.15) : Qt.rgba(255, 255, 255, 0.12)
+                            border.color: root.isMuted ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.35) : Qt.rgba(255, 255, 255, 0.22)
+                            border.width: 1
+
+                            Image {
+                                anchors.centerIn: parent
+                                width: 18
+                                height: 18
+                                source: root.iconDataUri
+                            }
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 1
+
+                            Text {
+                                text: "Sound & Volume"
+                                color: theme.text
+                                font.family: theme.fontFamily
+                                font.pixelSize: 13
+                                font.weight: Font.Bold
+                            }
+
+                            Text {
+                                text: root.isMuted ? "Audio Output Muted" : (root.volumeLevel + "% Output Level")
+                                color: root.isMuted ? theme.red : theme.textSub
+                                font.family: theme.fontFamily
+                                font.pixelSize: 10
+                            }
                         }
                     }
 
-                    Column {
+                    Item { Layout.fillWidth: true; width: parent.width - 230; height: 1 }
+
+                    // Level Badge
+                    Rectangle {
+                        anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 2
+                        width: badgeTxt.implicitWidth + 14
+                        height: 22
+                        radius: 11
+                        color: root.isMuted ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.18) : Qt.rgba(255, 255, 255, 0.12)
+                        border.color: root.isMuted ? theme.red : Qt.rgba(255, 255, 255, 0.25)
+                        border.width: 1
 
                         Text {
-                            text: "Volume Output"
-                            color: theme.text
+                            id: badgeTxt
+                            anchors.centerIn: parent
+                            text: root.isMuted ? "MUTED" : (root.volumeLevel + "%")
+                            color: root.isMuted ? theme.red : theme.text
                             font.family: theme.fontFamily
-                            font.pixelSize: 13
-                            font.bold: true
-                        }
-
-                        Text {
-                            text: root.isMuted ? "Audio Muted" : (root.volumeLevel + "% Level")
-                            color: root.isMuted ? theme.red : theme.blueLight
-                            font.family: theme.fontFamily
-                            font.pixelSize: 11
+                            font.pixelSize: 10
+                            font.weight: Font.Bold
                         }
                     }
                 }
 
-                // Sleek Interactive Volume Slider
+                // Apple Control Center Style Liquid Glass Volume Slider
                 Rectangle {
                     id: sliderTrack
                     width: parent.width
-                    height: 18
-                    radius: 9
-                    color: Qt.rgba(14/255, 20/255, 32/255, 0.95)
-                    border.color: Qt.rgba(255, 255, 255, 0.08)
+                    height: 44
+                    radius: 22
+                    color: Qt.rgba(255, 255, 255, 0.08)
+                    border.color: sliderMouse.containsMouse ? theme.borderGlow : theme.borderSubtle
                     border.width: 1
+                    clip: true
 
+                    // Filled Portion (Clean Apple Frosted White Glass)
                     Rectangle {
                         id: sliderFill
-                        width: Math.max(8, Math.min(parent.width, parent.width * (root.isMuted ? 0 : (root.volumeLevel / 100.0))))
-                        height: parent.height
-                        radius: 9
-                        color: root.isMuted ? theme.textMuted : theme.blue
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: root.isMuted ? 0 : Math.max(44, parent.width * (root.volumeLevel / 100.0))
+                        radius: 22
+                        color: root.isMuted ? theme.surfaceHover : "#ffffff"
 
                         Behavior on width { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
 
-                        // Glowing knob indicator at slider head
+                        // Specular Top Shine
                         Rectangle {
+                            anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.rightMargin: 2
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 12
-                            height: 12
-                            radius: 6
-                            color: "#ffffff"
-                            visible: !root.isMuted && root.volumeLevel > 3
+                            anchors.top: parent.top
+                            height: 1
+                            color: Qt.rgba(255, 255, 255, 0.5)
+                            radius: 22
                         }
+                    }
+
+                    // Embedded Speaker Icon (iOS Control Center style - dark on white fill, light on dark)
+                    Image {
+                        id: sliderIcon
+                        anchors.left: parent.left
+                        anchors.leftMargin: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 20
+                        height: 20
+                        source: {
+                            if (root.isMuted) {
+                                return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'><path d='M11 5L6 9H2v6h4l5 4V5z' fill='%23ef4444'/><line x1='22' y1='9' x2='16' y2='15' stroke='%23ef4444' stroke-width='2' stroke-linecap='round'/><line x1='16' y1='9' x2='22' y2='15' stroke='%23ef4444' stroke-width='2' stroke-linecap='round'/></svg>";
+                            }
+                            let col = (root.volumeLevel > 18) ? "%2308080a" : "%23ffffff";
+                            if (root.volumeLevel === 0) {
+                                return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'><path d='M11 5L6 9H2v6h4l5 4V5z' fill='" + col + "'/></svg>";
+                            } else if (root.volumeLevel < 50) {
+                                return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'><path d='M11 5L6 9H2v6h4l5 4V5z' fill='" + col + "'/><path d='M15.5 8.5a5 5 0 0 1 0 7' stroke='" + col + "' stroke-width='2' stroke-linecap='round'/></svg>";
+                            } else {
+                                return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'><path d='M11 5L6 9H2v6h4l5 4V5z' fill='" + col + "'/><path d='M15.5 8.5a5 5 0 0 1 0 7' stroke='" + col + "' stroke-width='2' stroke-linecap='round'/><path d='M19 5a9.5 9.5 0 0 1 0 14' stroke='" + col + "' stroke-width='2' stroke-linecap='round'/></svg>";
+                            }
+                        }
+                    }
+
+                    // Embedded Level Text
+                    Text {
+                        anchors.right: parent.right
+                        anchors.rightMargin: 16
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.isMuted ? "Muted" : (root.volumeLevel + "%")
+                        color: (root.volumeLevel > 75 && !root.isMuted) ? "#08080a" : theme.text
+                        font.family: theme.fontFamily
+                        font.pixelSize: 12
+                        font.weight: Font.Bold
                     }
 
                     MouseArea {
@@ -267,29 +345,53 @@ Item {
                             if (pressed) updateFromMouse(mouse.x);
                         }
                     }
+
+                    WheelHandler {
+                        target: sliderTrack
+                        onWheel: (event) => {
+                            if (event.angleDelta.y > 0) {
+                                root.setVol("up", "5");
+                            } else if (event.angleDelta.y < 0) {
+                                root.setVol("down", "5");
+                            }
+                        }
+                    }
                 }
 
-                // Quick buttons: Mute Toggle + Step buttons
+                // Quick Controls: Mute Toggle + Presets (25%, 50%, 75%, 100%)
                 Row {
                     width: parent.width
                     spacing: 6
 
                     // Mute Button
                     Rectangle {
-                        width: (parent.width - 12) / 3
-                        height: 28
-                        radius: theme.radiusSmall
+                        width: 68
+                        height: 26
+                        radius: 8
                         color: root.isMuted ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.25) : (muteMouse.containsMouse ? theme.surfaceHover : theme.surface)
-                        border.color: root.isMuted ? theme.red : theme.borderSubtle
+                        border.color: root.isMuted ? theme.red : (muteMouse.containsMouse ? theme.borderGlow : theme.borderSubtle)
                         border.width: 1
 
-                        Text {
+                        Row {
                             anchors.centerIn: parent
-                            text: root.isMuted ? "Unmute" : "Mute"
-                            color: root.isMuted ? theme.red : theme.text
-                            font.family: theme.fontFamily
-                            font.pixelSize: 11
-                            font.weight: Font.Medium
+                            spacing: 4
+
+                            Image {
+                                width: 14
+                                height: 14
+                                anchors.verticalCenter: parent.verticalCenter
+                                source: root.iconDataUri
+                                fillMode: Image.PreserveAspectFit
+                            }
+
+                            Text {
+                                text: root.isMuted ? "Unmute" : "Mute"
+                                color: root.isMuted ? theme.red : theme.text
+                                font.family: theme.fontFamily
+                                font.pixelSize: 10
+                                font.weight: Font.DemiBold
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
                         }
 
                         MouseArea {
@@ -304,62 +406,39 @@ Item {
                         }
                     }
 
-                    // -5% Button
-                    Rectangle {
-                        width: (parent.width - 12) / 3
-                        height: 28
-                        radius: theme.radiusSmall
-                        color: minusMouse.containsMouse ? theme.surfaceHover : theme.surface
-                        border.color: theme.borderSubtle
-                        border.width: 1
+                    // Presets
+                    Repeater {
+                        model: [25, 50, 75, 100]
 
-                        Text {
-                            anchors.centerIn: parent
-                            text: "-5%"
-                            color: theme.text
-                            font.family: theme.fontFamily
-                            font.pixelSize: 11
-                            font.weight: Font.Medium
-                        }
+                        Rectangle {
+                            width: (cardLayout.width - 68 - 24) / 4
+                            height: 26
+                            radius: 8
+                            property bool isNear: !root.isMuted && Math.abs(root.volumeLevel - modelData) <= 12
+                            color: isNear ? Qt.rgba(255, 255, 255, 0.22) : (pMouse.containsMouse ? theme.surfaceHover : theme.surface)
+                            border.color: isNear ? "#ffffff" : (pMouse.containsMouse ? theme.borderGlow : theme.borderSubtle)
+                            border.width: 1
 
-                        MouseArea {
-                            id: minusMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                autoCloseTimer.restart();
-                                root.setVol("down", "5");
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData + "%"
+                                color: parent.isNear ? "#ffffff" : (pMouse.containsMouse ? theme.text : theme.textMuted)
+                                font.family: theme.fontFamily
+                                font.pixelSize: 10
+                                font.weight: parent.isNear ? Font.Bold : Font.Normal
                             }
-                        }
-                    }
 
-                    // +5% Button
-                    Rectangle {
-                        width: (parent.width - 12) / 3
-                        height: 28
-                        radius: theme.radiusSmall
-                        color: plusMouse.containsMouse ? theme.surfaceHover : theme.surface
-                        border.color: theme.borderSubtle
-                        border.width: 1
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "+5%"
-                            color: theme.blue
-                            font.family: theme.fontFamily
-                            font.pixelSize: 11
-                            font.weight: Font.Medium
-                        }
-
-                        MouseArea {
-                            id: plusMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                autoCloseTimer.restart();
-                                root.setVol("up", "5");
+                            MouseArea {
+                                id: pMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    autoCloseTimer.restart();
+                                    root.volumeLevel = modelData;
+                                    if (root.isMuted) root.isMuted = false;
+                                    root.setVol("set", modelData);
+                                }
                             }
                         }
                     }

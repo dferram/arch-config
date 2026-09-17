@@ -18,6 +18,16 @@ Item {
 
     property int brightnessLevel: 60
     property bool nightModeActive: false
+    property var osdService: null
+
+    Connections {
+        target: root.osdService
+        function onTriggered() {
+            if (root.osdService && root.osdService.osdType === "brightness") {
+                root.brightnessLevel = root.osdService.level;
+            }
+        }
+    }
 
     // Auto-dismiss timer: automatically closes popup after 3.5s of inactivity
     Timer {
@@ -99,12 +109,19 @@ Item {
         execProc.running = true;
     }
 
-    // Clean, crisp SVG sun icon (glows amber when warm night light is active)
+    // Lucide Sun SVG icon (matching Night Mode aesthetic)
     property string iconDataUri: {
-        let col = root.nightModeActive ? "%23f59e0b" : "%2338bdf8";
-        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
-               "<circle cx='12' cy='12' r='4' stroke='" + col + "' stroke-width='2'/>" +
-               "<path d='M12 2v2 M12 20v2 M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41 M2 12h2 M20 12h2 M6.34 17.66l-1.41 1.41 M19.07 4.93l-1.41 1.41' stroke='" + col + "' stroke-width='2' stroke-linecap='round'/>" +
+        let col = root.nightModeActive ? "%23f59e0b" : "%23ffffff";
+        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>" +
+               "<circle cx='12' cy='12' r='4'/>" +
+               "<line x1='12' y1='2' x2='12' y2='4'/>" +
+               "<line x1='12' y1='20' x2='12' y2='22'/>" +
+               "<line x1='4.93' y1='4.93' x2='6.34' y2='6.34'/>" +
+               "<line x1='17.66' y1='17.66' x2='19.07' y2='19.07'/>" +
+               "<line x1='2' y1='12' x2='4' y2='12'/>" +
+               "<line x1='20' y1='12' x2='22' y2='12'/>" +
+               "<line x1='4.93' y1='19.07' x2='6.34' y2='17.66'/>" +
+               "<line x1='17.66' y1='6.34' x2='19.07' y2='4.93'/>" +
                "</svg>";
     }
 
@@ -145,7 +162,7 @@ Item {
         anchor.margins.top: 8
 
         visible: root.activePopupId === "brightness"
-        implicitWidth: 290
+        implicitWidth: 280
         implicitHeight: cardLayout.implicitHeight + 28
         color: "transparent"
 
@@ -174,76 +191,134 @@ Item {
                 spacing: 12
 
                 // Header
-                Row {
+                Item {
                     width: parent.width
-                    spacing: 10
+                    height: 32
 
-                    Rectangle {
-                        width: 32
-                        height: 32
-                        radius: theme.radiusSmall
-                        color: root.nightModeActive ? Qt.rgba(245/255, 158/255, 11/255, 0.18) : Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.15)
-                        border.color: root.nightModeActive ? Qt.rgba(245/255, 158/255, 11/255, 0.4) : Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.3)
-                        border.width: 1
+                    Row {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 10
 
-                        Image {
-                            anchors.centerIn: parent
-                            width: 18
-                            height: 18
-                            source: root.iconDataUri
+                        Rectangle {
+                            width: 32
+                            height: 32
+                            radius: theme.radiusSmall
+                            color: root.nightModeActive ? Qt.rgba(245/255, 158/255, 11/255, 0.18) : Qt.rgba(255, 255, 255, 0.12)
+                            border.color: root.nightModeActive ? Qt.rgba(245/255, 158/255, 11/255, 0.4) : Qt.rgba(255, 255, 255, 0.22)
+                            border.width: 1
+
+                            Image {
+                                anchors.centerIn: parent
+                                width: 18
+                                height: 18
+                                source: root.iconDataUri
+                            }
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 1
+
+                            Text {
+                                text: "Display & Brightness"
+                                color: theme.text
+                                font.family: theme.fontFamily
+                                font.pixelSize: 13
+                                font.weight: Font.Bold
+                            }
+
+                            Text {
+                                text: root.brightnessLevel + "% Backlight" + (root.nightModeActive ? " • Warm Tint" : "")
+                                color: root.nightModeActive ? "#f59e0b" : theme.textSub
+                                font.family: theme.fontFamily
+                                font.pixelSize: 10
+                            }
                         }
                     }
 
-                    Column {
+                    Item { Layout.fillWidth: true; width: parent.width - 230; height: 1 }
+
+                    // Level Badge
+                    Rectangle {
+                        anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 2
+                        width: badgeTxt.implicitWidth + 14
+                        height: 22
+                        radius: 11
+                        color: root.nightModeActive ? Qt.rgba(245/255, 158/255, 11/255, 0.2) : Qt.rgba(255, 255, 255, 0.12)
+                        border.color: root.nightModeActive ? "#f59e0b" : Qt.rgba(255, 255, 255, 0.25)
+                        border.width: 1
 
                         Text {
-                            text: "Display Brightness"
-                            color: theme.text
+                            id: badgeTxt
+                            anchors.centerIn: parent
+                            text: root.brightnessLevel + "%"
+                            color: root.nightModeActive ? "#f59e0b" : theme.text
                             font.family: theme.fontFamily
-                            font.pixelSize: 13
-                            font.bold: true
-                        }
-
-                        Text {
-                            text: root.brightnessLevel + "% Backlight" + (root.nightModeActive ? " • Warm Tint Active" : "")
-                            color: root.nightModeActive ? "#f59e0b" : theme.blueLight
-                            font.family: theme.fontFamily
-                            font.pixelSize: 11
+                            font.pixelSize: 10
+                            font.weight: Font.Bold
                         }
                     }
                 }
 
-                // Sleek Interactive Brightness Slider
+                // Apple Control Center Style Liquid Glass Brightness Slider
                 Rectangle {
                     id: sliderTrack
                     width: parent.width
-                    height: 18
-                    radius: 9
-                    color: Qt.rgba(14/255, 20/255, 32/255, 0.95)
-                    border.color: Qt.rgba(255, 255, 255, 0.08)
+                    height: 44
+                    radius: 22
+                    color: Qt.rgba(255, 255, 255, 0.08)
+                    border.color: sliderMouse.containsMouse ? theme.borderGlow : theme.borderSubtle
                     border.width: 1
+                    clip: true
 
+                    // Filled Portion (Clean Apple Frosted White Glass)
                     Rectangle {
                         id: sliderFill
-                        width: Math.max(8, Math.min(parent.width, parent.width * (root.brightnessLevel / 100.0)))
-                        height: parent.height
-                        radius: 9
-                        color: root.nightModeActive ? "#f59e0b" : theme.blue
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: Math.max(44, parent.width * (root.brightnessLevel / 100.0))
+                        radius: 22
+                        color: root.nightModeActive ? "#f59e0b" : "#ffffff"
 
                         Behavior on width { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
 
-                        // Glowing knob indicator at slider head
+                        // Specular Top Shine
                         Rectangle {
+                            anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.rightMargin: 2
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 12
-                            height: 12
-                            radius: 6
-                            color: "#ffffff"
+                            anchors.top: parent.top
+                            height: 1
+                            color: Qt.rgba(255, 255, 255, 0.5)
+                            radius: 22
                         }
+                    }
+
+                    // Embedded Sun Icon (iOS Control Center style - dark on white fill, light on dark)
+                    Image {
+                        id: sliderIcon
+                        anchors.left: parent.left
+                        anchors.leftMargin: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 20
+                        height: 20
+                        source: (root.brightnessLevel > 18)
+                            ? "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%2308080a' stroke-width='2' stroke-linecap='round'><circle cx='12' cy='12' r='4'/><path d='M12 2v2 M12 20v2 M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41 M2 12h2 M20 12h2 M6.34 17.66l-1.41 1.41 M19.07 4.93l-1.41 1.41'/></svg>"
+                            : root.iconDataUri
+                    }
+
+                    // Embedded Level Text
+                    Text {
+                        anchors.right: parent.right
+                        anchors.rightMargin: 16
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.brightnessLevel + "%"
+                        color: (root.brightnessLevel > 75) ? "#08080a" : theme.text
+                        font.family: theme.fontFamily
+                        font.pixelSize: 12
+                        font.weight: Font.Bold
                     }
 
                     MouseArea {
@@ -265,9 +340,20 @@ Item {
                             if (pressed) updateFromMouse(mouse.x);
                         }
                     }
+
+                    WheelHandler {
+                        target: sliderTrack
+                        onWheel: (event) => {
+                            if (event.angleDelta.y > 0) {
+                                root.setBright("up", "5");
+                            } else if (event.angleDelta.y < 0) {
+                                root.setBright("down", "5");
+                            }
+                        }
+                    }
                 }
 
-                // Quick presets
+                // Quick Presets (25%, 50%, 75%, 100%)
                 Row {
                     width: parent.width
                     spacing: 6
@@ -277,17 +363,19 @@ Item {
 
                         Rectangle {
                             width: (cardLayout.width - 18) / 4
-                            height: 24
-                            radius: theme.radiusSmall
+                            height: 26
+                            radius: 13
                             property bool isNear: Math.abs(root.brightnessLevel - modelData) <= 12
-                            color: isNear ? (root.nightModeActive ? Qt.rgba(245/255, 158/255, 11/255, 0.22) : Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.2)) : (pMouse.containsMouse ? theme.surfaceHover : theme.surface)
-                            border.color: isNear ? (root.nightModeActive ? "#f59e0b" : theme.blue) : theme.borderSubtle
+                            color: isNear
+                                ? (root.nightModeActive ? Qt.rgba(245/255, 158/255, 11/255, 0.22) : Qt.rgba(255, 255, 255, 0.22))
+                                : (pMouse.containsMouse ? theme.surfaceHover : theme.surface)
+                            border.color: isNear ? (root.nightModeActive ? "#f59e0b" : "#ffffff") : theme.borderSubtle
                             border.width: 1
 
                             Text {
                                 anchors.centerIn: parent
                                 text: modelData + "%"
-                                color: parent.isNear ? (root.nightModeActive ? "#f59e0b" : theme.blue) : theme.textMuted
+                                color: parent.isNear ? (root.nightModeActive ? "#f59e0b" : "#ffffff") : theme.textMuted
                                 font.family: theme.fontFamily
                                 font.pixelSize: 10
                                 font.weight: parent.isNear ? Font.Bold : Font.Normal

@@ -10,7 +10,7 @@ border-radius=14
 border-color=#253754
 background-color=#0b0f17fa
 text-color=#f1f5f9
-progress-color=over #e22b3166
+progress-color=over #ffffff22
 icons=1
 max-icon-size=36
 icon-border-radius=8
@@ -36,44 +36,41 @@ default-timeout=8000
 
 # Volume OSD Notification (Modern Cyber-Obsidian Pill)
 [app-name=Volume]
-default-timeout=1500
+default-timeout=1200
 history=0
-width=260
-height=46
-padding=10,16
-border-size=2
-border-radius=20
-border-color=#e22b31cc
-background-color=#070a10f8
-text-color=#f1f5f9
-progress-color=over #e22b3166
+width=180
+height=36
+padding=8,14
+border-size=1
+border-radius=10
+border-color=#ffffff22
+background-color=#08080af0
+text-color=#ffffff
 icons=1
-max-icon-size=24
-icon-border-radius=6
+max-icon-size=16
+icon-border-radius=4
+font=ZedMono Nerd Font 10
+markup=1
 format=<b>%s</b>
 
 # Brightness OSD Notification (Modern Cyber-Obsidian Pill)
 [app-name=Brightness]
-default-timeout=1500
+default-timeout=1200
 history=0
-width=260
-height=46
-padding=10,16
-border-size=2
-border-radius=20
-border-color=#e22b31cc
-background-color=#070a10f8
-text-color=#f1f5f9
-progress-color=over #e22b3166
+width=190
+height=36
+padding=8,14
+border-size=1
+border-radius=10
+border-color=#ffffff22
+background-color=#08080af0
+text-color=#ffffff
 icons=1
-max-icon-size=24
-icon-border-radius=6
+max-icon-size=16
+icon-border-radius=4
+font=ZedMono Nerd Font 10
+markup=1
 format=<b>%s</b>
-
-# Muted Volume Alert
-[summary="Volume Muted"]
-border-color=#e22b31cc
-progress-color=over #e22b3166
 
 # Calendar Reminders
 [app-name=Recordatorio]

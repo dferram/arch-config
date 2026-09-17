@@ -81,7 +81,7 @@ alias reload="source ~/.bashrc && echo 'Configuración de Bash recargada.'"
 # Saltar al instante a cualquier proyecto
 p() {
     local target
-    target=$(fd -t d -d 1 . ~/Personal ~/Projects ~/Colgate-Palmolive 2>/dev/null | fzf --height 40% --reverse --prompt="📂 Proyecto > ")
+    target=$(fd -t d -d 1 . ~/Personal ~/Projects ~/Colgate-Palmolive 2>/dev/null | fzf --height 40% --reverse --prompt="Project > ")
     [ -n "$target" ] && cd "$target"
 }
 
@@ -115,7 +115,7 @@ rgf() {
             --delimiter : \
             --preview 'bat --color=always --style=numbers,changes --highlight-line {2} {1} 2>/dev/null' \
             --preview-window 'right:60%:+{2}-5' \
-            --prompt="🔎 Buscar en código > ")
+            --prompt="Code search > ")
 
     if [ -n "$match" ]; then
         local file=$(echo "$match" | cut -d: -f1)
@@ -127,9 +127,9 @@ rgf() {
 # Matar procesos de forma interactiva con fzf (TAB para multiselección, ENTER para matar)
 fkill() {
     local pid
-    pid=$(ps -f -u "$USER" | sed 1d | fzf -m --height 45% --reverse --prompt="☠️ Matar proceso > " --header='[fkill] TAB: multiselección | ENTER: matar proceso' | awk '{print $2}')
+    pid=$(ps -f -u "$USER" | sed 1d | fzf -m --height 45% --reverse --prompt="Kill process > " --header='[fkill] TAB: multi-select | ENTER: kill process' | awk '{print $2}')
     if [ -n "$pid" ]; then
-        echo "$pid" | xargs kill -${1:-9} 2>/dev/null && echo "Proceso(s) $pid finalizado(s)."
+        echo "$pid" | xargs kill -${1:-9} 2>/dev/null && echo "Process(es) $pid terminated."
     fi
 }
 

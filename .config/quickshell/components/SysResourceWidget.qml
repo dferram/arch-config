@@ -58,13 +58,13 @@ Item {
         return theme.cyan;
     }
 
-    // CPU icon data URI
+    // Lucide CPU icon (matching Night Mode aesthetic)
     property string iconDataUri: {
         let col = theme.urlColor(root.statusColor);
-        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
-               "<rect x='5' y='5' width='14' height='14' rx='2' stroke='" + col + "' stroke-width='2'/>" +
-               "<rect x='9' y='9' width='6' height='6' fill='" + col + "'/>" +
-               "<path d='M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3M19 9h3m-3 6h3' stroke='" + col + "' stroke-width='2' stroke-linecap='round'/>" +
+        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>" +
+               "<rect x='4' y='4' width='16' height='16' rx='2.5'/>" +
+               "<rect x='9' y='9' width='6' height='6' rx='1' fill='" + col + "' stroke='none'/>" +
+               "<path d='M9 1v3 M15 1v3 M9 20v3 M15 20v3 M20 9h3 M20 15h3 M1 9h3 M1 15h3'/>" +
                "</svg>";
     }
 
