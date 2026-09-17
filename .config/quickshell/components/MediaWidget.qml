@@ -60,6 +60,8 @@ Item {
         return mins + ":" + (secs < 10 ? "0" : "") + secs;
     }
 
+    // Song notifications on track change disabled as requested
+
     // Platform identification
     property bool isInstagram: {
         if (!activePlayer) return false;

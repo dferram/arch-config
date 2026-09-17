@@ -19,7 +19,7 @@ PanelWindow {
         top: 52
     }
 
-    implicitWidth: 284
+    implicitWidth: (isMic || isNight || isCaps) ? 296 : 284
     implicitHeight: 46
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
@@ -31,9 +31,14 @@ PanelWindow {
     property string osdType: osdService ? osdService.osdType : "volume"
     property int level: osdService ? osdService.level : 50
     property bool isMuted: osdService ? osdService.isMuted : false
-    property bool isBrightness: osdType === "brightness"
+    property string customText: osdService ? osdService.customText : ""
 
-    // Lucide SVG vector icons (Pure white for volume, warm amber for brightness, red for mute)
+    property bool isBrightness: osdType === "brightness"
+    property bool isMic: osdType === "mic"
+    property bool isNight: osdType === "nightmode"
+    property bool isCaps: osdType === "capslock"
+
+    // Lucide SVG vector icons (Volume, Brightness, Mic, Night Light, Caps Lock)
     property string iconDataUri: {
         if (isBrightness) {
             let col = "%23fbbf24";
@@ -51,6 +56,40 @@ PanelWindow {
                        "<line x1='4.93' y1='19.07' x2='6.34' y2='17.66'/><line x1='17.66' y1='6.34' x2='19.07' y2='4.93'/>" +
                        "</svg>";
             }
+        }
+
+        if (isMic) {
+            if (isMuted) {
+                return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23ff453a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'>" +
+                       "<line x1='2' y1='2' x2='22' y2='22'/>" +
+                       "<path d='M18.89 13.23A7.12 7.12 0 0 0 19 12v-2'/>" +
+                       "<path d='M5 10v2a7 7 0 0 0 12 5'/>" +
+                       "<path d='M15 9.34V5a3 3 0 0 0-5.68-1.33'/>" +
+                       "<path d='M9 9v3a3 3 0 0 0 5.12 2.12'/>" +
+                       "<line x1='12' y1='19' x2='12' y2='22'/>" +
+                       "</svg>";
+            } else {
+                return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%2322c55e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'>" +
+                       "<path d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z'/>" +
+                       "<path d='M19 10v2a7 7 0 0 1-14 0v-2'/>" +
+                       "<line x1='12' y1='19' x2='12' y2='22'/>" +
+                       "</svg>";
+            }
+        }
+
+        if (isNight) {
+            let col = isMuted ? "%2371717a" : "%23f59e0b";
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'>" +
+                   "<path d='M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z'/>" +
+                   "</svg>";
+        }
+
+        if (isCaps) {
+            let col = isMuted ? "%2371717a" : "%23ef4444";
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'>" +
+                   "<polyline points='7 11 12 6 17 11'/>" +
+                   "<line x1='12' y1='18' x2='12' y2='6'/>" +
+                   "</svg>";
         }
 
         // Volume Icons (Pure White / Red for mute)
@@ -197,6 +236,7 @@ PanelWindow {
                             // Fractional progress for continuous silky smoothness
                             property real sliceProgress: {
                                 if (osdWindow.isMuted) return 0.0;
+                                if (osdWindow.isMic || osdWindow.isNight || osdWindow.isCaps) return 1.0;
                                 let val = osdWindow.level;
                                 let segStart = index * 10;
                                 if (val <= segStart) return 0.0;
@@ -216,10 +256,14 @@ PanelWindow {
                                 color: {
                                     if (osdWindow.isMuted) return "#ff453a";
                                     if (osdWindow.isBrightness) {
-                                        // Pure Warm Solar Gold
                                         return index < 6 ? "#f59e0b" : "#fbbf24";
+                                    } else if (osdWindow.isMic) {
+                                        return "#22c55e";
+                                    } else if (osdWindow.isNight) {
+                                        return "#f59e0b";
+                                    } else if (osdWindow.isCaps) {
+                                        return index < 6 ? "#dc2626" : "#ef4444";
                                     } else {
-                                        // Pure Deep Crimson & Red (No pink hues)
                                         return index < 6 ? "#dc2626" : "#ef4444";
                                     }
                                 }
@@ -247,16 +291,25 @@ PanelWindow {
 
                 // Percentage Badge / Status Text
                 Item {
-                    Layout.preferredWidth: 42
+                    Layout.preferredWidth: (osdWindow.isMic || osdWindow.isNight || osdWindow.isCaps) ? 56 : 42
                     Layout.fillHeight: true
 
                     Text {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: osdWindow.isMuted ? "MUTED" : (osdWindow.level + "%")
-                        color: osdWindow.isMuted ? "#ff453a" : (osdWindow.isBrightness ? "#fbbf24" : "#ffffff")
+                        text: {
+                            if (osdWindow.customText && osdWindow.customText.length > 0) return osdWindow.customText;
+                            if (osdWindow.isMuted) return "MUTED";
+                            return osdWindow.level + "%";
+                        }
+                        color: {
+                            if (osdWindow.isMuted) return "#ff453a";
+                            if (osdWindow.isMic) return "#22c55e";
+                            if (osdWindow.isBrightness || osdWindow.isNight) return "#fbbf24";
+                            return "#ffffff";
+                        }
                         font.family: "JetBrainsMono Nerd Font, ZedMono Nerd Font, monospace"
-                        font.pixelSize: osdWindow.isMuted ? 10 : 12
+                        font.pixelSize: (osdWindow.isMic || osdWindow.isNight || osdWindow.isCaps) ? 11 : (osdWindow.isMuted ? 10 : 12)
                         font.weight: Font.Bold
                         font.letterSpacing: 0.4
                     }

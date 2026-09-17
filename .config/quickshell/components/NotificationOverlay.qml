@@ -51,33 +51,67 @@ PanelWindow {
         bodyMarkupSupported: true
         actionsSupported: true
         imageSupported: true
+        extraHints: ["x-kde-origin-name"]
 
         onNotification: (notif) => {
             notif.tracked = true;
             let incomingApp = (notif.appName || "").toLowerCase();
             let incomingSum = (notif.summary || "").toLowerCase();
 
-            // Intercept volume & brightness for dedicated OSD HUD
-            let isVolume = incomingApp.includes("volume") || incomingSum.includes("volume");
+            // Intercept volume, brightness, mic, night light & caps lock for dedicated OSD HUD
+            let isWarning = incomingApp.includes("hearing") || incomingSum.includes("warning") || incomingSum.includes("safety");
+            let isVolume = !isWarning && (incomingApp.includes("volume") || incomingSum.includes("volume"));
             let isBrightness = incomingApp.includes("bright") || incomingSum.includes("brightness") || incomingSum.includes("brillo");
+            let isMic = incomingApp.includes("micro") || incomingSum.includes("microphone") || incomingSum.includes("micrófono");
+            let isNight = incomingApp.includes("night") || incomingSum.includes("night light") || incomingSum.includes("luz nocturna") || incomingSum.includes("luz cálida");
+            let isCaps = incomingApp.includes("caps") || incomingSum.includes("mayús") || incomingSum.includes("caps lock");
 
-            if (isVolume || isBrightness) {
+            if (isVolume || isBrightness || isMic || isNight || isCaps) {
                 let val = 50;
                 let isMuted = false;
-
-                if (notif.hints && notif.hints.value !== undefined) {
-                    val = parseInt(notif.hints.value);
-                } else {
-                    let m = incomingSum.match(/(\d+)%/);
-                    if (m) val = parseInt(m[1]);
-                }
+                let osdType = "volume";
+                let text = "";
 
                 if (isVolume) {
+                    osdType = "volume";
+                    if (notif.hints && notif.hints.value !== undefined) {
+                        val = parseInt(notif.hints.value);
+                    } else {
+                        let m = incomingSum.match(/(\d+)%/);
+                        if (m) val = parseInt(m[1]);
+                    }
                     isMuted = incomingSum.includes("mute") || (notif.hints && (notif.hints.muted === true || notif.hints.muted === "true"));
+                } else if (isBrightness) {
+                    osdType = "brightness";
+                    if (notif.hints && notif.hints.value !== undefined) {
+                        val = parseInt(notif.hints.value);
+                    } else {
+                        let m = incomingSum.match(/(\d+)%/);
+                        if (m) val = parseInt(m[1]);
+                    }
+                } else if (isMic) {
+                    osdType = "mic";
+                    isMuted = incomingSum.includes("mute") || (notif.hints && (notif.hints.muted === true || notif.hints.muted === "true"));
+                    val = isMuted ? 0 : 100;
+                    text = isMuted ? "MUTED" : "ACTIVE";
+                } else if (isNight) {
+                    osdType = "nightmode";
+                    let active = incomingSum.includes("enabled") || incomingSum.includes("activad") || incomingSum.includes(" on") || (notif.body && notif.body.includes("enabled"));
+                    if (incomingSum.includes("disabled") || incomingSum.includes("desactivad") || incomingSum.includes(" off")) active = false;
+                    isMuted = !active;
+                    val = active ? 100 : 0;
+                    text = active ? "ON" : "OFF";
+                } else if (isCaps) {
+                    osdType = "capslock";
+                    let active = incomingSum.includes(" on") || incomingSum.includes("enabled") || incomingSum.includes("activad") || (notif.hints && (notif.hints.active === true || notif.hints.active === "true"));
+                    if (incomingSum.includes(" off") || incomingSum.includes("disabled") || incomingSum.includes("desactivad")) active = false;
+                    isMuted = !active;
+                    val = active ? 100 : 0;
+                    text = active ? "ON" : "OFF";
                 }
 
                 if (root.osdService) {
-                    root.osdService.show(isVolume ? "volume" : "brightness", val, isMuted);
+                    root.osdService.show(osdType, val, isMuted, text);
                 }
 
                 try { notif.dismiss(); } catch(e) {}
@@ -91,16 +125,21 @@ PanelWindow {
                 let existing = root.activeList[i];
                 if (!existing) continue;
 
-                // Replace duplicate if same id OR if it's a singleton notification (volume/brightness/battery)
+                // Replace duplicate if same id OR if same content OR singleton (volume/brightness/battery/hearing/headphones)
                 let existingApp = (existing.appName || "").toLowerCase();
                 let existingSum = (existing.summary || "").toLowerCase();
+                let isDuplicate = (existing.id === notif.id) ||
+                    (incomingSum.length > 0 && incomingSum === existingSum && incomingApp === existingApp) ||
+                    ((incomingApp.includes("hearing") || incomingSum.includes("headphone")) &&
+                     (existingApp.includes("hearing") || existingSum.includes("headphone")));
+
                 let matchSingleton = isSingleton && (
                     (incomingApp.includes("volume") && (existingApp.includes("volume") || existingSum.includes("volume"))) ||
                     (incomingApp.includes("bright") && (existingApp.includes("bright") || existingSum.includes("bright"))) ||
                     ((incomingApp.includes("bater") || incomingApp.includes("battery")) && (existingApp.includes("bater") || existingApp.includes("battery")))
                 );
 
-                if (existing.id === notif.id || matchSingleton) {
+                if (isDuplicate || matchSingleton) {
                     try { existing.dismiss(); } catch(e) {}
                     continue;
                 }
@@ -135,6 +174,40 @@ PanelWindow {
                 property string bodyText: modelData ? (modelData.body || "") : ""
                 property int urgency: modelData ? modelData.urgency : 1
 
+                // Consolidated Metadata String for robust origin & app detection (Chromium, PWAs, Native)
+                property string metaContext: {
+                    let s = (appName + " " + summary + " " + bodyText).toLowerCase();
+                    if (modelData) {
+                        if (modelData.appIcon) s += " " + modelData.appIcon.toLowerCase();
+                        if (modelData.desktopEntry) s += " " + modelData.desktopEntry.toLowerCase();
+                        if (modelData.hints) {
+                            try {
+                                for (let k in modelData.hints) {
+                                    if (k === "image-data" || k === "image_data" || k === "icon_data") continue;
+                                    s += " " + k + ":" + String(modelData.hints[k]).toLowerCase();
+                                }
+                            } catch(e) {}
+                            try {
+                                s += " " + JSON.stringify(modelData.hints).toLowerCase();
+                            } catch(e) {}
+                        }
+                        if (modelData.actions) {
+                            try {
+                                for (let i = 0; i < modelData.actions.length; i++) {
+                                    let act = modelData.actions[i];
+                                    if (act) {
+                                        s += " " + (act.identifier || "").toLowerCase() + " " + (act.text || "").toLowerCase();
+                                    }
+                                }
+                            } catch(e) {}
+                        }
+                    }
+                    return s;
+                }
+
+                readonly property bool isWhatsApp: metaContext.includes("whatsapp") || metaContext.includes("web.whatsapp.com")
+                readonly property bool isInstagram: metaContext.includes("instagram") || metaContext.includes("instagram.com")
+
                 Connections {
                     target: card.modelData
                     function onClosed() {
@@ -144,8 +217,9 @@ PanelWindow {
 
                 // Dynamic Color Resolution based on sender
                 property var palette: {
-                    let lowerApp = appName.toLowerCase();
-                    let lowerSum = summary.toLowerCase();
+                    let lowerApp = (appName || "").toLowerCase();
+                    let lowerSum = (summary || "").toLowerCase();
+                    let lowerBody = (bodyText || "").toLowerCase();
                     let appIconName = (modelData && modelData.appIcon) ? modelData.appIcon.toLowerCase() : "";
 
                     // Night Light / Sunset Mode (Warm Amber / Gold)
@@ -169,6 +243,55 @@ PanelWindow {
                             secondary: "#e22b31",  // Deep Carmine
                             accent: "#ff787d",     // Red glow
                             label: "BATTERY",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Hearing Protection, Ear Safety & Headphone Connection (Amber glow)
+                    if (lowerApp.includes("hearing") || lowerSum.includes("hearing") || lowerSum.includes("high volume") ||
+                        lowerApp.includes("headphone") || lowerSum.includes("headphone") || lowerApp.includes("audífono") || lowerSum.includes("audifono")) {
+                        return {
+                            primary: "#f59e0b",    // Amber warning
+                            secondary: "#d97706",  // Deep amber
+                            accent: "#fbbf24",     // Amber glow
+                            label: (lowerSum.includes("connected") || lowerApp.includes("headphone")) ? "HEADPHONES" : "HEARING SAFETY",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // WhatsApp (Vibrant Emerald Green)
+                    if (card.isWhatsApp) {
+                        return {
+                            primary: "#25D366",    // WhatsApp Emerald Green
+                            secondary: "#128C7E",  // Deep Teal Green
+                            accent: "#34D399",     // Mint Glow
+                            label: "WHATSAPP",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Instagram (Vibrant Rose/Magenta)
+                    if (card.isInstagram) {
+                        return {
+                            primary: "#E1306C",    // Instagram Electric Rose
+                            secondary: "#C13584",  // Instagram Royal Purple
+                            accent: "#F77737",     // Instagram Warm Amber
+                            label: "INSTAGRAM",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Hyprland / Arch Linux (Official Arch Cyan)
+                    if (lowerApp.includes("hypr") || lowerApp.includes("arch") || lowerSum.includes("hypr") || lowerSum.includes("arch")) {
+                        return {
+                            primary: "#1793d1",    // Arch Cyan
+                            secondary: "#0f6c9c",  // Deep Arch Blue
+                            accent: "#38bdf8",     // Sky Blue Glow
+                            label: lowerApp.includes("hypr") ? "HYPRLAND" : "ARCH LINUX",
                             isAntigravity: false,
                             isNightLight: false
                         };
@@ -380,8 +503,20 @@ PanelWindow {
                         };
                     }
 
+                    // Chromium (Cyan & Blue shades)
+                    if (lowerApp.includes("chromium") || card.metaContext.includes("chromium")) {
+                        return {
+                            primary: "#1767d1",
+                            secondary: "#679ef5",
+                            accent: "#afccf9",
+                            label: "CHROMIUM",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
                     // Google Chrome (Google Blue)
-                    if (lowerApp.includes("chrome") || lowerApp.includes("chromium")) {
+                    if (lowerApp.includes("chrome")) {
                         return {
                             primary: "#4285f4",
                             secondary: "#ea4335",
@@ -423,7 +558,55 @@ PanelWindow {
 
                     let rawIcon = modelData ? (modelData.appIcon || "") : "";
                     let lowerIcon = rawIcon.toLowerCase();
-                    let lowerApp = appName.toLowerCase();
+                    let lowerApp = (appName || "").toLowerCase();
+                    let lowerSum = (modelData && modelData.summary) ? modelData.summary.toLowerCase() : "";
+                    let lowerBody = (modelData && modelData.body) ? modelData.body.toLowerCase() : "";
+                    // WhatsApp official SVG icon
+                    if (card.isWhatsApp) {
+                        return "file:///home/ferram/.local/share/icons/whatsapp.svg";
+                    }
+
+                    // Instagram official SVG icon
+                    if (card.isInstagram) {
+                        return "file:///home/ferram/.local/share/icons/instagram.svg";
+                    }
+
+                    // Chromium official SVG icon (monochromatic blue)
+                    if (lowerApp.includes("chromium") || lowerIcon.includes("chromium") || card.metaContext.includes("chromium")) {
+                        return "file:///home/ferram/.local/share/icons/chromium.svg";
+                    }
+
+                    // Google Chrome official SVG icon
+                    if (lowerApp.includes("chrome") || lowerIcon.includes("chrome") || card.metaContext.includes("chrome")) {
+                        return "file:///home/ferram/.local/share/icons/chrome.svg";
+                    }
+
+                    // Hyprland / Arch Linux official SVG logo
+                    if (lowerApp.includes("hypr") || lowerApp.includes("arch") || lowerSum.includes("hypr") || lowerSum.includes("arch") || card.metaContext.includes("hypr") || card.metaContext.includes("arch")) {
+                        return "file:///home/ferram/.local/share/icons/arch.svg";
+                    }
+
+                    // Spotify official SVG icon
+                    if (lowerApp.includes("spotify") || lowerIcon.includes("spotify") || card.metaContext.includes("spotify")) {
+                        return "file:///home/ferram/.local/share/icons/spotify.svg";
+                    }
+
+                    // Discord / Vesktop official SVG icon
+                    if (lowerApp.includes("discord") || lowerApp.includes("vesktop") || lowerIcon.includes("discord") || card.metaContext.includes("discord")) {
+                        return "file:///home/ferram/.local/share/icons/discord.svg";
+                    }
+
+                    // Telegram official SVG icon
+                    if (lowerApp.includes("telegram") || lowerIcon.includes("telegram") || card.metaContext.includes("telegram")) {
+                        return "file:///home/ferram/.local/share/icons/telegram.svg";
+                    }
+
+                    // Hearing Safety / Headphone Connected vector icon
+                    if (lowerApp.includes("hearing") || lowerSum.includes("hearing") || lowerSum.includes("high volume") ||
+                        lowerApp.includes("headphone") || lowerSum.includes("headphone") || lowerIcon.includes("headphone") ||
+                        lowerSum.includes("audífono") || lowerSum.includes("audifono")) {
+                        return "file:///home/ferram/.local/share/icons/headphones.svg";
+                    }
 
                     // Calendar / Reminders custom 3D SVG icon
                     if (lowerApp.includes("remind") || lowerApp.includes("recordatorio") || lowerApp.includes("calendar")) {
@@ -458,15 +641,13 @@ PanelWindow {
                         if (rawIcon.startsWith("/") || rawIcon.startsWith("file://") || rawIcon.startsWith("data:")) {
                             return rawIcon;
                         }
+                        let qPath = Quickshell.iconPath(rawIcon);
+                        if (qPath) return qPath;
                         return "image://icon/" + rawIcon;
                     }
 
-                    // System fallback
-                    if (palette.primary === "#ff3b30") {
-                        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23ff3b30' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><line x1='12' y1='8' x2='12' y2='12'/><line x1='12' y1='16' x2='12.01' y2='16'/></svg>";
-                    }
-
-                    return "";
+                    // Pure vector logo fallback: Arch Linux official logo (never empty, never letters)
+                    return "file:///home/ferram/.local/share/icons/arch.svg";
                 }
 
                 // Auto-dismiss timer (pauses on hover)
@@ -594,18 +775,22 @@ PanelWindow {
                                 source: card.resolvedIcon
                                 fillMode: Image.PreserveAspectFit
                                 mipmap: true
+                                sourceSize.width: 36
+                                sourceSize.height: 36
                                 visible: status === Image.Ready && card.resolvedIcon !== ""
                             }
 
-                            // Clean fallback letter if icon completely missing or broken
-                            Text {
+                            // Pure vector logo fallback (Arch Linux logo) - never letters
+                            Image {
                                 anchors.centerIn: parent
                                 visible: !iconImg.visible
-                                text: card.appName.length > 0 ? card.appName.charAt(0).toUpperCase() : "•"
-                                color: card.palette.primary
-                                font.family: theme.fontFamily
-                                font.pixelSize: 12
-                                font.weight: Font.Bold
+                                width: 18
+                                height: 18
+                                source: "file:///home/ferram/.local/share/icons/arch.svg"
+                                sourceSize.width: 36
+                                sourceSize.height: 36
+                                fillMode: Image.PreserveAspectFit
+                                mipmap: true
                             }
                         }
 

@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""
+hypr-capslock:
+Zero-CPU kernel sysfs monitor for CapsLock state changes,
+triggering synchronized OSD notifications on toggle.
+"""
+import glob
+import os
+import select
+import subprocess
+import time
+
+def notify_caps(is_on):
+    title = "Caps Lock On" if is_on else "Caps Lock Off"
+    icon = "caps-lock-on" if is_on else "caps-lock-off"
+    try:
+        subprocess.run([
+            "notify-send", "-a", "CapsLock",
+            "-i", icon,
+            "-t", "1200",
+            "-h", "string:x-canonical-private-synchronous:capslock",
+            "-h", "string:synchronous:capslock",
+            "-h", f"boolean:active:{'true' if is_on else 'false'}",
+            title
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+def main():
+    leds = glob.glob("/sys/class/leds/*capslock/brightness")
+    if not leds:
+        return
+
+    fds = {}
+    poller = select.poll()
+    last_states = {}
+
+    for path in leds:
+        try:
+            f = open(path, "r")
+            state = f.read().strip() == "1"
+            last_states[f.fileno()] = state
+            f.seek(0)
+            poller.register(f, select.POLLPRI | select.POLLERR)
+            fds[f.fileno()] = (f, path)
+        except Exception:
+            pass
+
+    if not fds:
+        return
+
+    while True:
+        try:
+            events = poller.poll(5000)
+            for fileno, event in events:
+                if fileno in fds:
+                    f, path = fds[fileno]
+                    f.seek(0)
+                    cur_state = f.read().strip() == "1"
+                    if cur_state != last_states.get(fileno):
+                        last_states[fileno] = cur_state
+                        notify_caps(cur_state)
+        except Exception:
+            time.sleep(1)
+
+if __name__ == "__main__":
+    main()

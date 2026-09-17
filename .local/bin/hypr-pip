@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""
+hypr-pip:
+Picture-in-Picture manager for Hyprland.
+- toggle: Floats, pins to all workspaces, sets 16:9 ratio, and docks in the bottom-right corner.
+          If already pinned, it unpins and unfloats back into the tiled layout.
+- grow / +: Increases PiP window size while anchored to screen edges (grows towards center).
+- shrink / -: Decreases PiP window size while maintaining corner anchor.
+- reset: Restores default PiP size (480x270) in the bottom-right corner.
+"""
+
+import subprocess
+import json
+import sys
+import time
+
+STEPS = [320, 400, 480, 560, 640, 720, 800, 880, 960, 1040, 1120]
+DEFAULT_W = 480
+DEFAULT_H = 270
+MARGIN = 16
+
+def get_active_window():
+    try:
+        out = subprocess.check_output(["hyprctl", "activewindow", "-j"], stderr=subprocess.DEVNULL).decode()
+        return json.loads(out)
+    except Exception:
+        return None
+
+def get_clients():
+    try:
+        out = subprocess.check_output(["hyprctl", "clients", "-j"], stderr=subprocess.DEVNULL).decode()
+        return json.loads(out)
+    except Exception:
+        return []
+
+def get_monitors():
+    try:
+        out = subprocess.check_output(["hyprctl", "monitors", "-j"], stderr=subprocess.DEVNULL).decode()
+        return json.loads(out)
+    except Exception:
+        return []
+
+def get_monitor_by_id(monitors, mon_id):
+    for m in monitors:
+        if m.get("id") == mon_id:
+            return m
+    for m in monitors:
+        if m.get("focused"):
+            return m
+    return monitors[0] if monitors else None
+
+def notify(title, msg):
+    try:
+        subprocess.run([
+            "notify-send", "-a", "Hyprland",
+            "-t", "1500",
+            "-h", "string:x-canonical-private-synchronous:pip",
+            title, msg
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+def find_pip_target():
+    active = get_active_window()
+    if active and active.get("pinned"):
+        return active, active
+
+    clients = get_clients()
+    for c in clients:
+        if c.get("pinned"):
+            return c, active
+
+    if active and active.get("floating"):
+        return active, active
+
+    return None, active
+
+def apply_geometry(target_addr, active_addr, target_w, target_h, pos_x, pos_y):
+    needs_refocus = active_addr and target_addr != active_addr
+    if needs_refocus:
+        subprocess.run(["hyprctl", "dispatch", f'hl.dsp.focus({{ window = "address:{target_addr}" }})'], stdout=subprocess.DEVNULL)
+
+    subprocess.run(["hyprctl", "dispatch", f"hl.dsp.window.resize({{ x = {target_w}, y = {target_h}, relative = false }})"], stdout=subprocess.DEVNULL)
+    subprocess.run(["hyprctl", "dispatch", f"hl.dsp.window.move({{ x = {pos_x}, y = {pos_y}, relative = false }})"], stdout=subprocess.DEVNULL)
+
+    if needs_refocus:
+        subprocess.run(["hyprctl", "dispatch", f'hl.dsp.focus({{ window = "address:{active_addr}" }})'], stdout=subprocess.DEVNULL)
+
+def toggle_pip():
+    win = get_active_window()
+    if not win or not win.get("address"):
+        return
+
+    is_pinned = win.get("pinned", False)
+    is_floating = win.get("floating", False)
+
+    if is_pinned:
+        subprocess.run(["hyprctl", "dispatch", "hl.dsp.window.pin()"], stdout=subprocess.DEVNULL)
+        if is_floating:
+            subprocess.run(["hyprctl", "dispatch", 'hl.dsp.window.float({ action = "toggle" })'], stdout=subprocess.DEVNULL)
+        notify("Picture-in-Picture", "Window unpinned from PiP mode.")
+    else:
+        monitors = get_monitors()
+        mon = get_monitor_by_id(monitors, win.get("monitor", 0))
+        if not mon:
+            return
+
+        scale = float(mon.get("scale", 1.0))
+        if scale <= 0:
+            scale = 1.0
+
+        logical_w = int(mon.get("width", 1920) / scale)
+        logical_h = int(mon.get("height", 1080) / scale)
+
+        pos_x = logical_w - DEFAULT_W - MARGIN
+        pos_y = logical_h - DEFAULT_H - MARGIN
+
+        if not is_floating:
+            subprocess.run(["hyprctl", "dispatch", 'hl.dsp.window.float({ action = "toggle" })'], stdout=subprocess.DEVNULL)
+            time.sleep(0.05)
+
+        subprocess.run(["hyprctl", "dispatch", "hl.dsp.window.pin()"], stdout=subprocess.DEVNULL)
+        subprocess.run(["hyprctl", "dispatch", f"hl.dsp.window.resize({{ x = {DEFAULT_W}, y = {DEFAULT_H}, relative = false }})"], stdout=subprocess.DEVNULL)
+        subprocess.run(["hyprctl", "dispatch", f"hl.dsp.window.move({{ x = {pos_x}, y = {pos_y}, relative = false }})"], stdout=subprocess.DEVNULL)
+        notify("Picture-in-Picture", f"Window pinned in PiP mode ({DEFAULT_W}×{DEFAULT_H}).")
+
+def resize_pip(action):
+    target, active = find_pip_target()
+    if not target or not target.get("address"):
+        notify("Picture-in-Picture", "No active or pinned PiP window found.")
+        return
+
+    monitors = get_monitors()
+    mon = get_monitor_by_id(monitors, target.get("monitor", 0))
+    if not mon:
+        return
+
+    scale = float(mon.get("scale", 1.0))
+    if scale <= 0:
+        scale = 1.0
+
+    logical_w = int(mon.get("width", 1920) / scale)
+    logical_h = int(mon.get("height", 1080) / scale)
+    reserved = mon.get("reserved", [0, 44, 0, 0])
+    reserved_top = reserved[1] if len(reserved) > 1 else 44
+
+    cur_w, cur_h = target.get("size", [DEFAULT_W, DEFAULT_H])
+    cur_x, cur_y = target.get("at", [0, 0])
+
+    max_w = int(logical_w * 0.75)
+    max_h = int((logical_h - reserved_top) * 0.85)
+
+    if action in ("grow", "+", "bigger", "larger", "up"):
+        target_w = next((s for s in STEPS if s > cur_w + 10), cur_w + 80)
+    elif action in ("shrink", "-", "smaller", "down"):
+        target_w = next((s for s in reversed(STEPS) if s < cur_w - 10), STEPS[0])
+    elif action == "reset":
+        target_w = DEFAULT_W
+    else:
+        return
+
+    target_w = max(STEPS[0], min(target_w, max_w))
+    target_h = int(round(target_w * 9.0 / 16.0))
+    if target_h > max_h:
+        target_h = max_h
+        target_w = int(round(target_h * 16.0 / 9.0))
+
+    # Determine anchoring so window grows toward center and stays on screen
+    is_right = (cur_x + cur_w) >= (logical_w - MARGIN - 60)
+    is_bottom = (cur_y + cur_h) >= (logical_h - MARGIN - 60)
+    is_left = cur_x <= (MARGIN + 60)
+    is_top = cur_y <= (reserved_top + MARGIN + 60)
+
+    if is_right:
+        new_x = logical_w - target_w - MARGIN
+    elif is_left:
+        new_x = MARGIN
+    else:
+        new_x = cur_x - int((target_w - cur_w) / 2)
+
+    if is_bottom:
+        new_y = logical_h - target_h - MARGIN
+    elif is_top:
+        new_y = reserved_top + MARGIN
+    else:
+        new_y = cur_y - int((target_h - cur_h) / 2)
+
+    # Clamp within visible screen boundaries
+    new_x = max(MARGIN, min(new_x, logical_w - target_w - MARGIN))
+    new_y = max(reserved_top + MARGIN, min(new_y, logical_h - target_h - MARGIN))
+
+    target_addr = target.get("address")
+    active_addr = active.get("address") if active else None
+
+    apply_geometry(target_addr, active_addr, target_w, target_h, new_x, new_y)
+    notify("Picture-in-Picture", f"Size: {target_w}×{target_h}")
+
+def main():
+    arg = sys.argv[1].lower() if len(sys.argv) > 1 else "toggle"
+    if arg in ("toggle", "t"):
+        toggle_pip()
+    elif arg in ("grow", "+", "bigger", "larger", "shrink", "-", "smaller", "reset"):
+        resize_pip(arg)
+    else:
+        toggle_pip()
+
+if __name__ == "__main__":
+    main()

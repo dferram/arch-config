@@ -55,12 +55,13 @@ local menu        = "hyprlauncher"
 --
 hl.on("hyprland.start", function () 
   hl.exec_cmd("systemctl --user start hyprpaper")
-  hl.exec_cmd("quickshell")
+  hl.exec_cmd("systemctl --user start quickshell")
   hl.exec_cmd("systemctl --user start hyprpolkitagent")
   hl.exec_cmd("hypridle")
   hl.exec_cmd("/home/ferram/.local/bin/hypr-clipboard daemon")
   hl.exec_cmd("wl-clip-persist --clipboard regular")
   hl.exec_cmd("easyeffects --gapplication-service")
+  hl.exec_cmd("/home/ferram/.local/bin/hypr-capslock")
 end)
 
 
@@ -265,19 +266,29 @@ local mainMod = "SUPER" -- Sets "Windows" key as main modifier
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
 hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(terminal))
-hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("chromium"))
+hl.bind(mainMod .. " + W",        hl.dsp.exec_cmd("chromium"))
+hl.bind(mainMod .. " + ALT + W",  hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-wallpaper random"))
+hl.bind(mainMod .. " + CTRL + W", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-wallpaper menu"))
 hl.bind(mainMod .. " + G", hl.dsp.exec_cmd('/usr/bin/chromium "--profile-directory=Profile 1" --app-id=mjoklplbddabcmpepnokjaffbmgbkkgg'))
 hl.bind(mainMod .. " + A", hl.dsp.exec_cmd("antigravity-ide"))
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("hyprlock"))
 local closeWindowBind = hl.bind(mainMod .. " + C", hl.dsp.window.close())
--- closeWindowBind:set_enabled(false)
-hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"))
+-- (Super + M poweroff/exit removed as requested)
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
 hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-clipboard menu"))
 hl.bind(mainMod .. " + SHIFT + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mainMod .. " + Space", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
+hl.bind(mainMod .. " + SHIFT + P", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-pip"))
+hl.bind(mainMod .. " + Y",         hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-pip"))
+
+-- Picture-in-Picture dynamic resize (Super + Ctrl + +/-)
+hl.bind(mainMod .. " + CTRL + equal",       hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-pip grow"),   { repeating = true })
+hl.bind(mainMod .. " + CTRL + plus",        hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-pip grow"),   { repeating = true })
+hl.bind(mainMod .. " + CTRL + KP_Add",      hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-pip grow"),   { repeating = true })
+hl.bind(mainMod .. " + CTRL + minus",       hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-pip shrink"), { repeating = true })
+hl.bind(mainMod .. " + CTRL + KP_Subtract", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-pip shrink"), { repeating = true })
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))    -- dwindle only
 hl.bind(mainMod .. " + H", hl.dsp.exec_cmd("kitty --class cheatsheet-popup -e bash -c '/home/ferram/.local/bin/cmds; echo -e \"\\n  \\033[2mPress any key to close...\\033[0m\"; read -n 1 -s -r'"))
 hl.bind(mainMod .. " + B", hl.dsp.exec_cmd("kitty --class btop-popup -e btop"))
@@ -299,11 +310,100 @@ hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "right" 
 hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "up" }))
 hl.bind(mainMod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "down" }))
 
+-- Smart resize: for tiled windows, adjusts layout splits.
+-- For floating & PiP windows: grows towards screen center and clamps to screen bounds to never spill off-screen.
+local function smart_resize(dir)
+    local win = hl.get_active_window()
+    if not win then return end
+
+    if not win.floating then
+        if dir == "right" then
+            hl.dispatch(hl.dsp.window.resize({ x = 40, y = 0, relative = true }))
+        elseif dir == "left" then
+            hl.dispatch(hl.dsp.window.resize({ x = -40, y = 0, relative = true }))
+        elseif dir == "up" then
+            hl.dispatch(hl.dsp.window.resize({ x = 0, y = -40, relative = true }))
+        elseif dir == "down" then
+            hl.dispatch(hl.dsp.window.resize({ x = 0, y = 40, relative = true }))
+        end
+        return
+    end
+
+    local mon = hl.get_active_monitor()
+    local scale = (mon and mon.scale and mon.scale > 0) and mon.scale or 1.0
+    local log_w = (mon and mon.width) and math.floor(mon.width / scale) or 1920
+    local log_h = (mon and mon.height) and math.floor(mon.height / scale) or 1080
+    local reserved_top = (mon and mon.reserved and mon.reserved.top) and math.floor(mon.reserved.top) or 44
+    local margin = 16
+
+    local cur_w = win.size.x
+    local cur_h = win.size.y
+    local cur_x = win.at.x
+    local cur_y = win.at.y
+
+    local step = 40
+    local target_w = cur_w
+    local target_h = cur_h
+    local target_x = cur_x
+    local target_y = cur_y
+
+    local is_right = (cur_x + cur_w) >= (log_w - margin - 50)
+    local is_bottom = (cur_y + cur_h) >= (log_h - margin - 50)
+
+    if dir == "left" then
+        if is_right then
+            target_w = cur_w + step
+            target_x = cur_x - step
+        else
+            target_w = math.max(200, cur_w - step)
+        end
+    elseif dir == "right" then
+        if is_right then
+            target_w = math.max(200, cur_w - step)
+            target_x = cur_x + step
+        else
+            target_w = cur_w + step
+        end
+    elseif dir == "up" then
+        if is_bottom then
+            target_h = cur_h + step
+            target_y = cur_y - step
+        else
+            target_h = math.max(150, cur_h - step)
+        end
+    elseif dir == "down" then
+        if is_bottom then
+            target_h = math.max(150, cur_h - step)
+            target_y = cur_y + step
+        else
+            target_h = cur_h + step
+        end
+    end
+
+    target_w = math.min(target_w, log_w - (2 * margin))
+    target_h = math.min(target_h, log_h - reserved_top - (2 * margin))
+
+    if target_x < margin then
+        target_x = margin
+    elseif (target_x + target_w) > (log_w - margin) then
+        target_x = log_w - margin - target_w
+    end
+
+    if target_y < (reserved_top + margin) then
+        target_y = reserved_top + margin
+    elseif (target_y + target_h) > (log_h - margin) then
+        target_y = log_h - margin - target_h
+    end
+
+    hl.dispatch(hl.dsp.window.resize({ x = target_w, y = target_h, relative = false }))
+    hl.dispatch(hl.dsp.window.move({ x = target_x, y = target_y, relative = false }))
+end
+
 -- Resize active window smoothly without mouse (Super + Alt + Arrows)
-hl.bind(mainMod .. " + ALT + right", hl.dsp.window.resize({ x = 40, y = 0, relative = true }), { repeating = true })
-hl.bind(mainMod .. " + ALT + left",  hl.dsp.window.resize({ x = -40, y = 0, relative = true }), { repeating = true })
-hl.bind(mainMod .. " + ALT + up",    hl.dsp.window.resize({ x = 0, y = -40, relative = true }), { repeating = true })
-hl.bind(mainMod .. " + ALT + down",  hl.dsp.window.resize({ x = 0, y = 40, relative = true }), { repeating = true })
+hl.bind(mainMod .. " + ALT + right", function() smart_resize("right") end, { repeating = true })
+hl.bind(mainMod .. " + ALT + left",  function() smart_resize("left") end,  { repeating = true })
+hl.bind(mainMod .. " + ALT + up",    function() smart_resize("up") end,    { repeating = true })
+hl.bind(mainMod .. " + ALT + down",  function() smart_resize("down") end,  { repeating = true })
 
 -- Switch workspaces with mainMod + [0-9]
 -- Move active window to a workspace with mainMod + SHIFT + [0-9]
@@ -332,7 +432,7 @@ hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-volume up"),      { locked = true, repeating = true })
 hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-volume down"),    { locked = true, repeating = true })
 hl.bind("XF86AudioMute",        hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-volume mute"),    { locked = true, repeating = true })
-hl.bind("XF86AudioMicMute",     hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"), { locked = true, repeating = true })
+hl.bind("XF86AudioMicMute",     hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-mic toggle"), { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessUp",  hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-brightness up"),   { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessDown",hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-brightness down"), { locked = true, repeating = true })
 
@@ -372,7 +472,7 @@ hl.bind(mainMod .. " + F11", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-scree
 -- See https://wiki.hypr.land/Configuring/Basics/Window-Rules/
 -- and https://wiki.hypr.land/Configuring/Basics/Workspace-Rules/
 
--- Workspace rules: 1-5 para pantalla principal (eDP-1), 6-10 para monitor externo (HDMI-A-1)
+-- Workspace rules: 1-5 for primary screen (eDP-1), 6-10 for external monitor (HDMI-A-1)
 for i = 1, 5 do
     hl.workspace_rule({ workspace = tostring(i), monitor = "eDP-1", default = (i == 1) })
 end

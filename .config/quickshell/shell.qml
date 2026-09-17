@@ -13,12 +13,14 @@ ShellRoot {
         property string osdType: "volume"
         property int level: 50
         property bool isMuted: false
+        property string customText: ""
         signal triggered()
 
-        function show(type, val, muted) {
+        function show(type, val, muted, text) {
             osdType = type;
-            level = Math.max(0, Math.min(100, val));
+            level = Math.max(0, Math.min(100, val !== undefined ? val : 50));
             isMuted = !!muted;
+            customText = text || "";
             triggered();
         }
     }

@@ -11,6 +11,7 @@ import os
 import subprocess
 import colorsys
 import re
+import random
 from pathlib import Path
 
 HOME = Path.home()
@@ -89,22 +90,22 @@ def to_hex(rgb):
 
 def apply_wallpaper(image_path: Path):
     if not image_path.exists():
-        print(f"Error: Archivo no encontrado: {image_path}", file=sys.stderr)
+        print(f"Error: File not found: {image_path}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"[*] Analizando colores vibrantes de: {image_path.name}")
+    print(f"[*] Analyzing vibrant colors from: {image_path.name}")
     accent, light, deep, muted = extract_vibrant_accent(image_path)
     hex_acc = to_hex(accent)
     hex_light = to_hex(light)
     hex_deep = to_hex(deep)
     hex_muted = to_hex(muted)
 
-    print(f"  -> Acento Principal: {hex_acc}")
-    print(f"  -> Acento Claro:     {hex_light}")
-    print(f"  -> Acento Profundo:  {hex_deep}")
-    print(f"  -> Acento Suave:     {hex_muted}")
+    print(f"  -> Primary Accent: {hex_acc}")
+    print(f"  -> Light Accent:   {hex_light}")
+    print(f"  -> Deep Accent:    {hex_deep}")
+    print(f"  -> Soft Accent:    {hex_muted}")
 
-    # 1. Configurar Hyprpaper
+    # 1. Configure Hyprpaper
     HYPRPAPER_CONF.parent.mkdir(parents=True, exist_ok=True)
     hyprpaper_content = f"""splash = false
 
@@ -116,7 +117,7 @@ wallpaper {{
     HYPRPAPER_CONF.write_text(hyprpaper_content)
     subprocess.run(["hyprctl", "hyprpaper", "wallpaper", f"eDP-1,{image_path.resolve()}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    # 2. Actualizar Theme.qml manteniendo intacto el Liquid Glass obsidian base
+    # 2. Update Theme.qml keeping Liquid Glass obsidian base intact
     if THEME_QML.exists():
         qml_text = THEME_QML.read_text()
         palette_block = f"""    // Refined Accent Palette (Dynamic Wallpaper Accents)
@@ -135,9 +136,9 @@ wallpaper {{
         if re.search(pattern, qml_text, flags=re.DOTALL):
             new_qml = re.sub(pattern, palette_block, qml_text, flags=re.DOTALL)
             THEME_QML.write_text(new_qml)
-            print("  [OK] Theme.qml actualizado (Liquid Glass 100% preservado)")
+            print("  [OK] Theme.qml updated (Liquid Glass 100% preserved)")
 
-    # 3. Actualizar bordes de ventanas en Hyprland
+    # 3. Update window borders in Hyprland
     border_lua = f"hl.config({{ general = {{ col = {{ active_border = {{ colors = {{'rgba({hex_acc[1:]}ee)', 'rgba({hex_light[1:]}ee)'}}, angle = 45 }} }} }} }})"
     subprocess.run(["hyprctl", "eval", border_lua], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if HYPRLAND_LUA.exists():
@@ -148,32 +149,108 @@ wallpaper {{
             lua_text
         )
         HYPRLAND_LUA.write_text(lua_text)
-        print("  [OK] Bordes de Hyprland actualizados")
+        print("  [OK] Hyprland borders updated")
 
-    # 4. Actualizar Mako
+    # 4. Update Mako
     if MAKO_CONF.exists():
         mako_text = MAKO_CONF.read_text()
         mako_text = re.sub(r"progress-color=over #[0-9a-fA-F]{6,8}", f"progress-color=over {hex_acc}66", mako_text)
         mako_text = re.sub(r"border-color=#[0-9a-fA-F]{6,8}", lambda m: f"border-color={hex_acc}cc" if ("38bdf8" in m.group(0) or "ff3b30" in m.group(0) or "ef4444" in m.group(0)) else m.group(0), mako_text)
         MAKO_CONF.write_text(mako_text)
         subprocess.run(["makoctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print("  [OK] Notificaciones Mako actualizadas")
+        print("  [OK] Mako notifications updated")
 
-    # 5. Reiniciar Quickshell para recargar la barra instantáneamente
-    import time
-    subprocess.run(["killall", "-q", "-w", "quickshell"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(0.4)
-    subprocess.Popen(["quickshell", "-d"], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    print("  [OK] Barra Quickshell recargada con éxito!")
+    # 5. Desktop notification
+    try:
+        subprocess.run([
+            "notify-send", "-a", "Wallpaper",
+            "-i", str(image_path),
+            "-t", "2500",
+            "Wallpaper Updated",
+            f"{image_path.name}\nAccents synchronized ({hex_acc})."
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+    # 6. Restart Quickshell service to instantly reload the desktop bar
+    subprocess.run(["systemctl", "--user", "restart", "quickshell.service"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print("  [OK] Quickshell bar reloaded successfully!")
+
+def get_wallpaper_list():
+    wall_dir = PICTURES_DIR / "Wallpapers"
+    candidates = []
+    if wall_dir.exists():
+        for ext in ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.JPG", "*.PNG"]:
+            candidates.extend(wall_dir.glob(ext))
+    for ext in ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.JPG", "*.PNG"]:
+        candidates.extend(PICTURES_DIR.glob(ext))
+    seen = set()
+    unique = []
+    for c in candidates:
+        try:
+            r = c.resolve()
+            if r not in seen and c.is_file():
+                seen.add(r)
+                unique.append(c)
+        except Exception:
+            pass
+    return unique
+
+def choose_wallpaper_menu():
+    walls = get_wallpaper_list()
+    if not walls:
+        return
+    lines = "\n".join([w.name for w in sorted(walls, key=lambda x: x.name.lower())])
+    rofi_cmd = [
+        "rofi", "-dmenu", "-p", "Wallpaper",
+        "-theme-str",
+        "window {width: 35%; border: 1px; border-color: #262b3a; border-radius: 12px; background-color: #0c0e14f2; padding: 12px;} "
+        "listview {lines: 8; spacing: 4px;} "
+        "element {border-radius: 6px; padding: 8px 12px; text-color: #f1f5f9;} "
+        "element selected {background-color: #1e2230; text-color: #ffffff; border: 1px; border-color: #e22b31;} "
+        "inputbar {children: [prompt, entry]; text-color: #e22b31; margin: 0 0 10px 0;} "
+        "entry {text-color: #f1f5f9;} "
+        "prompt {text-color: #e22b31; font-weight: bold; margin: 0 8px 0 0;}"
+    ]
+    try:
+        proc = subprocess.run(rofi_cmd, input=lines.encode(), stdout=subprocess.PIPE, check=True)
+        selected_name = proc.stdout.decode().strip()
+        if selected_name:
+            for w in walls:
+                if w.name == selected_name:
+                    apply_wallpaper(w)
+                    break
+    except Exception:
+        pass
 
 def main():
     if len(sys.argv) > 1:
-        target = Path(sys.argv[1]).expanduser()
+        arg = sys.argv[1].strip()
+        if arg in ["random", "rand", "-r"]:
+            walls = get_wallpaper_list()
+            if walls:
+                cur_path = None
+                if HYPRPAPER_CONF.exists():
+                    m = re.search(r'path\s*=\s*([^\n]+)', HYPRPAPER_CONF.read_text())
+                    if m:
+                        cur_path = Path(m.group(1).strip()).resolve()
+                choices = [w for w in walls if w.resolve() != cur_path] or walls
+                target = random.choice(choices)
+                apply_wallpaper(target)
+            return
+        elif arg in ["menu", "select", "-m"]:
+            choose_wallpaper_menu()
+            return
+        elif arg in ["list", "-l"]:
+            for w in get_wallpaper_list():
+                print(w)
+            return
+        else:
+            target = Path(arg).expanduser()
     else:
-        # Check current hyprpaper config or spiderman image
         target = PICTURES_DIR / "spiderman.jpg"
         if not target.exists():
-            target = HOME / "Downloads/spider-man-brand-new-day-4dx-nk.jpg"
+            target = HOME / "Pictures/wallpaper.png"
 
     apply_wallpaper(target)
 

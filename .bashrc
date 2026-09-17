@@ -5,10 +5,10 @@
 # If not running interactively, don't do anything
 [[ $- != *i* ]] && return
 
-# --- Bash Line Editor (Sugerencias Visuales y Color) ---
+# --- Bash Line Editor (Visual Suggestions & Color) ---
 source ~/.local/share/blesh/ble.sh
 
-# --- Aliases para Comandos ---
+# --- Command Aliases ---
 if command -v eza &>/dev/null; then
     alias ls='eza --icons --group-directories-first'
     alias ll='eza -la --icons --group-directories-first --git'
@@ -26,18 +26,18 @@ alias grep='grep --color=auto'
 alias diff='diff --color=auto'
 alias ip='ip -color=auto'
 
-# --- Integración de Zoxide (cd inteligente) ---
+# --- Zoxide Integration (Smart cd) ---
 if command -v zoxide &>/dev/null; then
     eval "$(zoxide init bash)"
 fi
 
-# --- Integración de FZF (búsqueda interactiva Ctrl+R / Ctrl+T) ---
+# --- FZF Integration (Interactive Search Ctrl+R / Ctrl+T) ---
 if command -v fzf &>/dev/null; then
     eval "$(fzf --bash 2>/dev/null)"
     export FZF_DEFAULT_OPTS="--height 45% --layout=reverse --border \
 --color=bg+:#18181b,bg:#0a0a0d,spinner:#ff787d,hl:#ff787d,fg:#e4e4e7,header:#71717a,info:#ff787d,pointer:#e22b31,marker:#e22b31,fg+:#ffffff,prompt:#e22b31,hl+:#ff787d"
 
-    # Vista previa enriquecida con bat en Ctrl+T
+    # Rich preview with bat on Ctrl+T
     if command -v bat &>/dev/null; then
         export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers,changes --line-range :300 {} 2>/dev/null || cat {} 2>/dev/null' --preview-window=right:55%:wrap"
     fi
@@ -58,34 +58,34 @@ alias d="dust"
 alias kp="killport"
 alias db="dev-db"
 
-# --- Navegación rápida de directorios ---
+# --- Fast Directory Navigation ---
 alias ..="cd .."
 alias ...="cd ../.."
 alias ....="cd ../../.."
 alias .....="cd ../../../.."
 
-# --- Portapapeles Wayland interactivo ---
+# --- Interactive Wayland Clipboard ---
 alias clip="wl-copy"
 alias paste="wl-paste"
 
-# --- Monitor de recursos del sistema ---
+# --- System Resource Monitor ---
 if command -v btop &>/dev/null; then
     alias top="btop"
     alias htop="btop"
 fi
 
-# --- Recarga rápida de entorno ---
-alias reload="source ~/.bashrc && echo 'Configuración de Bash recargada.'"
+# --- Quick Environment Reload ---
+alias reload="source ~/.bashrc && echo 'Bash configuration reloaded.'"
 
-# --- Buscadores interactivos sin mouse (FZF) ---
-# Saltar al instante a cualquier proyecto
+# --- Mouse-free Interactive Fuzzy Finders (FZF) ---
+# Jump instantly to any project
 p() {
     local target
     target=$(fd -t d -d 1 . ~/Personal ~/Projects ~/Colgate-Palmolive 2>/dev/null | fzf --height 40% --reverse --prompt="Project > ")
     [ -n "$target" ] && cd "$target"
 }
 
-# Abrir archivo interactivamente en editor de terminal (nvim)
+# Open file interactively in terminal editor (nvim)
 v() {
     local target
     if [ $# -gt 0 ]; then
@@ -96,7 +96,7 @@ v() {
     fi
 }
 
-# Abrir archivo interactivamente en Antigravity IDE
+# Open file interactively in Antigravity IDE
 vc() {
     local target
     if [ $# -gt 0 ]; then
@@ -107,7 +107,7 @@ vc() {
     fi
 }
 
-# Buscar texto dentro de archivos con ripgrep + fzf y abrir en la línea exacta
+# Search text inside files with ripgrep + fzf and jump to exact line
 rgf() {
     local match
     match=$(rg --column --line-number --no-heading --color=always --smart-case "${*:-}" 2>/dev/null | \
@@ -124,7 +124,7 @@ rgf() {
     fi
 }
 
-# Matar procesos de forma interactiva con fzf (TAB para multiselección, ENTER para matar)
+# Interactively kill processes with fzf (TAB for multi-select, ENTER to kill)
 fkill() {
     local pid
     pid=$(ps -f -u "$USER" | sed 1d | fzf -m --height 45% --reverse --prompt="Kill process > " --header='[fkill] TAB: multi-select | ENTER: kill process' | awk '{print $2}')
@@ -133,28 +133,28 @@ fkill() {
     fi
 }
 
-# Crear directorio y entrar de inmediato
+# Create directory and enter immediately
 mkcd() {
     mkdir -p "$1" && cd "$1"
 }
 
-# Descomprimir cualquier archivo sin recordar flags
+# Extract any archive without memorizing flags
 extract() {
     if [ -f "$1" ]; then
         bsdtar -xf "$1"
     else
-        echo "'$1' no es un archivo válido"
+        echo "'$1' is not a valid file"
     fi
 }
 
-# --- Acceso rápido a Web y Localhost en Chromium ---
-# Abrir localhost en Chromium (ej: 'loc' para :3000, 'loc 5173', 'loc 8080')
+# --- Quick Access to Web & Localhost in Chromium ---
+# Open localhost in Chromium (e.g., 'loc' for :3000, 'loc 5173', 'loc 8080')
 loc() {
     local port="${1:-3000}"
     chromium "http://localhost:$port" &>/dev/null &
 }
 
-# Abrir URL o buscar en Google desde la terminal
+# Open URL or Google search from terminal
 web() {
     if [ -z "$1" ]; then
         chromium &>/dev/null &
@@ -165,12 +165,7 @@ web() {
     fi
 }
 
-
-
-
-
-
-# --- Autocompletado ---
+# --- Autocompletion ---
 if ! shopt -oq posix; then
   if [ -f /usr/share/bash-completion/bash_completion ]; then
     . /usr/share/bash-completion/bash_completion

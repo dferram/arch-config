@@ -5,31 +5,36 @@ Natural, human-calibrated perceptual volume management and OSD feedback.
 Directly controls physical hardware audio sinks (speakers/headphones/bluetooth)
 using a logarithmic/perceptual response curve.
 
-Fixes the common Linux issue where 50% sounds too quiet and 10-15% is silent,
-delivering smooth, predictable volume scaling across the entire 0-100% range.
+Includes Hearing Protection features:
+- High volume warning alert when raising volume above 45% (especially on headphones)
+- Safe volume level enforcement
 """
 
 import sys
+import os
 import subprocess
 import re
+import time
 from pathlib import Path
 
 # Perceptual mapping exponent (compensates for PipeWire/ALSA cubic scaling on laptop speakers)
 PERCEPTUAL_EXP = 0.65
+MAX_RAW = 65536
+HEARING_WARNING_FILE = "/tmp/hypr_volume_hearing_warning"
 
-def slider_to_hardware(slider_pct):
-    """Converts a user/slider percentage (0-100) to hardware pactl percentage."""
+def slider_to_raw(slider_pct):
+    """Converts a user/slider percentage (0-100) to hardware 16-bit raw volume."""
     if slider_pct <= 0:
         return 0
     slider_pct = min(100, slider_pct)
-    return round(100.0 * ((slider_pct / 100.0) ** PERCEPTUAL_EXP))
+    return round(MAX_RAW * ((slider_pct / 100.0) ** PERCEPTUAL_EXP))
 
-def hardware_to_slider(hw_pct):
-    """Converts hardware pactl percentage back to user/slider percentage."""
-    if hw_pct <= 0:
+def raw_to_slider(raw_val):
+    """Converts hardware 16-bit raw volume back to user/slider percentage."""
+    if raw_val <= 0:
         return 0
-    hw_pct = min(100, hw_pct)
-    return round(100.0 * ((hw_pct / 100.0) ** (1.0 / PERCEPTUAL_EXP)))
+    raw_val = min(MAX_RAW, raw_val)
+    return round(100.0 * ((raw_val / float(MAX_RAW)) ** (1.0 / PERCEPTUAL_EXP)))
 
 def get_target_sink():
     try:
@@ -60,31 +65,95 @@ def get_target_sink():
         pass
     return "@DEFAULT_SINK@"
 
+def is_headphone_device(sink_name):
+    lower = sink_name.lower()
+    if any(k in lower for k in ["headphone", "bluez", "headset", "earbuds", "airpods"]):
+        return True
+    try:
+        res = subprocess.run(
+            ["amixer", "-c", "0", "cget", "iface=CARD,name='Headphone Jack'"],
+            capture_output=True, text=True, check=False
+        )
+        if ": values=on" in res.stdout:
+            return True
+    except Exception:
+        pass
+    try:
+        out = subprocess.check_output(["pactl", "list", "sinks"], stderr=subprocess.DEVNULL).decode()
+        if "Active Port: [Out] Headphones" in out or 'device.icon_name = "audio-headphones"' in out:
+            return True
+    except Exception:
+        pass
+    return False
+
 def get_volume_info(sink):
     try:
         vol_out = subprocess.check_output(["pactl", "get-sink-volume", sink], stderr=subprocess.DEVNULL).decode()
         mute_out = subprocess.check_output(["pactl", "get-sink-mute", sink], stderr=subprocess.DEVNULL).decode()
         is_muted = "yes" in mute_out.lower()
+
+        # Extract 16-bit raw integer for exact bijection
+        m_raw = re.search(r"(\d+)\s*/", vol_out)
+        if m_raw:
+            raw_val = int(m_raw.group(1))
+            return raw_to_slider(raw_val), is_muted
+
+        # Fallback to percentage
         m = re.search(r"(\d+)%", vol_out)
         hw_pct = int(m.group(1)) if m else 0
-        slider_pct = hardware_to_slider(hw_pct)
+        slider_pct = round(100.0 * ((hw_pct / 100.0) ** (1.0 / PERCEPTUAL_EXP)))
         return slider_pct, is_muted
     except Exception:
         pass
     return 0, False
 
-def get_accent_color():
+def notify_hearing_protection(pct, sink):
     try:
-        qml_path = Path.home() / ".config/quickshell/theme/Theme.qml"
-        if qml_path.exists():
-            m = re.search(r'readonly property color blue:\s*"([^"]+)"', qml_path.read_text())
-            if m:
-                return m.group(1)
+        subprocess.run([
+            "notify-send",
+            "-a", "Hearing Protection",
+            "-i", "dialog-warning",
+            "-u", "normal",
+            "-t", "3000",
+            "-h", "string:desktop-entry:hyprland",
+            "-h", "string:category:hearing.safety",
+            "High Volume Warning",
+            f"Volume > 45% ({pct}%). Protect your ears."
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
         pass
-    return "#e22b31"
 
-def notify_volume(pct, is_muted):
+def check_hearing_safety(current_slider, new_slider, sink):
+    if new_slider <= 45:
+        try:
+            if os.path.exists(HEARING_WARNING_FILE):
+                os.remove(HEARING_WARNING_FILE)
+        except Exception:
+            pass
+        return
+
+    now = time.time()
+    last_warn = 0
+    if os.path.exists(HEARING_WARNING_FILE):
+        try:
+            with open(HEARING_WARNING_FILE, "r") as f:
+                last_warn = float(f.read().strip())
+        except Exception:
+            last_warn = 0
+
+    crossed_threshold = (current_slider <= 45 and new_slider > 45)
+    cooldown_expired = (now - last_warn > 15.0)
+
+    if crossed_threshold or cooldown_expired:
+        try:
+            with open(HEARING_WARNING_FILE, "w") as f:
+                f.write(str(now))
+        except Exception:
+            pass
+
+        notify_hearing_protection(new_slider, sink)
+
+def notify_volume(pct, is_muted, sink="@DEFAULT_SINK@"):
     if is_muted:
         icon = "audio-volume-muted-symbolic"
         title = "Volume Muted"
@@ -97,7 +166,11 @@ def notify_volume(pct, is_muted):
             icon = "audio-volume-medium-symbolic"
         else:
             icon = "audio-volume-high-symbolic"
-        title = f"Volume {pct}%"
+
+        if pct > 45 and is_headphone_device(sink):
+            title = f"Volume {pct}% (High Volume)"
+        else:
+            title = f"Volume {pct}%"
 
     try:
         subprocess.run([
@@ -122,37 +195,40 @@ def main():
         return
 
     action = sys.argv[1].lower().strip()
-    step = 2
+    step = 1
     if len(sys.argv) > 2:
         try:
             step = int(sys.argv[2].replace("%", ""))
         except ValueError:
-            step = 2
+            step = 1
 
     current_slider, muted = get_volume_info(sink)
 
     if action in ["up", "+", "raise"]:
         new_slider = min(100, current_slider + step)
-        hw_val = slider_to_hardware(new_slider)
-        subprocess.run(["pactl", "set-sink-volume", sink, f"{hw_val}%"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        notify_volume(new_slider, muted)
+        raw_val = slider_to_raw(new_slider)
+        subprocess.run(["pactl", "set-sink-volume", sink, str(raw_val)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        notify_volume(new_slider, muted, sink)
+        check_hearing_safety(current_slider, new_slider, sink)
     elif action in ["down", "-", "lower"]:
         new_slider = max(0, current_slider - step)
-        hw_val = slider_to_hardware(new_slider)
-        subprocess.run(["pactl", "set-sink-volume", sink, f"{hw_val}%"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        notify_volume(new_slider, muted)
+        raw_val = slider_to_raw(new_slider)
+        subprocess.run(["pactl", "set-sink-volume", sink, str(raw_val)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        notify_volume(new_slider, muted, sink)
+        check_hearing_safety(current_slider, new_slider, sink)
     elif action in ["mute", "toggle", "m"]:
         subprocess.run(["pactl", "set-sink-mute", sink, "toggle"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         pct, is_m = get_volume_info(sink)
-        notify_volume(pct, is_m)
+        notify_volume(pct, is_m, sink)
     elif action in ["set", "s"]:
         if len(sys.argv) > 2:
             try:
                 target = int(sys.argv[2].replace("%", ""))
                 target = max(0, min(100, target))
-                hw_val = slider_to_hardware(target)
-                subprocess.run(["pactl", "set-sink-volume", sink, f"{hw_val}%"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                notify_volume(target, muted)
+                raw_val = slider_to_raw(target)
+                subprocess.run(["pactl", "set-sink-volume", sink, str(raw_val)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                notify_volume(target, muted, sink)
+                check_hearing_safety(current_slider, target, sink)
             except ValueError:
                 print("Usage: hypr-volume set <percentage>")
     elif action in ["get", "status"]:
