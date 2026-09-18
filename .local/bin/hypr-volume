@@ -4,10 +4,6 @@ hypr-volume:
 Natural, human-calibrated perceptual volume management and OSD feedback.
 Directly controls physical hardware audio sinks (speakers/headphones/bluetooth)
 using a logarithmic/perceptual response curve.
-
-Includes Hearing Protection features:
-- High volume warning alert when raising volume above 45% (especially on headphones)
-- Safe volume level enforcement
 """
 
 import sys
@@ -15,12 +11,10 @@ import os
 import subprocess
 import re
 import time
-from pathlib import Path
 
 # Perceptual mapping exponent (compensates for PipeWire/ALSA cubic scaling on laptop speakers)
 PERCEPTUAL_EXP = 0.65
 MAX_RAW = 65536
-HEARING_WARNING_FILE = "/tmp/hypr_volume_hearing_warning"
 
 def slider_to_raw(slider_pct):
     """Converts a user/slider percentage (0-100) to hardware 16-bit raw volume."""
@@ -107,52 +101,6 @@ def get_volume_info(sink):
         pass
     return 0, False
 
-def notify_hearing_protection(pct, sink):
-    try:
-        subprocess.run([
-            "notify-send",
-            "-a", "Hearing Protection",
-            "-i", "dialog-warning",
-            "-u", "normal",
-            "-t", "3000",
-            "-h", "string:desktop-entry:hyprland",
-            "-h", "string:category:hearing.safety",
-            "High Volume Warning",
-            f"Volume > 45% ({pct}%). Protect your ears."
-        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception:
-        pass
-
-def check_hearing_safety(current_slider, new_slider, sink):
-    if new_slider <= 45:
-        try:
-            if os.path.exists(HEARING_WARNING_FILE):
-                os.remove(HEARING_WARNING_FILE)
-        except Exception:
-            pass
-        return
-
-    now = time.time()
-    last_warn = 0
-    if os.path.exists(HEARING_WARNING_FILE):
-        try:
-            with open(HEARING_WARNING_FILE, "r") as f:
-                last_warn = float(f.read().strip())
-        except Exception:
-            last_warn = 0
-
-    crossed_threshold = (current_slider <= 45 and new_slider > 45)
-    cooldown_expired = (now - last_warn > 15.0)
-
-    if crossed_threshold or cooldown_expired:
-        try:
-            with open(HEARING_WARNING_FILE, "w") as f:
-                f.write(str(now))
-        except Exception:
-            pass
-
-        notify_hearing_protection(new_slider, sink)
-
 def notify_volume(pct, is_muted, sink="@DEFAULT_SINK@"):
     if is_muted:
         icon = "audio-volume-muted-symbolic"
@@ -167,10 +115,7 @@ def notify_volume(pct, is_muted, sink="@DEFAULT_SINK@"):
         else:
             icon = "audio-volume-high-symbolic"
 
-        if pct > 45 and is_headphone_device(sink):
-            title = f"Volume {pct}% (High Volume)"
-        else:
-            title = f"Volume {pct}%"
+        title = f"Volume {pct}%"
 
     try:
         subprocess.run([
@@ -209,13 +154,11 @@ def main():
         raw_val = slider_to_raw(new_slider)
         subprocess.run(["pactl", "set-sink-volume", sink, str(raw_val)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         notify_volume(new_slider, muted, sink)
-        check_hearing_safety(current_slider, new_slider, sink)
     elif action in ["down", "-", "lower"]:
         new_slider = max(0, current_slider - step)
         raw_val = slider_to_raw(new_slider)
         subprocess.run(["pactl", "set-sink-volume", sink, str(raw_val)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         notify_volume(new_slider, muted, sink)
-        check_hearing_safety(current_slider, new_slider, sink)
     elif action in ["mute", "toggle", "m"]:
         subprocess.run(["pactl", "set-sink-mute", sink, "toggle"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         pct, is_m = get_volume_info(sink)
@@ -228,7 +171,6 @@ def main():
                 raw_val = slider_to_raw(target)
                 subprocess.run(["pactl", "set-sink-volume", sink, str(raw_val)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 notify_volume(target, muted, sink)
-                check_hearing_safety(current_slider, target, sink)
             except ValueError:
                 print("Usage: hypr-volume set <percentage>")
     elif action in ["get", "status"]:

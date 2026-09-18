@@ -1,2 +1,4 @@
 [soe][Limiter#0]
-lookahead=10
+gainBoost=false
+lookahead=8
+threshold=-0.8
