@@ -123,6 +123,7 @@ Item {
         text: root.currentPercent + "%"
         accentColor: root.batteryColor
         active: root.activePopupId === "battery"
+        pulsingIcon: root.isCharging
 
         onClicked: {
             root.togglePopup("battery");
@@ -149,6 +150,17 @@ Item {
             border.color: theme.border
             border.width: 1
             radius: theme.radiusLarge
+
+            opacity: popup.visible ? 1.0 : 0.0
+            scale: popup.visible ? 1.0 : 0.95
+            transformOrigin: Item.Top
+            transform: Translate {
+                y: popup.visible ? 0 : -6
+                Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            }
+
+            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.08 } }
 
             Column {
                 id: cardLayout
@@ -302,6 +314,11 @@ Item {
                             border.color: isCurrent ? theme.green : theme.borderSubtle
                             border.width: 1
 
+                            scale: saverMouse.pressed ? 0.94 : (saverMouse.containsMouse ? 1.03 : 1.0)
+                            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
+                            Behavior on color { ColorAnimation { duration: 160 } }
+                            Behavior on border.color { ColorAnimation { duration: 160 } }
+
                             Text {
                                 anchors.centerIn: parent
                                 text: "Saver"
@@ -329,6 +346,11 @@ Item {
                             border.color: isCurrent ? theme.blue : theme.borderSubtle
                             border.width: 1
 
+                            scale: balMouse.pressed ? 0.94 : (balMouse.containsMouse ? 1.03 : 1.0)
+                            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
+                            Behavior on color { ColorAnimation { duration: 160 } }
+                            Behavior on border.color { ColorAnimation { duration: 160 } }
+
                             Text {
                                 anchors.centerIn: parent
                                 text: "Balanced"
@@ -355,6 +377,11 @@ Item {
                             color: isCurrent ? theme.surfaceActive : (perfMouse.containsMouse ? theme.surfaceHover : theme.surface)
                             border.color: isCurrent ? theme.peach : theme.borderSubtle
                             border.width: 1
+
+                            scale: perfMouse.pressed ? 0.94 : (perfMouse.containsMouse ? 1.03 : 1.0)
+                            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
+                            Behavior on color { ColorAnimation { duration: 160 } }
+                            Behavior on border.color { ColorAnimation { duration: 160 } }
 
                             Text {
                                 anchors.centerIn: parent

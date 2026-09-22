@@ -54,6 +54,17 @@ Item {
             border.width: 1
             radius: theme.radiusLarge
 
+            opacity: popup.visible ? 1.0 : 0.0
+            scale: popup.visible ? 1.0 : 0.95
+            transformOrigin: Item.Top
+            transform: Translate {
+                y: popup.visible ? 0 : -6
+                Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            }
+
+            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.08 } }
+
             Column {
                 id: cardLayout
                 anchors.left: parent.left

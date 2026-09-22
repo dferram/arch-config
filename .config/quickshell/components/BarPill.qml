@@ -17,6 +17,7 @@ Rectangle {
     property bool showText: true
     property int customPadding: 10
     property string tooltipText: ""
+    property bool pulsingIcon: false
 
     signal clicked()
     signal rightClicked()
@@ -44,8 +45,8 @@ Rectangle {
     Behavior on color { ColorAnimation { duration: 260; easing.type: Easing.OutQuad } }
     Behavior on border.color { ColorAnimation { duration: 260; easing.type: Easing.OutQuad } }
 
-    scale: mouseArea.pressed ? 0.97 : (mouseArea.containsMouse ? 1.02 : 1.0)
-    Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutQuad } }
+    scale: mouseArea.pressed ? 0.96 : (mouseArea.containsMouse ? 1.025 : 1.0)
+    Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
     Row {
         id: contentRow
@@ -55,10 +56,25 @@ Rectangle {
 
         // Dedicated fixed 16x16 icon container for perfect vertical alignment
         Item {
+            id: iconBox
             visible: root.iconSource !== ""
             width: 16
             height: 16
             anchors.verticalCenter: parent.verticalCenter
+
+            SequentialAnimation on opacity {
+                running: root.pulsingIcon
+                loops: Animation.Infinite
+                NumberAnimation { from: 1.0; to: 0.50; duration: 950; easing.type: Easing.InOutSine }
+                NumberAnimation { from: 0.50; to: 1.0; duration: 950; easing.type: Easing.InOutSine }
+            }
+
+            SequentialAnimation on scale {
+                running: root.pulsingIcon
+                loops: Animation.Infinite
+                NumberAnimation { from: 1.0; to: 1.12; duration: 950; easing.type: Easing.InOutSine }
+                NumberAnimation { from: 1.12; to: 1.0; duration: 950; easing.type: Easing.InOutSine }
+            }
 
             Image {
                 anchors.centerIn: parent

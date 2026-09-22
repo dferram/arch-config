@@ -102,6 +102,17 @@ Item {
             border.width: 1
             radius: theme.radiusLarge
 
+            opacity: popup.visible ? 1.0 : 0.0
+            scale: popup.visible ? 1.0 : 0.95
+            transformOrigin: Item.Top
+            transform: Translate {
+                y: popup.visible ? 0 : -6
+                Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            }
+
+            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.08 } }
+
             Column {
                 id: cardLayout
                 anchors.left: parent.left
@@ -174,7 +185,7 @@ Item {
                             height: parent.height
                             radius: 3
                             color: root.statusColor
-                            Behavior on width { NumberAnimation { duration: 250 } }
+                            Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
                         }
                     }
                 }
@@ -201,7 +212,7 @@ Item {
                             height: parent.height
                             radius: 3
                             color: root.ramPct > 80 ? theme.red : theme.blue
-                            Behavior on width { NumberAnimation { duration: 250 } }
+                            Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
                         }
                     }
                 }
@@ -214,6 +225,11 @@ Item {
                     color: btopMa.containsMouse ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.25) : theme.surface
                     border.color: btopMa.containsMouse ? theme.blue : theme.borderSubtle
                     border.width: 1
+
+                    scale: btopMa.pressed ? 0.95 : (btopMa.containsMouse ? 1.025 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
+                    Behavior on color { ColorAnimation { duration: 160 } }
+                    Behavior on border.color { ColorAnimation { duration: 160 } }
 
                     Row {
                         anchors.centerIn: parent

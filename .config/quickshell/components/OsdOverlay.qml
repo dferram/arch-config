@@ -69,7 +69,8 @@ PanelWindow {
                        "<line x1='12' y1='19' x2='12' y2='22'/>" +
                        "</svg>";
             } else {
-                return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%2322c55e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'>" +
+                let col = theme.urlColor(theme.blue);
+                return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'>" +
                        "<path d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z'/>" +
                        "<path d='M19 10v2a7 7 0 0 1-14 0v-2'/>" +
                        "<line x1='12' y1='19' x2='12' y2='22'/>" +
@@ -258,13 +259,13 @@ PanelWindow {
                                     if (osdWindow.isBrightness) {
                                         return index < 6 ? "#f59e0b" : "#fbbf24";
                                     } else if (osdWindow.isMic) {
-                                        return "#22c55e";
+                                        return index < 6 ? theme.blue : theme.blueLight;
                                     } else if (osdWindow.isNight) {
                                         return "#f59e0b";
                                     } else if (osdWindow.isCaps) {
                                         return index < 6 ? "#dc2626" : "#ef4444";
                                     } else {
-                                        return index < 6 ? "#dc2626" : "#ef4444";
+                                        return index < 6 ? theme.blue : theme.blueLight;
                                     }
                                 }
 
@@ -304,7 +305,7 @@ PanelWindow {
                         }
                         color: {
                             if (osdWindow.isMuted) return "#ff453a";
-                            if (osdWindow.isMic) return "#22c55e";
+                            if (osdWindow.isMic) return theme.blue;
                             if (osdWindow.isBrightness || osdWindow.isNight) return "#fbbf24";
                             return "#ffffff";
                         }

@@ -108,7 +108,7 @@ gaps_out = 8,
 border_size = 2,
 
 col = {
-    active_border   = { colors = {'rgba(e22b31ee)', 'rgba(ff787dee)'}, angle = 45 },
+    active_border   = { colors = {'rgba(42a0bfee)', 'rgba(7fc4dbee)'}, angle = 45 },
     inactive_border = "rgba(595959aa)",
 },
 
@@ -157,17 +157,19 @@ hl.curve("smoothLinear",   { type = "bezier", points = { {0.0, 0.0},   {1.0, 1.0
 
 -- Animations: Minimalist, futuristic, gentle inertia
 hl.animation({ leaf = "windows",          enabled = true, speed = 6.0, bezier = "futureGlide" })
-hl.animation({ leaf = "windowsIn",        enabled = true, speed = 5.5, bezier = "futureGlide", style = "popin 97%" })
-hl.animation({ leaf = "windowsOut",       enabled = true, speed = 4.5, bezier = "futureFade",  style = "popin 97%" })
+hl.animation({ leaf = "windowsIn",        enabled = true, speed = 5.5, bezier = "futureGlide", style = "popin 95%" })
+hl.animation({ leaf = "windowsOut",       enabled = true, speed = 4.5, bezier = "futureFade",  style = "popin 95%" })
 hl.animation({ leaf = "windowsMove",      enabled = true, speed = 5.5, bezier = "futureGlide" })
 hl.animation({ leaf = "fadeIn",           enabled = true, speed = 5.0, bezier = "futureFade" })
 hl.animation({ leaf = "fadeOut",          enabled = true, speed = 4.0, bezier = "futureFade" })
+hl.animation({ leaf = "fadeSwitch",       enabled = true, speed = 4.5, bezier = "futureFade" })
 hl.animation({ leaf = "border",           enabled = true, speed = 6.5, bezier = "futureFade" })
+hl.animation({ leaf = "borderangle",      enabled = true, speed = 50.0, bezier = "smoothLinear", style = "loop" })
 hl.animation({ leaf = "layers",           enabled = true, speed = 5.0, bezier = "futureGlide" })
 hl.animation({ leaf = "layersIn",         enabled = true, speed = 4.5, bezier = "futureFade",  style = "fade" })
 hl.animation({ leaf = "layersOut",        enabled = true, speed = 3.5, bezier = "futureFade",  style = "fade" })
-hl.animation({ leaf = "workspaces",       enabled = true, speed = 6.0, bezier = "futureGlide", style = "slide" })
-hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 5.5, bezier = "futureGlide", style = "slidevert" })
+hl.animation({ leaf = "workspaces",       enabled = true, speed = 5.5, bezier = "futureGlide", style = "slidefade 15%" })
+hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 5.5, bezier = "futureGlide", style = "slidefadevert 15%" })
 hl.animation({ leaf = "zoomFactor",       enabled = true, speed = 6.0, bezier = "futureGlide" })
 
 -- Ref https://wiki.hypr.land/Configuring/Basics/Workspace-Rules/

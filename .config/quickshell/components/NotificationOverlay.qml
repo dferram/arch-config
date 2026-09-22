@@ -169,6 +169,21 @@ PanelWindow {
                 implicitHeight: Math.max(68, contentRow.implicitHeight + 20)
                 height: implicitHeight
 
+                opacity: 0.0
+                scale: 0.95
+                transform: Translate { id: cardSlide; x: 24 }
+
+                Component.onCompleted: {
+                    notifEntrance.start();
+                }
+
+                ParallelAnimation {
+                    id: notifEntrance
+                    NumberAnimation { target: card; property: "opacity"; from: 0.0; to: 1.0; duration: 220; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: card; property: "scale"; from: 0.95; to: 1.0; duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.08 }
+                    NumberAnimation { target: cardSlide; property: "x"; from: 24; to: 0; duration: 220; easing.type: Easing.OutCubic }
+                }
+
                 property string appName: modelData ? (modelData.appName || "") : ""
                 property string summary: modelData ? (modelData.summary || "") : ""
                 property string bodyText: modelData ? (modelData.body || "") : ""
@@ -211,7 +226,9 @@ PanelWindow {
                 Connections {
                     target: card.modelData
                     function onClosed() {
-                        root.dismissNotif(card.modelData);
+                        if (typeof root !== "undefined" && root && root.dismissNotif) {
+                            root.dismissNotif(card.modelData);
+                        }
                     }
                 }
 
@@ -613,6 +630,16 @@ PanelWindow {
                         return "file:///home/ferram/.local/share/icons/calendar-3d.svg";
                     }
 
+                    // Google Classroom official SVG icon
+                    if (lowerApp.includes("classroom") || lowerSum.includes("classroom") || card.metaContext.includes("classroom")) {
+                        return "file:///home/ferram/.local/share/icons/classroom.svg";
+                    }
+
+                    // Google Meet official SVG icon
+                    if (lowerApp.includes("meet") || lowerSum.includes("google meet") || card.metaContext.includes("meet")) {
+                        return "file:///home/ferram/.local/share/icons/meet.svg";
+                    }
+
                     // Night Light crisp SVG Moon
                     if (palette.isNightLight || lowerIcon.includes("weather-clear-night") || lowerIcon.includes("night-light")) {
                         return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'><path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z' fill='%23f59e0b'/></svg>";
@@ -826,6 +853,9 @@ PanelWindow {
                                     height: 16
                                     radius: 8
                                     color: closeMouse.containsMouse ? theme.surfaceActive : "transparent"
+                                    scale: closeMouse.pressed ? 0.88 : (closeMouse.containsMouse ? 1.15 : 1.0)
+                                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                                    Behavior on color { ColorAnimation { duration: 150 } }
 
                                     Text {
                                         anchors.centerIn: parent
@@ -839,6 +869,7 @@ PanelWindow {
                                         id: closeMouse
                                         anchors.fill: parent
                                         hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
                                         onClicked: root.dismissNotif(card.modelData)
                                     }
                                 }

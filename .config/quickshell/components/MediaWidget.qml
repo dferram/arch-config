@@ -215,6 +215,7 @@ Item {
         text: root.displayLabel
         accentColor: root.mediaAccentColor
         active: root.activePopupId === "media"
+        pulsingIcon: root.isPlaying
 
         onClicked: {
             root.togglePopup("media");
@@ -244,6 +245,17 @@ Item {
             border.color: theme.border
             border.width: 1
             radius: theme.radiusLarge
+
+            opacity: popup.visible ? 1.0 : 0.0
+            scale: popup.visible ? 1.0 : 0.95
+            transformOrigin: Item.Top
+            transform: Translate {
+                y: popup.visible ? 0 : -6
+                Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            }
+
+            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.08 } }
 
             Column {
                 id: cardLayout
@@ -463,6 +475,8 @@ Item {
                                 return Math.min(parent.width, Math.max(0, parent.width * pct));
                             }
                             color: root.mediaAccentColor
+
+                            Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
                         }
                     }
 
@@ -494,6 +508,10 @@ Item {
                         radius: 18
                         color: prevMa.containsMouse ? theme.surfaceHover : "transparent"
                         anchors.verticalCenter: parent.verticalCenter
+                        scale: prevMa.pressed ? 0.88 : (prevMa.containsMouse ? 1.08 : 1.0)
+                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
                         Image {
                             anchors.centerIn: parent
                             width: 14
@@ -519,6 +537,9 @@ Item {
                         radius: 22
                         color: playMa.containsMouse ? Qt.darker(root.mediaAccentColor, 1.15) : root.mediaAccentColor
                         anchors.verticalCenter: parent.verticalCenter
+                        scale: playMa.pressed ? 0.90 : (playMa.containsMouse ? 1.08 : 1.0)
+                        Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                        Behavior on color { ColorAnimation { duration: 160 } }
 
                         Image {
                             anchors.centerIn: parent
@@ -548,6 +569,10 @@ Item {
                         radius: 18
                         color: nextMa.containsMouse ? theme.surfaceHover : "transparent"
                         anchors.verticalCenter: parent.verticalCenter
+                        scale: nextMa.pressed ? 0.88 : (nextMa.containsMouse ? 1.08 : 1.0)
+                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
                         Image {
                             anchors.centerIn: parent
                             width: 14

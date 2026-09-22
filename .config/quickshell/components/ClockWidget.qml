@@ -226,6 +226,16 @@ Item {
         return cats;
     }
 
+    function getDayReminderCount(dStr) {
+        if (!allReminders) return 0;
+        let count = 0;
+        for (let i = 0; i < allReminders.length; i++) {
+            let r = allReminders[i];
+            if (r.date === dStr && !r.done) count++;
+        }
+        return count;
+    }
+
     function remindersForSelectedDate() {
         if (!allReminders) return [];
         let list = [];
@@ -277,8 +287,171 @@ Item {
         }
     }
 
+    // Mexican Holidays Calculation (Official LFT & Traditional Mexican Dates)
+    readonly property var selectedHoliday: root.getMexicanHoliday(root.selectedDateStr)
+
+    function getMexicanHoliday(dateStr) {
+        if (!dateStr) return null;
+        let parts = dateStr.split("-");
+        if (parts.length !== 3) return null;
+        let y = parseInt(parts[0], 10);
+        let m = parseInt(parts[1], 10);
+        let d = parseInt(parts[2], 10);
+
+        // Fixed Mexican Holidays & Observances
+        let fixed = {
+            "1-1": { name: "Año Nuevo", icon: "🎆", isOfficial: true, desc: "Descanso obligatorio nacional (LFT)" },
+            "1-6": { name: "Día de Reyes", icon: "👑", isOfficial: false, desc: "Tradición mexicana de Reyes Magos y Rosca" },
+            "2-2": { name: "Día de la Candelaria", icon: "🫔", isOfficial: false, desc: "Tradición de tamales y bendición del Niño Dios" },
+            "2-5": { name: "Día de la Constitución", icon: "📜", isOfficial: false, desc: "Aniversario de la Constitución Política de 1917" },
+            "2-14": { name: "Día del Amor y la Amistad", icon: "❤️", isOfficial: false, desc: "Celebración tradicional de San Valentín" },
+            "2-24": { name: "Día de la Bandera", icon: "🇲🇽", isOfficial: false, desc: "Conmemoración del Lábaro Patrio" },
+            "3-8": { name: "Día de la Mujer", icon: "💜", isOfficial: false, desc: "Día Internacional de la Mujer" },
+            "3-18": { name: "Expropiación Petrolera", icon: "🛢️", isOfficial: false, desc: "Decreto de nacionalización de la industria petrolera de 1938" },
+            "3-21": { name: "Natalicio de Benito Juárez", icon: "⚖️", isOfficial: false, desc: "Aniversario del Benemérito de las Américas" },
+            "4-30": { name: "Día del Niño", icon: "🎈", isOfficial: false, desc: "Celebración y festivales infantiles en México" },
+            "5-1": { name: "Día del Trabajo", icon: "🛠️", isOfficial: true, desc: "Descanso obligatorio nacional (LFT)" },
+            "5-5": { name: "Batalla de Puebla", icon: "⚔️", isOfficial: false, desc: "Victoria del ejército mexicano en Puebla de 1862" },
+            "5-10": { name: "Día de las Madres", icon: "💐", isOfficial: false, desc: "Celebración nacional a las madres mexicanas" },
+            "5-15": { name: "Día del Maestro", icon: "📚", isOfficial: false, desc: "Reconocimiento a docentes y educadores" },
+            "9-13": { name: "Día de los Niños Héroes", icon: "🏰", isOfficial: false, desc: "Defensa del Castillo de Chapultepec de 1847" },
+            "9-15": { name: "Grito de Dolores", icon: "🔔", isOfficial: false, desc: "Víspera del Día de la Independencia y tradicional Grito" },
+            "9-16": { name: "Día de la Independencia", icon: "🇲🇽", isOfficial: true, desc: "Descanso obligatorio nacional (LFT) - Fiesta Patria" },
+            "10-12": { name: "Día de la Raza", icon: "🌎", isOfficial: false, desc: "Encuentro de Dos Mundos y diversidad cultural" },
+            "10-31": { name: "Halloween", icon: "🎃", isOfficial: false, desc: "Noche de Brujas y víspera de Todos los Santos" },
+            "11-1": { name: "Día de Todos los Santos", icon: "🏵️", isOfficial: false, desc: "Día de los Angelitos y tradición de Día de Muertos" },
+            "11-2": { name: "Día de Muertos", icon: "💀", isOfficial: false, desc: "Patrimonio Cultural Inmaterial de México y ofrendas a Fieles Difuntos" },
+            "11-20": { name: "Revolución Mexicana", icon: "🐎", isOfficial: false, desc: "Aniversario del inicio de la Revolución de 1910" },
+            "12-12": { name: "Día de la Virgen de Guadalupe", icon: "🌹", isOfficial: false, desc: "Máxima tradición religiosa y popular en México" },
+            "12-24": { name: "Nochebuena", icon: "🕯️", isOfficial: false, desc: "Víspera de Navidad y cenas familiares" },
+            "12-25": { name: "Navidad", icon: "🎄", isOfficial: true, desc: "Descanso obligatorio nacional (LFT)" },
+            "12-28": { name: "Día de los Santos Inocentes", icon: "🎭", isOfficial: false, desc: "Tradición popular de bromas inocentes" },
+            "12-31": { name: "Fin de Año", icon: "🥂", isOfficial: false, desc: "Víspera y brindis de bienvenida al Año Nuevo" }
+        };
+
+        // Cambio de Poder Ejecutivo Federal cada 6 años (1 de octubre a partir de 2024: 2024, 2030, etc.)
+        if (m === 10 && d === 1 && (y % 6 === 2024 % 6)) {
+            return {
+                name: "Transmisión del Poder Ejecutivo",
+                icon: "🏛️",
+                isOfficial: true,
+                desc: "Descanso obligatorio nacional (LFT Art. 74 - cada 6 años)",
+                typeLabel: "Feriado Oficial LFT",
+                badgeColor: "#10b981"
+            };
+        }
+
+        // Puentes oficiales de la Ley Federal del Trabajo (LFT Art. 74):
+        // 1er lunes de febrero (en conmemoración del 5 de febrero)
+        let febFirstDay = new Date(y, 1, 1).getDay();
+        let febMonday = (febFirstDay === 1) ? 1 : ((8 - febFirstDay) % 7 + 1);
+        if (m === 2 && d === febMonday) {
+            return {
+                name: "Día de la Constitución (Puente Oficial)",
+                icon: "📜",
+                isOfficial: true,
+                desc: "Descanso obligatorio LFT (1er lunes de febrero por el 5 de Feb)",
+                typeLabel: "Feriado Oficial LFT",
+                badgeColor: "#10b981"
+            };
+        }
+
+        // 3er lunes de marzo (en conmemoración del 21 de marzo)
+        let marFirstDay = new Date(y, 2, 1).getDay();
+        let marMonday1 = (marFirstDay === 1) ? 1 : ((8 - marFirstDay) % 7 + 1);
+        let marMonday3 = marMonday1 + 14;
+        if (m === 3 && d === marMonday3) {
+            return {
+                name: "Natalicio de Benito Juárez (Puente Oficial)",
+                icon: "⚖️",
+                isOfficial: true,
+                desc: "Descanso obligatorio LFT (3er lunes de marzo por el 21 de Mar)",
+                typeLabel: "Feriado Oficial LFT",
+                badgeColor: "#10b981"
+            };
+        }
+
+        // 3er lunes de noviembre (en conmemoración del 20 de noviembre)
+        let novFirstDay = new Date(y, 10, 1).getDay();
+        let novMonday1 = (novFirstDay === 1) ? 1 : ((8 - novFirstDay) % 7 + 1);
+        let novMonday3 = novMonday1 + 14;
+        if (m === 11 && d === novMonday3) {
+            return {
+                name: "Revolución Mexicana (Puente Oficial)",
+                icon: "🐎",
+                isOfficial: true,
+                desc: "Descanso obligatorio LFT (3er lunes de noviembre por el 20 de Nov)",
+                typeLabel: "Feriado Oficial LFT",
+                badgeColor: "#10b981"
+            };
+        }
+
+        // Semana Santa (Jueves y Viernes Santo con algoritmo Meeus/Jones)
+        let a = y % 19;
+        let b = Math.floor(y / 100);
+        let c = y % 100;
+        let dVal = Math.floor(b / 4);
+        let e = b % 4;
+        let f = Math.floor((b + 8) / 25);
+        let g = Math.floor((b - f + 1) / 3);
+        let h = (19 * a + b - dVal - g + 15) % 30;
+        let i = Math.floor(c / 4);
+        let k = c % 4;
+        let l = (32 + 2 * e + 2 * i - h - k) % 7;
+        let mVal = Math.floor((a + 11 * h + 22 * l) / 451);
+        let easterMonth = Math.floor((h + l - 7 * mVal + 114) / 31);
+        let easterDay = ((h + l - 7 * mVal + 114) % 31) + 1;
+        let easterDate = new Date(y, easterMonth - 1, easterDay);
+
+        let juevesSanto = new Date(easterDate);
+        juevesSanto.setDate(easterDate.getDate() - 3);
+        if (m === (juevesSanto.getMonth() + 1) && d === juevesSanto.getDate()) {
+            return {
+                name: "Jueves Santo",
+                icon: "🕊️",
+                isOfficial: false,
+                desc: "Jueves de Semana Santa en México",
+                typeLabel: "Festividad Tradicional",
+                badgeColor: "#f59e0b"
+            };
+        }
+
+        let viernesSanto = new Date(easterDate);
+        viernesSanto.setDate(easterDate.getDate() - 2);
+        if (m === (viernesSanto.getMonth() + 1) && d === viernesSanto.getDate()) {
+            return {
+                name: "Viernes Santo",
+                icon: "✝️",
+                isOfficial: false,
+                desc: "Viernes de Semana Santa en México",
+                typeLabel: "Festividad Tradicional",
+                badgeColor: "#f59e0b"
+            };
+        }
+
+        // Check fixed date
+        let key = m + "-" + d;
+        if (fixed[key]) {
+            let item = fixed[key];
+            return {
+                name: item.name,
+                icon: item.icon || "🇲🇽",
+                isOfficial: item.isOfficial,
+                desc: item.desc,
+                typeLabel: item.isOfficial ? "Feriado Oficial LFT" : "Festividad Mexicana",
+                badgeColor: item.isOfficial ? "#10b981" : "#f59e0b"
+            };
+        }
+
+        return null;
+    }
+
     function daySummaryText() {
-        if (!allReminders) return "No events scheduled";
+        let hol = root.getMexicanHoliday(root.selectedDateStr);
+        let holIcon = hol ? (hol.icon || "🇲🇽") : "";
+        let holPrefix = hol ? (holIcon + " " + hol.name + " • ") : "";
+
+        if (!allReminders) return hol ? (holIcon + " " + hol.name + " • No scheduled events") : "No events scheduled";
         let count = 0;
         let doneCount = 0;
         for (let i = 0; i < allReminders.length; i++) {
@@ -291,13 +464,14 @@ Item {
             }
         }
         if (count === 0) {
-            return selectedCategory === "All" ? "No scheduled events" : "No " + selectedCategory + " events";
+            return hol ? (holPrefix + (selectedCategory === "All" ? "No scheduled events" : "No " + selectedCategory + " events"))
+                       : (selectedCategory === "All" ? "No scheduled events" : "No " + selectedCategory + " events");
         }
         let pending = count - doneCount;
         if (pending === 0) {
-            return count === 1 ? "1 task completed" : count + " tasks completed";
+            return holPrefix + (count === 1 ? "1 task completed" : count + " tasks completed");
         }
-        return count + (count === 1 ? " event" : " events") + " • " + pending + " pending";
+        return holPrefix + count + (count === 1 ? " event" : " events") + " • " + pending + " pending";
     }
 
     // Detailed Popover Card with Full Calendar & Reminders
@@ -320,6 +494,17 @@ Item {
             border.color: theme.border
             border.width: 1
             radius: theme.radiusLarge
+
+            opacity: popup.visible ? 1.0 : 0.0
+            scale: popup.visible ? 1.0 : 0.95
+            transformOrigin: Item.Top
+            transform: Translate {
+                y: popup.visible ? 0 : -6
+                Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            }
+
+            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.08 } }
 
             Flickable {
                 anchors.fill: parent
@@ -458,6 +643,10 @@ Item {
                                         border.color: todayMa.containsMouse ? theme.borderGlow : theme.borderSubtle
                                         border.width: 1
 
+                                        scale: todayMa.pressed ? 0.94 : (todayMa.containsMouse ? 1.04 : 1.0)
+                                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                                        Behavior on color { ColorAnimation { duration: 150 } }
+
                                         Text {
                                             anchors.centerIn: parent
                                             text: "Today"
@@ -485,6 +674,10 @@ Item {
                                         border.color: prevMa.containsMouse ? theme.border : "transparent"
                                         border.width: 1
 
+                                        scale: prevMa.pressed ? 0.88 : (prevMa.containsMouse ? 1.10 : 1.0)
+                                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                                        Behavior on color { ColorAnimation { duration: 150 } }
+
                                         Text {
                                             anchors.centerIn: parent
                                             text: "‹"
@@ -511,6 +704,10 @@ Item {
                                         color: nextMa.containsMouse ? theme.surfaceHover : "transparent"
                                         border.color: nextMa.containsMouse ? theme.border : "transparent"
                                         border.width: 1
+
+                                        scale: nextMa.pressed ? 0.88 : (nextMa.containsMouse ? 1.10 : 1.0)
+                                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                                        Behavior on color { ColorAnimation { duration: 150 } }
 
                                         Text {
                                             anchors.centerIn: parent
@@ -609,43 +806,171 @@ Item {
                                         property bool isToday: isCurrentMonth && (dayNum === daysGrid.curDay) && (root.navMonth === daysGrid.curMonth) && (root.navYear === daysGrid.curYear)
                                         property bool isSelected: dateStr === root.selectedDateStr
                                         property var dayCats: root.getDayCategories(dateStr)
+                                        property var mexicanHoliday: root.getMexicanHoliday(dateStr)
 
                                         Rectangle {
+                                            id: cellBox
                                             anchors.centerIn: parent
                                             width: 28
                                             height: 28
                                             radius: 8
+                                            clip: true
+                                            color: "transparent"
 
-                                            color: {
-                                                if (dayCell.isSelected && dayCell.isToday) return Qt.rgba(255, 255, 255, 0.22);
-                                                if (dayCell.isSelected) return Qt.rgba(255, 255, 255, 0.16);
-                                                if (dayCell.isToday) return Qt.rgba(255, 255, 255, 0.08);
-                                                if (dayCellMa.containsMouse) return theme.surfaceHover;
-                                                return "transparent";
+                                            // 1. Full-cell Dynamic Colored Background Tint Layer
+                                            Item {
+                                                anchors.fill: parent
+
+                                                // Single Category Reminder: Solid vivid glass tint
+                                                Rectangle {
+                                                    anchors.fill: parent
+                                                    visible: dayCell.isCurrentMonth && dayCell.dayCats.length === 1
+                                                    color: {
+                                                        if (dayCell.dayCats.length === 1) {
+                                                            let col = root.getCategoryColor(dayCell.dayCats[0]);
+                                                            return Qt.rgba(col.r, col.g, col.b, 0.22);
+                                                        }
+                                                        return "transparent";
+                                                    }
+                                                }
+
+                                                // Multi-Category: Segmented Multi-Tone Split Glass (Dual or Tri-color slices)
+                                                Row {
+                                                    anchors.fill: parent
+                                                    visible: dayCell.isCurrentMonth && dayCell.dayCats.length >= 2
+
+                                                    Repeater {
+                                                        model: dayCell.dayCats
+                                                        Rectangle {
+                                                            width: cellBox.width / dayCell.dayCats.length
+                                                            height: cellBox.height
+                                                            color: {
+                                                                let col = root.getCategoryColor(modelData);
+                                                                return Qt.rgba(col.r, col.g, col.b, 0.24);
+                                                            }
+
+                                                            // Subtle hairline divider between color panes
+                                                            Rectangle {
+                                                                visible: index > 0
+                                                                anchors.left: parent.left
+                                                                anchors.top: parent.top
+                                                                anchors.bottom: parent.bottom
+                                                                width: 1
+                                                                color: Qt.rgba(255, 255, 255, 0.25)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                // Holiday-only background tint (when day has no user reminders)
+                                                Rectangle {
+                                                    anchors.fill: parent
+                                                    visible: dayCell.isCurrentMonth && dayCell.dayCats.length === 0 && !!dayCell.mexicanHoliday
+                                                    color: dayCell.mexicanHoliday ? (dayCell.mexicanHoliday.isOfficial ? Qt.rgba(16/255, 185/255, 129/255, 0.18) : Qt.rgba(245/255, 158/255, 11/255, 0.14)) : "transparent"
+                                                }
+
+                                                // Selection & Hover State Overlays
+                                                Rectangle {
+                                                    anchors.fill: parent
+                                                    color: {
+                                                        if (dayCell.isSelected && dayCell.isToday) return Qt.rgba(255, 255, 255, 0.24);
+                                                        if (dayCell.isSelected) return Qt.rgba(255, 255, 255, 0.18);
+                                                        if (dayCell.isToday && dayCell.dayCats.length === 0 && !dayCell.mexicanHoliday) return Qt.rgba(255, 255, 255, 0.08);
+                                                        if (dayCellMa.containsMouse) return theme.surfaceHover;
+                                                        return "transparent";
+                                                    }
+                                                }
+                                            }
+
+                                            // Top Specular Highlight Line (Liquid Glass effect)
+                                            Rectangle {
+                                                anchors.left: parent.left
+                                                anchors.right: parent.right
+                                                anchors.top: parent.top
+                                                height: 1
+                                                color: Qt.rgba(255, 255, 255, (dayCell.dayCats.length > 0 || dayCell.mexicanHoliday) ? 0.35 : 0.12)
                                             }
 
                                             border.color: {
                                                 if (dayCell.isSelected) return theme.frost;
                                                 if (dayCell.isToday) return theme.borderGlow;
                                                 if (dayCellMa.containsMouse) return theme.border;
+                                                if (dayCell.mexicanHoliday && dayCell.isCurrentMonth) {
+                                                    return dayCell.mexicanHoliday.isOfficial ? Qt.rgba(16/255, 185/255, 129/255, 0.65) : Qt.rgba(245/255, 158/255, 11/255, 0.55);
+                                                }
+                                                if (dayCell.dayCats.length > 0 && dayCell.isCurrentMonth) {
+                                                    let primaryCol = root.getCategoryColor(dayCell.dayCats[0]);
+                                                    return Qt.rgba(primaryCol.r, primaryCol.g, primaryCol.b, 0.60);
+                                                }
                                                 return "transparent";
                                             }
-                                            border.width: dayCell.isSelected ? 1.5 : (dayCell.isToday ? 1 : 0)
+                                            border.width: dayCell.isSelected ? 1.5 : ((dayCell.isToday || dayCell.dayCats.length > 0 || (dayCell.mexicanHoliday && dayCell.isCurrentMonth)) ? 1 : 0)
+
+                                            // Distinctive Mexican Holiday Marker (Top-Right illuminated gem)
+                                            Rectangle {
+                                                visible: !!dayCell.mexicanHoliday && dayCell.isCurrentMonth
+                                                anchors.top: parent.top
+                                                anchors.right: parent.right
+                                                anchors.topMargin: 2
+                                                anchors.rightMargin: 2
+                                                width: 5
+                                                height: 5
+                                                radius: 2.5
+                                                color: dayCell.mexicanHoliday ? dayCell.mexicanHoliday.badgeColor : "transparent"
+
+                                                Rectangle {
+                                                    anchors.centerIn: parent
+                                                    width: 9
+                                                    height: 9
+                                                    radius: 4.5
+                                                    color: "transparent"
+                                                    border.color: parent.color
+                                                    border.width: 1
+                                                    opacity: 0.4
+                                                }
+                                            }
+
+                                            // High Activity Micro Badge (Top-Left, 3+ tasks)
+                                            Rectangle {
+                                                property int rCount: root.getDayReminderCount(dayCell.dateStr)
+                                                visible: dayCell.isCurrentMonth && rCount >= 3
+                                                anchors.top: parent.top
+                                                anchors.left: parent.left
+                                                anchors.topMargin: 2
+                                                anchors.leftMargin: 2
+                                                width: 9
+                                                height: 9
+                                                radius: 4.5
+                                                color: Qt.rgba(0, 0, 0, 0.4)
+                                                border.color: Qt.rgba(255, 255, 255, 0.5)
+                                                border.width: 0.5
+
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: parent.rCount > 9 ? "+" : String(parent.rCount)
+                                                    color: "#ffffff"
+                                                    font.family: theme.fontFamily
+                                                    font.pixelSize: 6
+                                                    font.weight: Font.Bold
+                                                }
+                                            }
 
                                             // Day number text
                                             Text {
                                                 anchors.horizontalCenter: parent.horizontalCenter
                                                 anchors.top: parent.top
-                                                anchors.topMargin: dayCell.dayCats.length > 0 ? 3 : 6
+                                                anchors.topMargin: (dayCell.dayCats.length > 0 || dayCell.mexicanHoliday) ? 3 : 6
                                                 text: dayCell.dayNum
                                                 color: {
                                                     if (dayCell.isSelected || dayCell.isToday) return theme.text;
                                                     if (!dayCell.isCurrentMonth) return theme.textDim;
+                                                    if (dayCell.dayCats.length > 0) return "#ffffff";
+                                                    if (dayCell.mexicanHoliday) return dayCell.mexicanHoliday.isOfficial ? "#34d399" : "#fbbf24";
                                                     return theme.textSub;
                                                 }
                                                 font.family: theme.fontFamily
                                                 font.pixelSize: 11
-                                                font.weight: (dayCell.isToday || dayCell.isSelected) ? Font.Bold : Font.Normal
+                                                font.weight: (dayCell.isToday || dayCell.isSelected || dayCell.dayCats.length > 0 || (dayCell.mexicanHoliday && dayCell.isCurrentMonth)) ? Font.Bold : Font.Normal
                                             }
 
                                             // Category dots row (up to 3 distinct category dots)
@@ -663,8 +988,20 @@ Item {
                                                         height: 3.5
                                                         radius: 2
                                                         color: root.getCategoryColor(modelData)
+                                                        border.color: Qt.rgba(0, 0, 0, 0.5)
+                                                        border.width: 0.5
                                                     }
                                                 }
+                                            }
+
+                                            // Holiday Micro-Icon (shown at bottom when day has a holiday and no user reminders)
+                                            Text {
+                                                visible: dayCell.isCurrentMonth && dayCell.dayCats.length === 0 && !!dayCell.mexicanHoliday
+                                                anchors.bottom: parent.bottom
+                                                anchors.bottomMargin: 1
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                text: dayCell.mexicanHoliday ? (dayCell.mexicanHoliday.icon || "") : ""
+                                                font.pixelSize: 8
                                             }
                                         }
 
@@ -1183,9 +1520,95 @@ Item {
                             // 4. Reminders List for Selected Day
                             Column {
                                 width: parent.width
-                                spacing: 5
+                                spacing: 6
 
                                 property var dayItems: root.remindersForSelectedDate()
+
+                                // Mexican Holiday Festive Card (Distinguished banner for official/cultural holidays)
+                                Rectangle {
+                                    visible: !!root.selectedHoliday
+                                    width: parent.width
+                                    radius: theme.radiusSmall
+                                    implicitHeight: holidayRow.implicitHeight + 20
+                                    color: root.selectedHoliday ? (root.selectedHoliday.isOfficial ? Qt.rgba(16/255, 185/255, 129/255, 0.14) : Qt.rgba(245/255, 158/255, 11/255, 0.12)) : "transparent"
+                                    border.color: root.selectedHoliday ? (root.selectedHoliday.isOfficial ? Qt.rgba(16/255, 185/255, 129/255, 0.5) : Qt.rgba(245/255, 158/255, 11/255, 0.45)) : "transparent"
+                                    border.width: 1
+
+                                    RowLayout {
+                                        id: holidayRow
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.margins: 10
+                                        spacing: 10
+
+                                        // Festive Emblem Badge
+                                        Rectangle {
+                                            Layout.preferredWidth: 36
+                                            Layout.preferredHeight: 36
+                                            radius: 8
+                                            color: root.selectedHoliday && root.selectedHoliday.isOfficial ? Qt.rgba(16/255, 185/255, 129/255, 0.25) : Qt.rgba(245/255, 158/255, 11/255, 0.22)
+                                            border.color: root.selectedHoliday && root.selectedHoliday.isOfficial ? "#10b981" : "#f59e0b"
+                                            border.width: 1
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: root.selectedHoliday ? (root.selectedHoliday.icon || "🇲🇽") : "🇲🇽"
+                                                font.pixelSize: 18
+                                            }
+                                        }
+
+                                        // Holiday Title, Type Badge & Description
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 3
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 6
+
+                                                Text {
+                                                    text: root.selectedHoliday ? root.selectedHoliday.name : ""
+                                                    color: theme.text
+                                                    font.family: theme.fontFamily
+                                                    font.pixelSize: 12
+                                                    font.weight: Font.Bold
+                                                    Layout.fillWidth: true
+                                                    elide: Text.ElideRight
+                                                }
+
+                                                // Distinctive Pill Badge
+                                                Rectangle {
+                                                    radius: 4
+                                                    Layout.preferredHeight: 18
+                                                    Layout.preferredWidth: holidayTagTxt.implicitWidth + 10
+                                                    color: root.selectedHoliday && root.selectedHoliday.isOfficial ? Qt.rgba(16/255, 185/255, 129/255, 0.3) : Qt.rgba(245/255, 158/255, 11/255, 0.28)
+                                                    border.color: root.selectedHoliday && root.selectedHoliday.isOfficial ? "#34d399" : "#fbbf24"
+                                                    border.width: 1
+
+                                                    Text {
+                                                        id: holidayTagTxt
+                                                        anchors.centerIn: parent
+                                                        text: root.selectedHoliday ? (root.selectedHoliday.isOfficial ? "OFICIAL LFT" : "FESTIVO MX") : ""
+                                                        color: root.selectedHoliday && root.selectedHoliday.isOfficial ? "#34d399" : "#fbbf24"
+                                                        font.family: theme.fontFamily
+                                                        font.pixelSize: 9
+                                                        font.weight: Font.Bold
+                                                    }
+                                                }
+                                            }
+
+                                            Text {
+                                                text: root.selectedHoliday ? root.selectedHoliday.desc : ""
+                                                color: root.selectedHoliday && root.selectedHoliday.isOfficial ? Qt.rgba(255, 255, 255, 0.8) : theme.textSub
+                                                font.family: theme.fontFamily
+                                                font.pixelSize: 10
+                                                Layout.fillWidth: true
+                                                wrapMode: Text.WordWrap
+                                            }
+                                        }
+                                    }
+                                }
 
                                 // Empty State Card
                                 Rectangle {
@@ -1214,7 +1637,7 @@ Item {
                                             }
 
                                             Text {
-                                                text: "No reminders for this day"
+                                                text: root.selectedHoliday ? "Día festivo • Sin tareas programadas" : "No reminders for this day"
                                                 color: theme.textSub
                                                 font.family: theme.fontFamily
                                                 font.pixelSize: 11
@@ -1225,7 +1648,7 @@ Item {
 
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
-                                            text: "Click \"+ New Event\" to schedule a task"
+                                            text: root.selectedHoliday ? "Haz clic en \"+ New Event\" para programar una tarea" : "Click \"+ New Event\" to schedule a task"
                                             color: theme.textDim
                                             font.family: theme.fontFamily
                                             font.pixelSize: 10

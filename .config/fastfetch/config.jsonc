@@ -30,7 +30,8 @@
     },
     {
       "type": "host",
-      "key": "Host"
+      "key": "Host",
+      "format": "HUAWEI MateBook 14 (2024)"
     },
     {
       "type": "kernel",

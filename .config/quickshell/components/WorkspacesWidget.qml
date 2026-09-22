@@ -60,6 +60,50 @@ Row {
     // Map of workspace client info: { [wsId]: { count, icon, appClass, title, summary } }
     property var workspaceInfo: ({})
 
+    // Rules to dynamically detect active browser tabs by window title
+    property var webTabRules: [
+        { keywords: ["leetcode"], icon: "file:///home/ferram/.local/share/icons/leetcode.svg" },
+        { keywords: ["youtube", "youtu.be"], icon: "file:///home/ferram/.local/share/icons/youtube.svg" },
+        { keywords: ["instagram"], icon: "file:///home/ferram/.local/share/icons/instagram.svg" },
+        { keywords: ["whatsapp"], icon: "file:///home/ferram/.local/share/icons/whatsapp.svg" },
+        { keywords: ["chatgpt", "openai"], icon: "file:///home/ferram/.local/share/icons/chatgpt.svg" },
+        { keywords: ["reddit"], icon: "file:///home/ferram/.local/share/icons/reddit.svg" },
+        { keywords: ["github"], icon: root.githubSvgUri },
+        { keywords: ["twitch"], icon: "file:///home/ferram/.local/share/icons/twitch.svg" },
+        { keywords: ["netflix"], icon: "file:///home/ferram/.local/share/icons/netflix.svg" },
+        { keywords: ["notion"], icon: "file:///home/ferram/.local/share/icons/notion.svg" },
+        { keywords: ["twitter", "x.com", " x - "], icon: "file:///home/ferram/.local/share/icons/x.svg" },
+        { keywords: ["discord"], icon: "file:///home/ferram/.local/share/icons/discord.svg" },
+        { keywords: ["telegram", "web.telegram"], icon: "file:///home/ferram/.local/share/icons/telegram.svg" },
+        { keywords: ["spotify"], icon: root.spotifySvgUri },
+        { keywords: ["claude", "anthropic"], icon: "file:///home/ferram/.local/share/icons/claude.svg" },
+        { keywords: ["gemini", "bard.google"], icon: "file:///home/ferram/.local/share/icons/gemini.svg" },
+        { keywords: ["gmail", "mail.google"], icon: "file:///home/ferram/.local/share/icons/gmail.svg" },
+        { keywords: ["classroom", "google classroom"], icon: "file:///home/ferram/.local/share/icons/classroom.svg" },
+        { keywords: ["google docs", "docs.google", "documentos de google", "documento de google"], icon: "file:///home/ferram/.local/share/icons/docs.svg" },
+        { keywords: ["google sheets", "sheets.google", "hojas de cálculo de google", "hoja de cálculo de google", "hojas de calculo"], icon: "file:///home/ferram/.local/share/icons/sheets.svg" },
+        { keywords: ["google slides", "slides.google", "presentaciones de google", "presentación de google", "presentacion de google"], icon: "file:///home/ferram/.local/share/icons/slides.svg" },
+        { keywords: ["google drive", "drive.google", "mi unidad", "my drive"], icon: "file:///home/ferram/.local/share/icons/drive.svg" },
+        { keywords: ["google meet", "meet.google", "meet - "], icon: "file:///home/ferram/.local/share/icons/meet.svg" },
+        { keywords: ["google calendar", "calendar.google", "calendario de google"], icon: "file:///home/ferram/.local/share/icons/calendar.svg" },
+        { keywords: ["google forms", "forms.google", "formularios de google", "formulario de google"], icon: "file:///home/ferram/.local/share/icons/forms.svg" },
+        { keywords: ["google keep", "keep.google"], icon: "file:///home/ferram/.local/share/icons/keep.svg" },
+        { keywords: ["google search", "búsqueda de google", "busqueda de google", "google"], icon: "file:///home/ferram/.local/share/icons/google.svg" }
+    ]
+
+    function resolveWebTabIcon(titleLower) {
+        if (!titleLower) return "";
+        for (let i = 0; i < root.webTabRules.length; i++) {
+            let rule = root.webTabRules[i];
+            for (let k = 0; k < rule.keywords.length; k++) {
+                if (titleLower.indexOf(rule.keywords[k]) !== -1) {
+                    return rule.icon;
+                }
+            }
+        }
+        return "";
+    }
+
     function resolveAppIcon(client) {
         if (!client) return "";
         let cls = client.class || client.initialClass || "";
@@ -78,18 +122,23 @@ Row {
         if (lower.startsWith("chrome-")) {
             let pwaIcon = Quickshell.iconPath(cls);
             if (pwaIcon) return pwaIcon;
+            let tabIcon = root.resolveWebTabIcon(titleLower);
+            if (tabIcon) return tabIcon;
         }
-        if (lower.indexOf("whatsapp") !== -1) {
-            return "file:///home/ferram/.local/share/icons/whatsapp.svg";
-        }
-        if (lower.indexOf("instagram") !== -1) {
-            return "file:///home/ferram/.local/share/icons/instagram.svg";
-        }
-        if (lower.indexOf("chromium") !== -1) {
+
+        // 2. Web browser windows: detect active tab by window title!
+        if (lower.indexOf("chromium") !== -1 || lower.indexOf("chrome") !== -1 || lower.indexOf("brave") !== -1) {
+            let tabIcon = root.resolveWebTabIcon(titleLower);
+            if (tabIcon) return tabIcon;
             return "file:///home/ferram/.local/share/icons/chromium.svg";
         }
-        if (lower.indexOf("chrome") !== -1) {
-            return "file:///home/ferram/.local/share/icons/chrome.svg";
+
+        // 3. Known desktop applications
+        if (lower.indexOf("whatsapp") !== -1 || titleLower.indexOf("whatsapp") !== -1) {
+            return "file:///home/ferram/.local/share/icons/whatsapp.svg";
+        }
+        if (lower.indexOf("instagram") !== -1 || titleLower.indexOf("instagram") !== -1) {
+            return "file:///home/ferram/.local/share/icons/instagram.svg";
         }
         if (lower.indexOf("hypr") !== -1 || lower.indexOf("arch") !== -1) {
             return "file:///home/ferram/.local/share/icons/arch.svg";
@@ -122,7 +171,7 @@ Row {
             return Quickshell.iconPath("multimedia-volume-control");
         }
 
-        // 2. Direct match with Quickshell.iconPath
+        // 4. Direct match with Quickshell.iconPath
         let icon = Quickshell.iconPath(cls);
         if (icon) return icon;
 
@@ -230,10 +279,12 @@ Row {
 
         Rectangle {
             id: wsPill
-            width: 28
+            width: isFocused ? 36 : (isCurrent ? 32 : 28)
             height: 28
             radius: theme.radiusSmall
             anchors.verticalCenter: parent.verticalCenter
+
+            Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
 
             property int wsId: modelData
             property bool isCurrent: root.activeWorkspaceId === wsId
@@ -263,8 +314,8 @@ Row {
             Behavior on color { ColorAnimation { duration: 260; easing.type: Easing.OutQuad } }
             Behavior on border.color { ColorAnimation { duration: 260; easing.type: Easing.OutQuad } }
 
-            scale: wsMouse.pressed ? 0.96 : (wsMouse.containsMouse ? 1.03 : 1.0)
-            Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutQuad } }
+            scale: wsMouse.pressed ? 0.95 : (wsMouse.containsMouse ? 1.04 : 1.0)
+            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
             // 1. App Icon (shown when there are clients and icon loaded successfully)
             Image {
@@ -278,6 +329,9 @@ Row {
                 smooth: true
                 mipmap: true
                 visible: wsPill.hasClients && wsPill.iconSource !== "" && !wsPill.imageError
+
+                scale: wsPill.isFocused ? 1.08 : 1.0
+                Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
 
                 onStatusChanged: {
                     if (status === Image.Error) {
@@ -305,11 +359,17 @@ Row {
                 font.weight: wsPill.isCurrent ? Font.Bold : Font.DemiBold
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
+
+                scale: wsPill.isFocused ? 1.06 : 1.0
+                Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
             }
 
             // 3. Multi-window Badge (shows client count when more than 1 window is open)
             Rectangle {
                 visible: wsPill.clientCount > 1
+                scale: wsPill.clientCount > 1 ? 1.0 : 0.0
+                Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.3 } }
+
                 anchors.top: parent.top
                 anchors.right: parent.right
                 anchors.topMargin: 1

@@ -20,6 +20,9 @@ HYPRPAPER_CONF = HOME / ".config/hypr/hyprpaper.conf"
 HYPRLAND_LUA = HOME / ".config/hypr/hyprland.lua"
 MAKO_CONF = HOME / ".config/mako/config"
 HYPRLOCK_CONF = HOME / ".config/hypr/hyprlock.conf"
+KITTY_CONF = HOME / ".config/kitty/kitty.conf"
+STARSHIP_CONF = HOME / ".config/starship.toml"
+BASHRC = HOME / ".bashrc"
 PICTURES_DIR = HOME / "Pictures"
 
 def extract_vibrant_accent(image_path: Path):
@@ -105,7 +108,14 @@ def apply_wallpaper(image_path: Path):
     print(f"  -> Deep Accent:    {hex_deep}")
     print(f"  -> Soft Accent:    {hex_muted}")
 
-    # 1. Configure Hyprpaper
+    # 1. Configure Hyprpaper (with persistent local copy to survive reboots/unmounted media)
+    local_target = PICTURES_DIR / "Wallpapers" / image_path.name
+    if image_path.resolve() != local_target.resolve():
+        (PICTURES_DIR / "Wallpapers").mkdir(parents=True, exist_ok=True)
+        import shutil
+        shutil.copy2(image_path, local_target)
+        image_path = local_target
+
     HYPRPAPER_CONF.parent.mkdir(parents=True, exist_ok=True)
     hyprpaper_content = f"""splash = false
 
@@ -160,7 +170,40 @@ wallpaper {{
         subprocess.run(["makoctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print("  [OK] Mako notifications updated")
 
-    # 5. Desktop notification
+    # 5. Update Kitty terminal colors & reload
+    if KITTY_CONF.exists():
+        k_text = KITTY_CONF.read_text()
+        k_text = re.sub(r"cursor\s+#[0-9a-fA-F]{6}", f"cursor               {hex_light}", k_text)
+        k_text = re.sub(r"selection_background\s+#[0-9a-fA-F]{6}", f"selection_background {hex_acc}", k_text)
+        k_text = re.sub(r"url_color\s+#[0-9a-fA-F]{6}", f"url_color            {hex_light}", k_text)
+        k_text = re.sub(r"active_tab_background\s+#[0-9a-fA-F]{6}", f"active_tab_background   {hex_acc}", k_text)
+        k_text = re.sub(r"color1\s+#[0-9a-fA-F]{6}", f"color1               {hex_acc}", k_text)
+        k_text = re.sub(r"color9\s+#[0-9a-fA-F]{6}", f"color9               {hex_light}", k_text)
+        KITTY_CONF.write_text(k_text)
+        subprocess.run(["killall", "-SIGUSR1", "kitty"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("  [OK] Kitty terminal theme synchronized")
+
+    # 6. Update Starship prompt
+    if STARSHIP_CONF.exists():
+        s_text = STARSHIP_CONF.read_text()
+        s_text = re.sub(r'success_symbol\s*=\s*"\\[\\$\]\(#[0-9a-fA-F]{6} bold\)"', f'success_symbol = "[\\\\$]({hex_acc} bold)"', s_text)
+        s_text = re.sub(r'error_symbol\s*=\s*"\\[\\$\]\(#[0-9a-fA-F]{6} bold\)"', f'error_symbol = "[\\\\$]({hex_acc} bold)"', s_text)
+        s_text = re.sub(r'style\s*=\s*"bold #[0-9a-fA-F]{6}"', f'style = "bold {hex_light}"', s_text, count=2)
+        s_text = re.sub(r'\[git_status\]\s*\nstyle\s*=\s*"bold #[0-9a-fA-F]{6}"', f'[git_status]\nstyle = "bold {hex_acc}"', s_text)
+        STARSHIP_CONF.write_text(s_text)
+        print("  [OK] Starship prompt theme synchronized")
+
+    # 7. Update FZF in ~/.bashrc
+    if BASHRC.exists():
+        b_text = BASHRC.read_text()
+        b_text = re.sub(
+            r'--color=bg\+:#18181b,bg:#0a0a0d,spinner:#[0-9a-fA-F]{6},hl:#[0-9a-fA-F]{6},fg:#e4e4e7,header:#71717a,info:#[0-9a-fA-F]{6},pointer:#[0-9a-fA-F]{6},marker:#[0-9a-fA-F]{6},fg\+:#ffffff,prompt:#[0-9a-fA-F]{6},hl\+:#[0-9a-fA-F]{6}',
+            f'--color=bg+:#18181b,bg:#0a0a0d,spinner:{hex_light},hl:{hex_light},fg:#e4e4e7,header:#71717a,info:{hex_light},pointer:{hex_acc},marker:{hex_acc},fg+:#ffffff,prompt:{hex_acc},hl+:{hex_light}',
+            b_text
+        )
+        BASHRC.write_text(b_text)
+
+    # 8. Desktop notification
     try:
         subprocess.run([
             "notify-send", "-a", "Wallpaper",
@@ -172,7 +215,7 @@ wallpaper {{
     except Exception:
         pass
 
-    # 6. Restart Quickshell service to instantly reload the desktop bar
+    # 9. Restart Quickshell service to instantly reload the desktop bar
     subprocess.run(["systemctl", "--user", "restart", "quickshell.service"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     print("  [OK] Quickshell bar reloaded successfully!")
 
