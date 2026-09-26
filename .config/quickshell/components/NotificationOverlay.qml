@@ -2,12 +2,13 @@ import QtQuick
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Notifications
 import "../theme"
 
 PanelWindow {
-    id: root
+    id: notifWindow
 
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell-notifications"
@@ -31,16 +32,41 @@ PanelWindow {
 
     property var activeList: []
     property var osdService: null
+    property bool isDndOn: false
+
+    Process {
+        id: dndStatusProc
+        command: ["/home/ferram/.local/bin/hypr-dnd", "status"]
+        running: true
+        stdout: StdioCollector {
+            onTextChanged: {
+                let lines = text.trim().split("\n");
+                if (lines.length > 0) {
+                    let last = lines[lines.length - 1].trim();
+                    notifWindow.isDndOn = (last === "on");
+                }
+            }
+        }
+    }
+
+    Timer {
+        interval: 1500
+        running: true
+        repeat: true
+        onTriggered: {
+            if (!dndStatusProc.running) dndStatusProc.running = true;
+        }
+    }
 
     function dismissNotif(notif) {
         if (!notif) return;
         let arr = [];
-        for (let i = 0; i < root.activeList.length; i++) {
-            if (root.activeList[i] && root.activeList[i].id !== notif.id) {
-                arr.push(root.activeList[i]);
+        for (let i = 0; i < notifWindow.activeList.length; i++) {
+            if (notifWindow.activeList[i] && notifWindow.activeList[i].id !== notif.id) {
+                arr.push(notifWindow.activeList[i]);
             }
         }
-        root.activeList = arr;
+        notifWindow.activeList = arr;
         try { notif.dismiss(); } catch(e) {}
     }
 
@@ -110,19 +136,48 @@ PanelWindow {
                     text = active ? "ON" : "OFF";
                 }
 
-                if (root.osdService) {
-                    root.osdService.show(osdType, val, isMuted, text);
+                if (notifWindow.osdService) {
+                    notifWindow.osdService.show(osdType, val, isMuted, text);
                 }
 
                 try { notif.dismiss(); } catch(e) {}
                 return;
             }
 
+            // Sync DND state directly if notification comes from hypr-dnd
+            let isDndFeedback = incomingApp.includes("disturb") || incomingApp.includes("molestar") ||
+                                incomingSum.includes("disturb") || incomingSum.includes("molestar") ||
+                                incomingApp.includes("dnd");
+            if (isDndFeedback) {
+                let isAct = incomingSum.includes("enable") || incomingSum.includes("activad") || (notif.hints && (notif.hints.active === true || notif.hints.active === "true"));
+                if (incomingSum.includes("disable") || incomingSum.includes("desactivad")) isAct = false;
+                notifWindow.isDndOn = isAct;
+            }
+
+            // If Do Not Disturb is active, suppress non-essential notifications (e.g. social media, media, browsers)
+            if (notifWindow.isDndOn && !isDndFeedback) {
+                let isSystemAlert = (notif.urgency === 2) ||
+                    incomingApp.includes("bater") || incomingSum.includes("bater") || incomingApp.includes("battery") ||
+                    incomingApp.includes("system") || incomingApp.includes("power") || incomingApp.includes("bluetooth") ||
+                    incomingApp.includes("wifi") || incomingApp.includes("network") || incomingApp.includes("pipewire") ||
+                    incomingApp.includes("wireplumber") || incomingApp.includes("headphone") || incomingApp.includes("hearing") ||
+                    incomingApp.includes("display") || incomingApp.includes("pantalla");
+
+                let isDevOrAgentAlert = incomingApp.includes("antigravity") || incomingApp.includes("code") ||
+                    incomingApp.includes("devin") || incomingApp.includes("claude") ||
+                    incomingSum.includes("antigravity") || incomingSum.includes("agente") || incomingSum.includes("agent");
+
+                if (!isSystemAlert && !isDevOrAgentAlert) {
+                    try { notif.dismiss(); } catch(e) {}
+                    return;
+                }
+            }
+
             let arr = [];
             let isSingleton = incomingApp.includes("bater") || incomingApp.includes("battery");
 
-            for (let i = 0; i < root.activeList.length; i++) {
-                let existing = root.activeList[i];
+            for (let i = 0; i < notifWindow.activeList.length; i++) {
+                let existing = notifWindow.activeList[i];
                 if (!existing) continue;
 
                 // Replace duplicate if same id OR if same content OR singleton (volume/brightness/battery/hearing/headphones)
@@ -150,7 +205,7 @@ PanelWindow {
                 let old = arr.pop();
                 try { old.dismiss(); } catch(e) {}
             }
-            root.activeList = arr;
+            notifWindow.activeList = arr;
         }
     }
 
@@ -160,11 +215,12 @@ PanelWindow {
         spacing: 8
 
         Repeater {
-            model: root.activeList
+            model: notifWindow.activeList
 
             delegate: Item {
                 id: card
                 required property var modelData
+                readonly property var notifManager: notifWindow
                 width: notifCol.width
                 implicitHeight: Math.max(68, contentRow.implicitHeight + 20)
                 height: implicitHeight
@@ -226,8 +282,8 @@ PanelWindow {
                 Connections {
                     target: card.modelData
                     function onClosed() {
-                        if (typeof root !== "undefined" && root && root.dismissNotif) {
-                            root.dismissNotif(card.modelData);
+                        if (card.notifManager && card.notifManager.dismissNotif) {
+                            card.notifManager.dismissNotif(card.modelData);
                         }
                     }
                 }
@@ -460,11 +516,11 @@ PanelWindow {
                         };
                     }
 
-                    // Spotify (Vibrant Green)
+                    // Spotify (Balanced Green)
                     if (lowerApp.includes("spotify")) {
                         return {
-                            primary: "#1ed760",
-                            secondary: "#1db954",
+                            primary: "#1db954",
+                            secondary: "#168a3e",
                             accent: "#10b981",
                             label: "SPOTIFY",
                             isAntigravity: false,
@@ -578,6 +634,15 @@ PanelWindow {
                     let lowerApp = (appName || "").toLowerCase();
                     let lowerSum = (modelData && modelData.summary) ? modelData.summary.toLowerCase() : "";
                     let lowerBody = (modelData && modelData.body) ? modelData.body.toLowerCase() : "";
+
+                    // Do Not Disturb / No Molestar official SVG icons
+                    if (lowerApp.includes("disturb") || lowerApp.includes("molestar") ||
+                        lowerSum.includes("disturb") || lowerSum.includes("molestar") ||
+                        lowerIcon.includes("dnd") || lowerApp.includes("dnd")) {
+                        let isOff = lowerSum.includes("disable") || lowerSum.includes("desactivad") || lowerBody.includes("all") || lowerBody.includes("todas");
+                        return isOff ? "file:///home/ferram/.local/share/icons/dnd-off.svg" : "file:///home/ferram/.local/share/icons/dnd-on.svg";
+                    }
+
                     // WhatsApp official SVG icon
                     if (card.isWhatsApp) {
                         return "file:///home/ferram/.local/share/icons/whatsapp.svg";
@@ -668,9 +733,8 @@ PanelWindow {
                         if (rawIcon.startsWith("/") || rawIcon.startsWith("file://") || rawIcon.startsWith("data:")) {
                             return rawIcon;
                         }
-                        let qPath = Quickshell.iconPath(rawIcon);
+                        let qPath = Quickshell.iconPath(rawIcon, true);
                         if (qPath) return qPath;
-                        return "image://icon/" + rawIcon;
                     }
 
                     // Pure vector logo fallback: Arch Linux official logo (never empty, never letters)
@@ -687,7 +751,11 @@ PanelWindow {
                         return 6500;
                     }
                     running: true
-                    onTriggered: root.dismissNotif(card.modelData)
+                    onTriggered: {
+                        if (card.notifManager) {
+                            card.notifManager.dismissNotif(card.modelData);
+                        }
+                    }
                 }
 
                 // 1. Moving LED Border Beam Layer (Continuous Perimeter Trace)
@@ -774,7 +842,9 @@ PanelWindow {
                                         }
                                     }
                                 }
-                                root.dismissNotif(card.modelData);
+                                if (card.notifManager) {
+                                    card.notifManager.dismissNotif(card.modelData);
+                                }
                             }
                         }
                     }
@@ -870,7 +940,11 @@ PanelWindow {
                                         anchors.fill: parent
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
-                                        onClicked: root.dismissNotif(card.modelData)
+                                        onClicked: {
+                                            if (card.notifManager) {
+                                                card.notifManager.dismissNotif(card.modelData);
+                                            }
+                                        }
                                     }
                                 }
                             }

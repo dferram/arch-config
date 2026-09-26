@@ -1,0 +1,233 @@
+#!/usr/bin/env python3
+"""
+hypr-bluetooth:
+Fast, beautiful Bluetooth Manager for Hyprland + Quickshell.
+Supports CLI JSON status for Quickshell widgets and a sleek Rofi TUI matching the desktop theme.
+"""
+
+import sys
+import subprocess
+import json
+import time
+import os
+
+ROFI_THEME = (
+    "window {width: 38%; border: 1px; border-color: #262b3a; border-radius: 12px; background-color: #0c0e14f4; padding: 14px;} "
+    "listview {lines: 9; spacing: 5px;} "
+    "element {border-radius: 7px; padding: 8px 12px; text-color: #f1f5f9;} "
+    "element selected {background-color: #1e2538; text-color: #60a5fa; border: 1px; border-color: #3b82f6;} "
+    "inputbar {children: [prompt, entry]; text-color: #3b82f6; margin: 0 0 10px 0;} "
+    "entry {text-color: #f1f5f9; placeholder: 'Type to filter...'; placeholder-color: #64748b;} "
+    "prompt {text-color: #3b82f6; font-weight: bold; margin: 0 10px 0 0;}"
+)
+
+def run_cmd(cmd, timeout=5):
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return res.stdout.strip()
+    except Exception:
+        return ""
+
+def notify(title, msg, timeout=2000):
+    subprocess.run(["notify-send", "-a", "Bluetooth", "-t", str(timeout), title, msg], check=False)
+
+def get_status():
+    show = run_cmd(["bluetoothctl", "show"])
+    powered = "Powered: yes" in show
+
+    paired_out = run_cmd(["bluetoothctl", "devices", "Paired"])
+    devices = []
+    connected_any = False
+    connected_name = ""
+
+    for line in paired_out.split("\n"):
+        line = line.strip()
+        if not line or not line.startswith("Device "):
+            continue
+        parts = line.split(" ")
+        if len(parts) >= 3:
+            mac = parts[1]
+            name = " ".join(parts[2:])
+            info = run_cmd(["bluetoothctl", "info", mac])
+            conn = "Connected: yes" in info
+            bat = -1
+            for iline in info.split("\n"):
+                if "Battery Percentage:" in iline:
+                    try:
+                        bat = int(iline.split("(")[1].split(")")[0])
+                    except Exception:
+                        pass
+            dev_type = "audio" if ("Icon: audio" in info or "Speakers" in name or "Dot" in name or "Head" in name or "Ear" in name) else "generic"
+            if conn:
+                connected_any = True
+                connected_name = name
+            devices.append({
+                "mac": mac,
+                "name": name,
+                "connected": conn,
+                "battery": bat,
+                "type": dev_type
+            })
+
+    return {
+        "powered": powered,
+        "connected": connected_any,
+        "connected_name": connected_name,
+        "devices": devices
+    }
+
+def connect_device(mac, name):
+    notify("Bluetooth", f"Connecting to {name}...", 2000)
+    out = run_cmd(["bluetoothctl", "connect", mac], timeout=8)
+    if "Connection successful" in out:
+        notify("Bluetooth Connected", f"Successfully connected to {name}", 2500)
+        return True
+    else:
+        # Check if Echo Dot hint is needed
+        if "Echo" in name or "Dot" in name or "connection-refused" in out:
+            notify("Bluetooth", f"Connection refused by {name}.\nHint: Say 'Alexa, conecta bluetooth' to wake it up.", 4500)
+        else:
+            notify("Bluetooth Error", f"Could not connect to {name}", 3000)
+        return False
+
+def disconnect_device(mac, name):
+    run_cmd(["bluetoothctl", "disconnect", mac], timeout=5)
+    notify("Bluetooth", f"Disconnected from {name}", 2000)
+
+def toggle_power():
+    status = get_status()
+    if status["powered"]:
+        run_cmd(["bluetoothctl", "power", "off"])
+        notify("Bluetooth", "Bluetooth adapter turned off", 1500)
+    else:
+        run_cmd(["rfkill", "unblock", "bluetooth"])
+        run_cmd(["bluetoothctl", "power", "on"])
+        notify("Bluetooth", "Bluetooth adapter turned on", 1500)
+
+def scan_and_pair_rofi():
+    notify("Bluetooth Scanning", "Searching for nearby devices (5 seconds)...", 3000)
+    run_cmd(["bluetoothctl", "--timeout", "5", "scan", "on"], timeout=7)
+    
+    # Get all discovered devices
+    raw = run_cmd(["bluetoothctl", "devices"])
+    items = []
+    lines = []
+    for line in raw.split("\n"):
+        line = line.strip()
+        if not line.startswith("Device "):
+            continue
+        parts = line.split(" ")
+        if len(parts) >= 3:
+            mac = parts[1]
+            name = " ".join(parts[2:])
+            # Filter out unnamed / raw MACs
+            if name.replace(":", "-").lower() == mac.replace(":", "-").lower() or name.startswith("Device"):
+                continue
+            lines.append(f"󰍉  {name}  [{mac}]")
+            items.append((mac, name))
+
+    if not lines:
+        notify("Bluetooth", "No new devices found nearby.", 2000)
+        return
+
+    res = run_rofi("Discovered Devices", lines)
+    if not res:
+        return
+    for mac, name in items:
+        if mac in res:
+            notify("Bluetooth", f"Pairing with {name}...", 3000)
+            run_cmd(["bluetoothctl", "pair", mac], timeout=10)
+            run_cmd(["bluetoothctl", "trust", mac], timeout=5)
+            connect_device(mac, name)
+            break
+
+def run_rofi(prompt, options):
+    menu_str = "\n".join(options)
+    cmd = [
+        "rofi", "-dmenu", "-p", prompt,
+        "-theme-str", ROFI_THEME
+    ]
+    try:
+        proc = subprocess.run(cmd, input=menu_str.encode(), stdout=subprocess.PIPE, check=True)
+        return proc.stdout.decode().strip()
+    except Exception:
+        return None
+
+def main_menu():
+    st = get_status()
+    powered = st["powered"]
+
+    options = []
+    actions = {}
+
+    if not powered:
+        options.append("󰐥  Turn Bluetooth On")
+        actions["󰐥  Turn Bluetooth On"] = lambda: toggle_power()
+    else:
+        # Paired devices first
+        for dev in st["devices"]:
+            icon = "󰂱 " if dev["connected"] else ("󰋋 " if dev["type"] == "audio" else "󰂯 ")
+            status_text = "Connected" if dev["connected"] else "Disconnected"
+            bat_text = f" ({dev['battery']}%)" if dev["battery"] > 0 else ""
+            line = f"{icon}  {dev['name']}  —  {status_text}{bat_text}"
+            options.append(line)
+            actions[line] = dev
+
+        options.append("󰍉  Scan for Nearby Devices...")
+        actions["󰍉  Scan for Nearby Devices..."] = lambda: scan_and_pair_rofi()
+
+        options.append("󰐥  Turn Bluetooth Off")
+        actions["󰐥  Turn Bluetooth Off"] = lambda: toggle_power()
+
+    choice = run_rofi("Bluetooth", options)
+    if not choice:
+        return
+
+    action = actions.get(choice)
+    if callable(action):
+        action()
+    elif isinstance(action, dict):
+        dev = action
+        # Device submenu
+        dev_opts = []
+        dev_actions = {}
+        if dev["connected"]:
+            dev_opts.append(f"󰂲  Disconnect from {dev['name']}")
+            dev_actions[dev_opts[-1]] = lambda: disconnect_device(dev["mac"], dev["name"])
+        else:
+            dev_opts.append(f"󰂱  Connect to {dev['name']}")
+            dev_actions[dev_opts[-1]] = lambda: connect_device(dev["mac"], dev["name"])
+
+        dev_opts.append(f"󰆴  Unpair / Forget {dev['name']}")
+        dev_actions[dev_opts[-1]] = lambda: (
+            run_cmd(["bluetoothctl", "remove", dev["mac"]]),
+            notify("Bluetooth", f"Removed {dev['name']}", 2000)
+        )
+
+        sub_choice = run_rofi(dev["name"], dev_opts)
+        if sub_choice and sub_choice in dev_actions:
+            dev_actions[sub_choice]()
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        cmd = sys.argv[1]
+        if cmd == "status-json":
+            print(json.dumps(get_status()))
+        elif cmd == "connect" and len(sys.argv) > 2:
+            mac = sys.argv[2]
+            name = sys.argv[3] if len(sys.argv) > 3 else mac
+            connect_device(mac, name)
+        elif cmd == "disconnect" and len(sys.argv) > 2:
+            mac = sys.argv[2]
+            name = sys.argv[3] if len(sys.argv) > 3 else mac
+            disconnect_device(mac, name)
+        elif cmd == "toggle":
+            toggle_power()
+        elif cmd == "scan":
+            scan_and_pair_rofi()
+        elif cmd == "menu":
+            main_menu()
+        else:
+            print("Usage: hypr-bluetooth [status-json | connect <mac> | disconnect <mac> | toggle | scan | menu]")
+    else:
+        main_menu()

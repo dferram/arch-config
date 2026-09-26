@@ -60,6 +60,7 @@ SECTIONS = [
             ("Super + B", "Open Btop Live Resource Monitor (floating)"),
             ("Print / F11", "Area screenshot (saved & copied to clipboard)"),
             ("Super + F10", "Toggle Warm Night Light (Hyprsunset)"),
+            ("Super + D / F9", "Toggle Do Not Disturb (DND Focus Mode)"),
         ]
     },
     {

@@ -76,6 +76,16 @@ Rectangle {
                 NumberAnimation { from: 1.12; to: 1.0; duration: 950; easing.type: Easing.InOutSine }
             }
 
+            Connections {
+                target: root
+                function onPulsingIconChanged() {
+                    if (!root.pulsingIcon) {
+                        iconBox.opacity = 1.0;
+                        iconBox.scale = 1.0;
+                    }
+                }
+            }
+
             Image {
                 anchors.centerIn: parent
                 width: 16

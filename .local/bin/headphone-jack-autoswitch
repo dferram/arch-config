@@ -67,6 +67,11 @@ def switch_to_headphones():
     run_cmd(["amixer", "-c", CARD, "sset", "Headphone", "unmute"])
     run_cmd(["amixer", "-c", CARD, "sset", "Speaker", "mute"])
 
+    # Disable hardware DRC to eliminate compression distortion/saturation on headphones
+    run_cmd(["amixer", "-c", CARD, "sset", "Post Mixer Analog Playback DRC switch", "off"])
+    # Switch EasyEffects to clean audiophile profile (removes speaker loudness, bass distortion & limiter)
+    run_cmd(["easyeffects", "-l", "Perfect EQ"])
+
     # Automatically set volume to 40% (safe level to protect ears)
     time.sleep(0.15)
     run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "40"])
@@ -79,6 +84,11 @@ def switch_to_speaker():
     time.sleep(0.2)
     run_cmd(["pactl", "set-default-sink", SPEAKER_SINK])
     run_cmd(["amixer", "-c", CARD, "sset", "Speaker", "unmute"])
+
+    # Enable hardware DRC for laptop speaker protection
+    run_cmd(["amixer", "-c", CARD, "sset", "Post Mixer Analog Playback DRC switch", "on"])
+    # Switch EasyEffects back to laptop speaker boost profile
+    run_cmd(["easyeffects", "-l", "Huawei MateBook - Max Loudness & Clarity"])
 
 def monitor_bluetooth_and_usb():
     """Listens for new Bluetooth or external USB headphone connections and enforces safe 40% volume."""
@@ -110,6 +120,7 @@ def monitor_bluetooth_and_usb():
                                     if sname not in known_external_sinks:
                                         known_external_sinks.add(sname)
                                         print(f"[headphone-jack-autoswitch] Detected new external headphone sink: {sname} -> Setting volume to 40%", flush=True)
+                                        run_cmd(["easyeffects", "-l", "Perfect EQ"])
                                         time.sleep(0.25)
                                         run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "40"])
                                         notify_headphones_connected()

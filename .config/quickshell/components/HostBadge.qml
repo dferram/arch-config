@@ -44,11 +44,12 @@ Item {
 
         visible: root.activePopupId === "host"
         implicitWidth: 210
-        implicitHeight: cardLayout.implicitHeight + 24
+        implicitHeight: cardLayout.implicitHeight + 34
         color: "transparent"
 
         Rectangle {
             anchors.fill: parent
+            anchors.topMargin: 10
             color: theme.popupBg
             border.color: theme.border
             border.width: 1

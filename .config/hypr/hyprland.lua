@@ -449,6 +449,10 @@ hl.bind(mainMod .. " + SHIFT + minus", hl.dsp.exec_cmd("/home/ferram/.local/bin/
 hl.bind(mainMod .. " + F10",   hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-night-mode toggle"), { locked = true })
 hl.bind(mainMod .. " + Pause", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-night-mode toggle"), { locked = true })
 
+-- Toggle Do Not Disturb (DND focus mode) - bound to SUPER + F9 and SUPER + D
+hl.bind(mainMod .. " + F9", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-dnd toggle"), { locked = true })
+hl.bind(mainMod .. " + D",  hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-dnd toggle"))
+
 -- Media player controls (requires playerctl)
 hl.bind("XF86AudioNext",  hl.dsp.exec_cmd("playerctl next"),       { locked = true })
 hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
@@ -529,6 +533,22 @@ hl.window_rule({
 hl.window_rule({
     name   = "float-blueman-manager",
     match  = { class = "blueman-manager" },
+    float  = true,
+    center = true,
+    size   = "640 460",
+})
+
+-- Bluetooth TUI manager floating windowrule
+hl.window_rule({
+    name   = "float-bluetooth-manager",
+    match  = { class = "bluetooth-manager" },
+    float  = true,
+    center = true,
+    size   = "640 460",
+})
+hl.window_rule({
+    name   = "float-bluetooth-manager-title",
+    match  = { title = "Bluetooth Connections" },
     float  = true,
     center = true,
     size   = "640 460",

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import "components"
 import "theme"
 
@@ -24,7 +25,6 @@ ShellRoot {
             triggered();
         }
     }
-
     // Desktop Notification Daemon with Dynamic App Colors & Moving LED Border
     NotificationOverlay {
         osdService: osdService
@@ -107,7 +107,7 @@ ShellRoot {
                             anchors.left: parent.left
                             anchors.leftMargin: 8
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: 8
+                            spacing: 10
 
                             HostBadge {
                                 parentWindow: barWindow
@@ -154,7 +154,7 @@ ShellRoot {
                             anchors.right: parent.right
                             anchors.rightMargin: 8
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: 6
+                            spacing: 9
 
                             SysResourceWidget {
                                 parentWindow: barWindow
@@ -169,6 +169,12 @@ ShellRoot {
                             }
 
                             WifiWidget {
+                                parentWindow: barWindow
+                                activePopupId: barWindow.currentPopup
+                                onTogglePopup: (id) => barWindow.togglePopup(id)
+                            }
+
+                            DndWidget {
                                 parentWindow: barWindow
                                 activePopupId: barWindow.currentPopup
                                 onTogglePopup: (id) => barWindow.togglePopup(id)

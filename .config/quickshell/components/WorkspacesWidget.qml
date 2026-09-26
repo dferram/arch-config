@@ -9,7 +9,7 @@ Row {
 
     Theme { id: theme }
 
-    spacing: 5
+    spacing: 7
     height: 28
 
     // Target screen passed from shell.qml
@@ -75,6 +75,7 @@ Row {
         { keywords: ["twitter", "x.com", " x - "], icon: "file:///home/ferram/.local/share/icons/x.svg" },
         { keywords: ["discord"], icon: "file:///home/ferram/.local/share/icons/discord.svg" },
         { keywords: ["telegram", "web.telegram"], icon: "file:///home/ferram/.local/share/icons/telegram.svg" },
+        { keywords: ["soundcloud"], icon: "file:///home/ferram/.local/share/icons/soundcloud.svg" },
         { keywords: ["spotify"], icon: root.spotifySvgUri },
         { keywords: ["claude", "anthropic"], icon: "file:///home/ferram/.local/share/icons/claude.svg" },
         { keywords: ["gemini", "bard.google"], icon: "file:///home/ferram/.local/share/icons/gemini.svg" },
@@ -117,10 +118,10 @@ Row {
             return root.spotifySvgUri;
         }
         if (lower.indexOf("github") !== -1 || titleLower.indexOf("github") !== -1) {
-            return Quickshell.iconPath(cls) || root.githubSvgUri;
+            return Quickshell.iconPath(cls, true) || root.githubSvgUri;
         }
         if (lower.startsWith("chrome-")) {
-            let pwaIcon = Quickshell.iconPath(cls);
+            let pwaIcon = Quickshell.iconPath(cls, true);
             if (pwaIcon) return pwaIcon;
             let tabIcon = root.resolveWebTabIcon(titleLower);
             if (tabIcon) return tabIcon;
@@ -144,41 +145,42 @@ Row {
             return "file:///home/ferram/.local/share/icons/arch.svg";
         }
         if (lower.indexOf("code") !== -1 || lower.indexOf("vscode") !== -1) {
-            return Quickshell.iconPath("code") || Quickshell.iconPath("visual-studio-code");
+            return Quickshell.iconPath("code", true) || Quickshell.iconPath("visual-studio-code", true);
         }
         if (lower.indexOf("kitty") !== -1) {
-            return Quickshell.iconPath("kitty");
+            return Quickshell.iconPath("kitty", true);
         }
         if (lower.indexOf("dolphin") !== -1) {
-            return Quickshell.iconPath("org.kde.dolphin") || Quickshell.iconPath("system-file-manager");
+            return Quickshell.iconPath("org.kde.dolphin", true) || Quickshell.iconPath("system-file-manager", true);
         }
         if (lower.indexOf("antigravity") !== -1) {
-            return Quickshell.iconPath("antigravity-ide") || Quickshell.iconPath("antigravity");
+            return Quickshell.iconPath("antigravity-ide", true) || Quickshell.iconPath("antigravity", true);
         }
         if (lower.indexOf("devin") !== -1) {
-            return Quickshell.iconPath("devin-desktop");
+            return Quickshell.iconPath("devin-desktop", true);
         }
         if (lower.indexOf("terminal") !== -1 || lower.indexOf("alacritty") !== -1 || lower.indexOf("wezterm") !== -1 || lower.indexOf("foot") !== -1) {
-            return Quickshell.iconPath("utilities-terminal");
+            return Quickshell.iconPath("utilities-terminal", true);
         }
         if (lower.indexOf("thunar") !== -1 || lower.indexOf("nautilus") !== -1 || lower.indexOf("file") !== -1) {
-            return Quickshell.iconPath("system-file-manager");
+            return Quickshell.iconPath("system-file-manager", true);
         }
         if (lower.indexOf("easyeffects") !== -1) {
-            return Quickshell.iconPath("com.github.wwmm.easyeffects");
+            return Quickshell.iconPath("com.github.wwmm.easyeffects", true);
         }
         if (lower.indexOf("pavucontrol") !== -1) {
-            return Quickshell.iconPath("multimedia-volume-control");
+            return Quickshell.iconPath("multimedia-volume-control", true);
         }
 
-        // 4. Direct match with Quickshell.iconPath
-        let icon = Quickshell.iconPath(cls);
+        // 4. Direct match with Quickshell.iconPath (using true so missing icons return "" instead of broken placeholder)
+        let icon = Quickshell.iconPath(cls, true);
         if (icon) return icon;
 
-        icon = Quickshell.iconPath(lower);
+        icon = Quickshell.iconPath(lower, true);
         if (icon) return icon;
 
-        return Quickshell.iconPath("application-x-executable") || "file:///home/ferram/.local/share/icons/arch.svg";
+        // 5. Fallback for unknown applications / scripts: official Arch Linux logo
+        return "file:///home/ferram/.local/share/icons/arch.svg";
     }
 
     function updateClientsData(clientsList) {

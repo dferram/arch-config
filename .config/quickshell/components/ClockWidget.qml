@@ -485,11 +485,12 @@ Item {
 
         visible: root.activePopupId === "clock"
         implicitWidth: 390
-        implicitHeight: Math.min(690, cardLayout.implicitHeight + 28)
+        implicitHeight: Math.min(700, cardLayout.implicitHeight + 38)
         color: "transparent"
 
         Rectangle {
             anchors.fill: parent
+            anchors.topMargin: 10
             color: theme.popupBg
             border.color: theme.border
             border.width: 1

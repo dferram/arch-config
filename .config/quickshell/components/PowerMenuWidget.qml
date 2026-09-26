@@ -50,11 +50,12 @@ Item {
 
         visible: root.activePopupId === "power"
         implicitWidth: 170
-        implicitHeight: cardLayout.implicitHeight + 20
+        implicitHeight: cardLayout.implicitHeight + 30
         color: "transparent"
 
         Rectangle {
             anchors.fill: parent
+            anchors.topMargin: 10
             color: theme.popupBg
             border.color: theme.border
             border.width: 1
