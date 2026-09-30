@@ -15,7 +15,7 @@ def rgb_to_hex(r, g, b):
 def get_luminance(r, g, b):
     return 0.299 * r + 0.587 * g + 0.114 * b
 
-def adjust_saturation(r, g, b, factor=1.4):
+def adjust_saturation(r, g, b, factor=1.45):
     gray = get_luminance(r, g, b)
     nr = clamp(gray + (r - gray) * factor)
     ng = clamp(gray + (g - gray) * factor)
@@ -24,14 +24,30 @@ def adjust_saturation(r, g, b, factor=1.4):
 
 def boost_vibrancy(r, g, b):
     lum = get_luminance(r, g, b)
+    rn, gn, bn = r / 255.0, g / 255.0, b / 255.0
+    h, s, v = colorsys.rgb_to_hsv(rn, gn, bn)
+    h_deg = h * 360.0
+
     if lum < 55:
-        # Boost dark colors (like navy/dark blues/deep purples) so they glow on dark glass
-        factor = 85.0 / max(8.0, lum)
+        # Boost dark cool colors (blues, purples, cyans) with sufficient saturation
+        # Never boost muddy warm dark tones (hair, beard, skin shadows, muddy browns)
+        if 160 <= h_deg <= 300 and s >= 0.20:
+            factor = 85.0 / max(8.0, lum)
+            r, g, b = clamp(r * factor), clamp(g * factor), clamp(b * factor)
+        else:
+            return r, g, b
+    elif lum > 220:
+        # Tame washed out highlights
+        factor = 190.0 / lum
         r, g, b = clamp(r * factor), clamp(g * factor), clamp(b * factor)
-    elif lum > 215:
-        # Tame pure white / washed out highlights
-        factor = 185.0 / lum
-        r, g, b = clamp(r * factor), clamp(g * factor), clamp(b * factor)
+
+    # For orange / warm accents (10° to 38°), ensure strong saturation so they never look like washed-out flesh tone
+    if 10 <= h_deg <= 38 and s >= 0.45:
+        return adjust_saturation(r, g, b, 1.65)
+
+    # For softer / pastel colors (like light pinks, lavenders, mints), give a healthy saturation boost
+    if s < 0.28 and lum > 130:
+        return adjust_saturation(r, g, b, 1.85)
     return adjust_saturation(r, g, b, 1.45)
 
 def shift_hue(r, g, b, delta_deg, s_mult=1.0, v_mult=1.0):
@@ -47,40 +63,47 @@ def is_skin_tone(r, g, b):
     rn, gn, bn = r / 255.0, g / 255.0, b / 255.0
     h, s, v = colorsys.rgb_to_hsv(rn, gn, bn)
     h_deg = h * 360.0
+    lum = get_luminance(r, g, b)
 
-    # True human skin tones are strictly warm orange/amber/brown (8° to 42°)
-    # Pink, magenta, rose, violet (h_deg > 300° or h_deg < 8°) are NEVER human skin!
-    if not (8 <= h_deg <= 42):
+    # Vivid/punchy saturation (s >= 0.68) with good brightness is synthetic (clothing, art, branding) - NOT human skin!
+    if s >= 0.68 and v >= 0.50:
         return False
 
-    # In human skin, green is always higher than or roughly equal to blue (g >= b * 0.80)
-    # If blue is higher than green, it's definitely pink, purple, or magenta
-    if b > g * 1.05:
-        return False
-
-    # YCbCr conversion
     cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b
     cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b
 
-    # 1. Standard HSV human skin model (pale, peach, tan, brown, olive)
-    hsv_skin = (8 <= h_deg <= 40) and (0.14 <= s <= 0.65) and (0.18 <= v <= 0.96) and (r > g) and (g >= b * 0.75)
+    # 1. Warm facial/body skin tones (peach, beige, tan, brown)
+    if (8 <= h_deg <= 42) and (0.14 <= s <= 0.68) and (v >= 0.16) and (r > g) and (g >= b * 0.70):
+        return True
 
     # 2. Classic YCbCr skin chrominance cluster
-    ycbcr_skin = (75 <= cb <= 130) and (130 <= cr <= 180) and (r > g) and (g >= b * 0.75)
+    if (78 <= cb <= 128) and (132 <= cr <= 178) and (r > g) and (s <= 0.68):
+        return True
 
-    # 3. Muddy brown / flesh shadows (coffee, mud, dark skin shadows)
-    brown_shadow = (8 <= h_deg <= 42) and (0.18 <= s <= 0.60) and (v <= 0.45) and (r > g >= b)
+    # 3. Inner mouth / lips / gums / tongue (red/crimson with low-to-mid brightness)
+    if (h_deg <= 12 or h_deg >= 345) and (v <= 0.82 or lum <= 100):
+        return True
 
-    return hsv_skin or ycbcr_skin or brown_shadow
+    # 4. Dark facial hair / beard / dark warm shadows
+    if (h_deg <= 45 or h_deg >= 335) and lum < 48 and (r >= g >= b * 0.7 or r >= b >= g * 0.7):
+        return True
 
-def extract_palette(target):
-    # Default fallback: refined soft off-white accents (non-pure white)
-    default_palette = ["#e2e8f0", "#cbd5e1", "#94a3b8"]
+    return False
+
+def extract_palette(target, *extra_args):
+    # Pure white / silver clean palette for monochrome or white-background covers
+    white_palette = ["#ffffff", "#e2e8f0", "#94a3b8"]
 
     if not target:
-        return default_palette
+        return white_palette
 
-    cache_key = hashlib.md5(target.encode("utf-8")).hexdigest()
+    # Detect if track/album is LOVELANGUAGE (user exception: prioritize album pink instead of cyan character)
+    is_lovelanguage = False
+    all_meta_str = f"{target} {' '.join(str(a) for a in extra_args)}".lower()
+    if "a1ec7f2db51df33718bd17c4" in target.lower() or "lovelanguage" in all_meta_str:
+        is_lovelanguage = True
+
+    cache_key = hashlib.md5(f"{target}::{is_lovelanguage}".encode("utf-8")).hexdigest()
     cache_file = f"/tmp/media_pal_{cache_key}.txt"
 
     if os.path.exists(cache_file):
@@ -97,70 +120,85 @@ def extract_palette(target):
         data = None
         if target.startswith("http://") or target.startswith("https://"):
             req = urllib.request.Request(target, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
+            with urllib.request.urlopen(req, timeout=8.0) as resp:
                 data = resp.read()
             img = Image.open(BytesIO(data)).convert("RGB")
         elif target.startswith("file://"):
             path = target[7:]
             if not os.path.exists(path):
-                return default_palette
+                return white_palette
             img = Image.open(path).convert("RGB")
         elif os.path.exists(target):
             img = Image.open(target).convert("RGB")
         else:
-            return default_palette
+            return white_palette
 
-        # Resize to 48x48 for fast, representative sampling
-        small = img.resize((48, 48))
-        q = small.quantize(colors=24, method=Image.Quantize.FASTOCTREE)
+        # Resize to 80x80 and quantize with MEDIANCUT for precise, representative sampling
+        small = img.resize((80, 80))
+        q = small.quantize(colors=36, method=Image.Quantize.MEDIANCUT)
         palette = q.getpalette()
         color_counts = q.getcolors() or []
-        total_pixels = 48 * 48
+        total_pixels = 80 * 80
 
         candidates = []
-        low_sat_candidates = []
 
         for count, idx in color_counts:
             r, g, b = palette[idx*3], palette[idx*3+1], palette[idx*3+2]
             lum = get_luminance(r, g, b)
             rn, gn, bn = r / 255.0, g / 255.0, b / 255.0
             h, s, v = colorsys.rgb_to_hsv(rn, gn, bn)
+            freq = count / total_pixels
 
-            # Exclude extreme black and pure white
-            if lum < 15 or (lum > 240 and s < 0.10):
+            # Exclude extreme black and pure white from vibrant pool
+            if lum < 18 or lum > 240:
                 continue
 
-            # EXCLUDE skin and muddy flesh/brown tones
+            # Exclude skin tones (human skin is never an intended UI accent)
             if is_skin_tone(r, g, b):
                 continue
 
-            freq = count / total_pixels
-            score = (s ** 1.3) * (1.0 + (freq ** 0.5) * 1.5)
-            if lum < 35:
-                score *= 0.85
+            # Real vibrant candidates must have noticeable saturation
+            if s >= 0.20 and lum >= 30:
+                score = (s ** 1.30) * (0.8 + (freq ** 0.5) * 2.5) * (v ** 0.5)
+                if s >= 0.70 and v >= 0.60:
+                    score *= 1.40
 
-            item = ((r, g, b), score, h, lum, s)
-            if s >= 0.13:
-                candidates.append(item)
-            else:
-                low_sat_candidates.append(item)
+                # Special user exception: LOVELANGUAGE prioritizes the album's signature pink background
+                if is_lovelanguage:
+                    h_deg = h * 360.0
+                    if 290 <= h_deg <= 340:
+                        score *= 10.0
 
-        # If no vibrant candidates found, fall back to lower saturation (grayscale/muted)
-        pool = candidates if candidates else low_sat_candidates
-        pool.sort(key=lambda x: x[1], reverse=True)
+                candidates.append(((r, g, b), score, h, lum, s, v))
+
+        # If no vibrant non-skin colors exist:
+        # The cover is monochrome, black-and-white, or a neutral portrait on white/black canvas (like ROY).
+        # We NEVER fall back to flesh tones. Instead, we use the clean crisp white palette!
+        if not candidates:
+            try:
+                with open(cache_file, "w") as f:
+                    f.write("\n".join(white_palette) + "\n")
+            except Exception:
+                pass
+            return white_palette
+
+        candidates.sort(key=lambda x: x[1], reverse=True)
 
         selected = []
-        for (rgb, sc, h, lum, s) in pool:
-            # Check difference with already selected colors
+        for (rgb, sc, h, lum, s, v) in candidates:
+            # For secondary/tertiary accents on UI, require reasonable visibility if we already have a primary
+            if len(selected) >= 1 and lum < 45 and v < 0.40:
+                continue
+
             is_diff = True
-            for _, _, prev_h, prev_lum, _ in selected:
+            for _, _, prev_h, prev_lum, _, _ in selected:
                 h_diff = min(abs(h - prev_h), 1.0 - abs(h - prev_h)) * 360.0
                 lum_diff = abs(lum - prev_lum)
-                if h_diff < 30 and lum_diff < 35:
+                if h_diff < 25 and lum_diff < 30:
                     is_diff = False
                     break
             if is_diff:
-                selected.append((rgb, sc, h, lum, s))
+                selected.append((rgb, sc, h, lum, s, v))
             if len(selected) >= 3:
                 break
 
@@ -178,11 +216,11 @@ def extract_palette(target):
             final_rgb = [c1, c2, c3]
         elif len(selected) == 1:
             c1 = boost_vibrancy(*selected[0][0])
-            c2 = boost_vibrancy(*shift_hue(*c1, 18, 0.95, 0.95))
-            c3 = boost_vibrancy(*shift_hue(*c1, -18, 1.0, 1.25))
+            c2 = boost_vibrancy(*shift_hue(*c1, 18, 0.95, 1.05))
+            c3 = boost_vibrancy(*shift_hue(*c1, -16, 1.0, 0.95))
             final_rgb = [c1, c2, c3]
         else:
-            final_rgb = [(226, 232, 240), (203, 213, 225), (148, 163, 184)]
+            return white_palette
 
         result = [rgb_to_hex(*c) for c in final_rgb]
         try:
@@ -193,10 +231,11 @@ def extract_palette(target):
 
         return result
     except Exception as e:
-        return default_palette
+        return white_palette
 
 if __name__ == "__main__":
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
-    colors = extract_palette(arg)
+    extra = sys.argv[2:] if len(sys.argv) > 2 else []
+    colors = extract_palette(arg, *extra)
     for c in colors:
         print(c)

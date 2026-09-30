@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+import os
+import sys
+import subprocess
+
+def get_git_info(cwd):
+    branch = None
+    clean = True
+    try:
+        branch = subprocess.check_output(
+            ["git", "-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        pass
+
+    if branch:
+        try:
+            status = subprocess.check_output(
+                ["git", "-C", cwd, "status", "--porcelain"],
+                stderr=subprocess.DEVNULL
+            ).decode().strip()
+            clean = (len(status) == 0)
+        except Exception:
+            pass
+
+    return branch, clean
+
+def detect_stack(cwd):
+    stack = []
+
+    req_file = os.path.join(cwd, "requirements.txt")
+    pyproj = os.path.join(cwd, "pyproject.toml")
+    py_content = ""
+    if os.path.exists(req_file):
+        try:
+            with open(req_file, "r", errors="ignore") as f:
+                py_content += f.read().lower()
+        except Exception:
+            pass
+    if os.path.exists(pyproj):
+        try:
+            with open(pyproj, "r", errors="ignore") as f:
+                py_content += f.read().lower()
+        except Exception:
+            pass
+
+    try:
+        dir_files = os.listdir(cwd)
+    except Exception:
+        dir_files = []
+
+    is_python = bool(py_content) or any(f.endswith(".py") for f in dir_files if os.path.isfile(os.path.join(cwd, f)))
+    if is_python:
+        stack.append("Python")
+        if "torch" in py_content or "torchvision" in py_content:
+            stack.append("PyTorch")
+        if "yolo" in py_content or "ultralytics" in py_content:
+            stack.append("YOLO")
+        if "opencv" in py_content or "cv2" in py_content or any("cv" in f.lower() for f in dir_files):
+            stack.append("OpenCV")
+        if "fastapi" in py_content:
+            stack.append("FastAPI")
+        if "mavproxy" in py_content or "pymavlink" in py_content or os.path.exists(os.path.join(cwd, "simulator")):
+            stack.append("ArduPilot")
+        if "rclpy" in py_content or "ros2" in py_content:
+            stack.append("ROS 2")
+
+    if any(f.endswith(".m") for f in dir_files if os.path.isfile(os.path.join(cwd, f))):
+        if "MATLAB" not in stack:
+            stack.append("MATLAB")
+
+    if os.path.exists(os.path.join(cwd, "Dockerfile")) or os.path.exists(os.path.join(cwd, "docker-compose.yml")) or os.path.exists(os.path.join(cwd, "compose.yaml")):
+        stack.append("Docker")
+
+    pkg_path = os.path.join(cwd, "package.json")
+    if os.path.exists(pkg_path):
+        stack.append("Node.js")
+        try:
+            with open(pkg_path, "r", errors="ignore") as f:
+                content = f.read().lower()
+                if "typescript" in content:
+                    stack.append("TypeScript")
+                if "react" in content:
+                    stack.append("React")
+                elif "next" in content:
+                    stack.append("Next.js")
+                elif "vite" in content:
+                    stack.append("Vite")
+        except Exception:
+            pass
+
+    if not stack:
+        stack = ["Python", "Software", "Computer Vision"]
+
+    return " • ".join(stack)
+
+# Color Palette (UAQ / Troyanos Cyan & Crisp White)
+CYAN      = "\033[38;2;127;196;219m"
+WHITE     = "\033[1;37m"
+DIM_CYAN  = "\033[38;2;66;160;191m"
+BORDER    = "\033[38;2;80;100;120m"
+TEXT_MUTE = "\033[38;2;148;163;184m"
+TEXT_DIR  = "\033[38;2;160;180;200m"
+TEXT_VAL  = "\033[38;2;230;237;243m"
+RESET     = "\033[0m"
+
+# Style 1: Pure Troyanos Spartan Helmet (Crisp & High-Def, Default)
+LOGO_HELMET = [
+    f"           {WHITE}▄▄▄████▄{RESET}         ",
+    f"        {WHITE}▄▄ ██████▀{RESET}          ",
+    f"     {WHITE}▄██████████{RESET}            ",
+    f"    {WHITE}███████████{RESET}             ",
+    f"  {WHITE}▄▄████▀▀ ▄▄▄▄{RESET}             ",
+    f" {WHITE}▀████▀ ▄███▀▀ ▄███▄{RESET}        ",
+    f" {WHITE}█▀▀▀▀ █▀▀ ▄▄█▀▀  ▀█{RESET}        ",
+    f"      {WHITE}██  ███▄▄███{RESET}          ",
+    f"      {WHITE}██▄ ████████{RESET}          ",
+    f"      {WHITE}▀██  ███████{RESET}          ",
+    f"            {WHITE}▀█████▄{RESET}         ",
+    f"              {WHITE}▀▀▀██{RESET}         "
+]
+
+# Style 2: Full Badge with Greek Meander & Laurel Wreath
+LOGO_EMBLEM = [
+    f"     {CYAN}▄▄█▀█ █▀█ █▀█ █▀█▄▄{RESET}      ",
+    f"   {CYAN}▄█▀{RESET}                 {CYAN}▀█▄{RESET}    ",
+    f"  {CYAN}▀█{RESET}      {WHITE}▄▄▄████▄{RESET}       {CYAN}█▀{RESET}   ",
+    f" {CYAN}▄█▀{RESET}     {WHITE}▄▄ ██████▀{RESET}      {CYAN}▀█▄{RESET}  ",
+    f" {CYAN}▀█{RESET}    {WHITE}▄██████████{RESET}       {CYAN}█▀{RESET}   ",
+    f"{CYAN}▄█▀{RESET}    {WHITE}███████████{RESET}       {CYAN}▀█▄{RESET}  ",
+    f"{CYAN}▀█▄{RESET}   {WHITE}▄▄████▀▀ ▄▄▄▄{RESET}       {CYAN}▄█▀{RESET}  ",
+    f" {CYAN}▀█{RESET}  {WHITE}▀████▀ ▄███▀▀ ▄███▄{RESET}  {CYAN}█▀{RESET}   ",
+    f" {CYAN}▄█{RESET}  {WHITE}█▀▀▀▀ █▀▀ ▄▄█▀▀  ▀█{RESET}  {CYAN}█▄{RESET}   ",
+    f"{CYAN}▀█▀{RESET}       {WHITE}██  ███▄▄███{RESET}    {CYAN}▀█▀{RESET}  ",
+    f" {CYAN}█{RESET}        {WHITE}██▄ ████████{RESET}     {CYAN}█{RESET}   ",
+    f" {CYAN}▀{RESET}        {WHITE}▀██  ███████{RESET}     {CYAN}▀{RESET}   ",
+    f"                {WHITE}▀█████▄{RESET}       ",
+    f"   {DIM_CYAN}──{RESET} {CYAN}T R O Y A N O S{RESET} {DIM_CYAN}──{RESET}      "
+]
+
+def render_banner(logo_lines, proj_name, branch, rel_dir, stack_str):
+    if branch:
+        git_line = f"{CYAN}Git{RESET}        {WHITE}{branch}{RESET}"
+    else:
+        git_line = f"{CYAN}Git{RESET}        {TEXT_MUTE}workspace root{RESET}"
+
+    info_lines = [
+        "",
+        f"{WHITE}TROYANOS UAQ{RESET} {CYAN}DEVELOPER WORKSPACE{RESET}",
+        f"{BORDER}────────────────────────────────────────────{RESET}",
+        f"{CYAN}Project{RESET}    {WHITE}{proj_name}{RESET}",
+        git_line,
+        f"{CYAN}Directory{RESET}  {TEXT_DIR}{rel_dir}{RESET}",
+        f"{CYAN}Stack{RESET}      {TEXT_VAL}{stack_str}{RESET}",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+    ]
+
+    print()
+    for l, r in zip(logo_lines, info_lines):
+        print(f"  {l}  {r}")
+    print()
+
+def main():
+    cwd = os.getcwd()
+    rel_dir = cwd.replace(os.path.expanduser("~"), "~")
+    proj_name = os.path.basename(cwd)
+    if proj_name.lower() in ("uaq", "troyanos"):
+        proj_name = "Troyanos UAQ"
+
+    branch, _ = get_git_info(cwd)
+    stack_str = detect_stack(cwd)
+
+    # Style: defaults to "helmet" (solo el casco)
+    style = os.environ.get("TROYANOS_BANNER_STYLE", "helmet").lower()
+    if "--emblem" in sys.argv:
+        style = "emblem"
+    elif "--helmet" in sys.argv or "--hero" in sys.argv:
+        style = "helmet"
+    elif "--preview" in sys.argv:
+        print(f"\n{CYAN}=== ESTILO CASCO (DEFAULT) ==={RESET}")
+        render_banner(LOGO_HELMET, proj_name, branch, rel_dir, stack_str)
+        print(f"{CYAN}=== ESTILO EMBLEMA CON LAURELES ==={RESET}")
+        render_banner(LOGO_EMBLEM, proj_name, branch, rel_dir, stack_str)
+        return
+
+    logo = LOGO_EMBLEM if style == "emblem" else LOGO_HELMET
+    render_banner(logo, proj_name, branch, rel_dir, stack_str)
+
+if __name__ == "__main__":
+    main()

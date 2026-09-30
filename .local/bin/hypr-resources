@@ -53,24 +53,64 @@ def get_ram():
 
 def get_temp():
     try:
-        tz = Path("/sys/class/thermal/thermal_zone0/temp")
-        if tz.exists():
-            return round(int(tz.read_text().strip()) / 1000)
+        # First priority: hwmon coretemp / k10temp / cpu_thermal package temp
+        for hw in Path("/sys/class/hwmon").glob("hwmon*"):
+            name_file = hw / "name"
+            if name_file.exists() and name_file.read_text().strip() in ("coretemp", "k10temp", "cpu_thermal", "zenpower"):
+                for tf in hw.glob("temp*_input"):
+                    label_file = Path(str(tf).replace("_input", "_label"))
+                    if label_file.exists() and "Package" in label_file.read_text():
+                        val = int(tf.read_text().strip())
+                        if val > 0:
+                            return round(val / 1000)
+                t1 = hw / "temp1_input"
+                if t1.exists():
+                    val = int(t1.read_text().strip())
+                    if val > 0:
+                        return round(val / 1000)
+
+        # Second priority: thermal_zone with x86_pkg_temp or TCPU
+        for tz in Path("/sys/class/thermal").glob("thermal_zone*"):
+            type_file = tz / "type"
+            temp_file = tz / "temp"
+            if type_file.exists() and temp_file.exists():
+                z_type = type_file.read_text().strip()
+                if z_type in ("x86_pkg_temp", "TCPU", "cpu_thermal"):
+                    val = int(temp_file.read_text().strip())
+                    if 0 < val < 150000:
+                        return round(val / 1000)
     except Exception:
         pass
     return 0
+
+def get_cpu_info():
+    try:
+        with open("/proc/cpuinfo") as f:
+            for line in f:
+                if "model name" in line:
+                    c = line.split(":")[1].strip()
+                    c = c.replace("Intel(R) Core(TM) ", "").replace("Intel(R) ", "").replace("AMD Ryzen ", "Ryzen ")
+                    c = c.split(" @ ")[0].strip()
+                    short = " ".join(c.split()[:2]) if "Ultra" in c else c
+                    return short, c
+    except Exception:
+        pass
+    return "Ultra 5", "Ultra 5 125H"
 
 def main():
     cpu = get_cpu()
     ram_pct, ram_used, ram_total = get_ram()
     temp = get_temp()
+    cpu_short, cpu_full = get_cpu_info()
     
     print(json.dumps({
         "cpu": cpu,
         "ram_pct": ram_pct,
         "ram_used": ram_used,
         "ram_total": ram_total,
-        "temp": temp
+        "temp": temp,
+        "cpu_name": cpu_short,
+        "cpu_full": cpu_full
     }))
 
 if __name__ == "__main__":

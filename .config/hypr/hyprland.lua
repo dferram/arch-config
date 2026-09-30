@@ -108,8 +108,8 @@ gaps_out = 8,
 border_size = 2,
 
 col = {
-    active_border   = { colors = {'rgba(42a0bfee)', 'rgba(7fc4dbee)'}, angle = 45 },
-    inactive_border = "rgba(595959aa)",
+    active_border   = { colors = {'rgba(42a0bfff)', 'rgba(7fc4dbee)', 'rgba(20354eee)'}, angle = 45 },
+    inactive_border = "rgba(151a2455)",
 },
 
 -- Set to true to enable resizing windows by clicking and dragging on borders and gaps
@@ -125,15 +125,18 @@ decoration = {
 rounding       = 10,
 rounding_power = 2,
 
--- Change transparency of focused and unfocused windows
+-- Multi-monitor friendly focus hierarchy (no dimming on inactive monitors)
 active_opacity   = 1.0,
 inactive_opacity = 1.0,
+dim_inactive     = false,
+dim_strength     = 0.0,
 
 shadow = {
-    enabled      = true,
-    range        = 4,
-    render_power = 3,
-    color        = 0xee1a1a1a,
+    enabled        = true,
+    range          = 18,
+    render_power   = 3,
+    color          = 0x99081220,
+    color_inactive = 0x22000000,
 },
 
 blur = {
@@ -164,7 +167,7 @@ hl.animation({ leaf = "fadeIn",           enabled = true, speed = 5.0, bezier = 
 hl.animation({ leaf = "fadeOut",          enabled = true, speed = 4.0, bezier = "futureFade" })
 hl.animation({ leaf = "fadeSwitch",       enabled = true, speed = 4.5, bezier = "futureFade" })
 hl.animation({ leaf = "border",           enabled = true, speed = 6.5, bezier = "futureFade" })
-hl.animation({ leaf = "borderangle",      enabled = true, speed = 50.0, bezier = "smoothLinear", style = "loop" })
+hl.animation({ leaf = "borderangle",      enabled = true, speed = 30.0, bezier = "smoothLinear", style = "loop" })
 hl.animation({ leaf = "layers",           enabled = true, speed = 5.0, bezier = "futureGlide" })
 hl.animation({ leaf = "layersIn",         enabled = true, speed = 4.5, bezier = "futureFade",  style = "fade" })
 hl.animation({ leaf = "layersOut",        enabled = true, speed = 3.5, bezier = "futureFade",  style = "fade" })
@@ -230,13 +233,15 @@ disable_splash_rendering = true, -- Disables splash quotes/text at bottom of scr
 
 hl.config({
 input = {
-kb_layout  = "es",
+kb_layout  = "latam",
 kb_variant = "",
 kb_model   = "",
 kb_options = "",
 kb_rules   = "",
 
-follow_mouse = 1,
+-- Natural mouse & monitor navigation: cursor movement and clicking switches window & monitor focus
+follow_mouse  = 1,
+mouse_refocus = true,
 
 sensitivity = 0, -- -1.0 - 1.0, 0 means no modification.
 
@@ -246,11 +251,12 @@ touchpad = {
 },
 })
 
-hl.gesture({
-fingers = 3,
-direction = "horizontal",
-action = "workspace"
-})
+-- Workspace switching by gestures disabled (keyboard commands only: Super + 1..9)
+-- hl.gesture({
+-- fingers = 3,
+-- direction = "horizontal",
+-- action = "workspace"
+-- })
 
 -- Example per-device config
 -- See https://wiki.hypr.land/Configuring/Advanced-and-Cool/Devices/ for more
@@ -584,7 +590,7 @@ hl.window_rule({
     match  = { class = "cheatsheet-popup" },
     float  = true,
     center = true,
-    size   = "880 620",
+    size   = "940 680",
 })
 
 -- Btop live resource monitor floating windowrule
@@ -595,5 +601,3 @@ hl.window_rule({
     center = true,
     size   = "960 640",
 })
-
-

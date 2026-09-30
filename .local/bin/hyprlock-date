@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Formatted English date for Hyprlock in Cyber-Cyan & Slate palette
+day=$(date +"%A" | tr '[:lower:]' '[:upper:]')
+day_num=$(date +"%-d")
+month=$(date +"%B" | tr '[:lower:]' '[:upper:]')
+
+echo "<span color=\"#7fc4db\">${day}</span> <span color=\"#506478\">•</span> <span color=\"#94a3b8\">${month} ${day_num}</span>"

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Blinking > terminal prompt in cyber-cyan / glacier for Hyprlock
+ms=$(date +%s%3N)
+phase=$(( (ms / 500) % 2 ))
+
+if [ $phase -eq 0 ]; then
+    echo '<span color="#7fc4db" font_family="JetBrainsMono Nerd Font"><b>&gt;</b></span> <span color="#42a0bf" font_family="JetBrainsMono Nerd Font"><b>_</b></span>'
+else
+    echo '<span color="#244555" font_family="JetBrainsMono Nerd Font"><b>&gt;</b></span> <span color="#000000" font_family="JetBrainsMono Nerd Font"><b> </b></span>'
+fi

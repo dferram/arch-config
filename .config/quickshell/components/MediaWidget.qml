@@ -386,6 +386,11 @@ Item {
 
     Behavior on mediaAccentColor { ColorAnimation { duration: 350; easing.type: Easing.OutQuad } }
 
+    property bool isAccentLight: {
+        let lum = 0.299 * root.mediaAccentColor.r + 0.587 * root.mediaAccentColor.g + 0.114 * root.mediaAccentColor.b;
+        return lum > 0.70;
+    }
+
     // Visualizer Bars Colorimetry (Matches album for Spotify, strictly red for YouTube, orange for SoundCloud)
     property color albumColorPrimary: {
         if (isSpotify) return dynamicAlbumColor;
@@ -408,7 +413,7 @@ Item {
 
     Process {
         id: paletteProc
-        command: ["/home/ferram/.local/bin/hypr-media-palette", root.artUrl]
+        command: ["/home/ferram/.local/bin/hypr-media-palette", root.artUrl, root.trackTitle, root.trackAlbum]
         stdout: StdioCollector {
             onTextChanged: {
                 if (!root.isSpotify) return;
@@ -427,7 +432,7 @@ Item {
 
     function updatePalette() {
         if (root.isSpotify && root.artUrl && root.artUrl !== "") {
-            paletteProc.command = ["/home/ferram/.local/bin/hypr-media-palette", root.artUrl];
+            paletteProc.command = ["/home/ferram/.local/bin/hypr-media-palette", root.artUrl, root.trackTitle, root.trackAlbum];
             paletteProc.running = true;
         } else {
             root.dynamicAlbumColor = "#e2e8f0";
@@ -438,6 +443,7 @@ Item {
 
     onArtUrlChanged: updatePalette()
     onIsSpotifyChanged: updatePalette()
+    onTrackAlbumChanged: updatePalette()
     Component.onCompleted: updatePalette()
 
     property string playerBrandName: {
@@ -1340,9 +1346,12 @@ Item {
                                 anchors.centerIn: parent
                                 width: 17
                                 height: 17
-                                source: root.isPlaying ?
-                                    "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='%23ffffff'><rect x='6' y='4' width='4' height='16' rx='1.5'/><rect x='14' y='4' width='4' height='16' rx='1.5'/></svg>" :
-                                    "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='%23ffffff'><polygon points='6 4 20 12 6 20'/></svg>"
+                                source: {
+                                    let iconFill = root.isAccentLight ? "%2312151c" : "%23ffffff";
+                                    return root.isPlaying ?
+                                        "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='" + iconFill + "'><rect x='6' y='4' width='4' height='16' rx='1.5'/><rect x='14' y='4' width='4' height='16' rx='1.5'/></svg>" :
+                                        "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='" + iconFill + "'><polygon points='6 4 20 12 6 20'/></svg>";
+                                }
                                 fillMode: Image.PreserveAspectFit
                             }
 

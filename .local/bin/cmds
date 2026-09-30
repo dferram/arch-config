@@ -8,19 +8,19 @@ Usage:
 
 import sys
 
-C_RESET  = "\033[0m"
-C_BOLD   = "\033[1m"
-C_DIM    = "\033[2m"
-C_RED    = "\033[38;2;243;139;168m" # Soft red
-C_RED_D  = "\033[38;2;230;69;83m"   # Darker red
-C_ORANGE = "\033[38;2;250;179;135m" # Orange/Red
-C_GRAY   = "\033[38;2;108;112;134m"
-C_WHITE  = "\033[38;2;205;214;244m"
+C_RESET   = "\033[0m"
+C_BOLD    = "\033[1m"
+C_DIM     = "\033[2m"
+C_CYAN    = "\033[38;2;66;160;191m"   # Stark Cyan (#42a0bf)
+C_GLACIER = "\033[38;2;127;196;219m"  # Glacier Blue (#7fc4db)
+C_BLUE    = "\033[38;2;56;189;248m"   # Sky Blue (#38bdf8)
+C_MUTED   = "\033[38;2;80;100;120m"   # Subtle Slate (#506478)
+C_WHITE   = "\033[38;2;226;232;240m"  # Crisp White (#e2e8f0)
 
 SECTIONS = [
     {
         "title": "BASH & TERMINAL NAVIGATION",
-        "color": C_RED_D,
+        "color": C_CYAN,
         "items": [
             ("z <dir>", "Zoxide: Instant jump to any directory (e.g. 'z hona')"),
             ("p", "Project Jump: Interactive fuzzy finder for projects"),
@@ -36,8 +36,8 @@ SECTIONS = [
         ]
     },
     {
-        "title": "HYPRLAND DESKTOP",
-        "color": C_ORANGE,
+        "title": "HYPRLAND DESKTOP (KEYBOARD-FIRST)",
+        "color": C_GLACIER,
         "items": [
             ("Super + H", "Quick Cheatsheet Floating Popup (any key to close)"),
             ("Super + Q", "Open Terminal (Kitty)"),
@@ -65,7 +65,7 @@ SECTIONS = [
     },
     {
         "title": "CHROMIUM & VIMIUM",
-        "color": C_RED_D,
+        "color": C_CYAN,
         "items": [
             ("f", "Vimium: Show keyboard hints on links (type to click)"),
             ("j / k", "Vimium: Scroll down / up smoothly"),
@@ -81,14 +81,15 @@ SECTIONS = [
     },
     {
         "title": "FULLSTACK DEVELOPER TOOLS",
-        "color": C_ORANGE,
+        "color": C_GLACIER,
         "items": [
             ("top / htop", "Process Monitor: Interactive CPU/RAM dashboard"),
             ("loc [port]", "Open Localhost: Instant open localhost:<port>"),
             ("web <url>", "Web Search: Open URL or Google query in Chromium"),
             ("ports", "Ports: View active TCP ports, PIDs & commands"),
             ("killport", "Killport: Free blocked ports ('killport 3000')"),
-            ("dev-db", "Dev-DB: Instant Docker databases ('dev-db up redis')"),
+            ("docker ps", "List running containers ('docker ps -a' for all)"),
+            ("docker run pg", "docker run -d --name postgres -p 5432:5432 -e POSTGRES_USER=dferramm@gmail.com -e POSTGRES_PASSWORD=contraseña postgres:16-alpine"),
             ("ld", "Lazydocker: Real-time container dashboard & logs"),
             ("d", "Dust: Visual disk analyzer (find big node_modules)"),
             ("gh", "GitHub CLI: Manage PRs, issues, clones"),
@@ -99,7 +100,7 @@ SECTIONS = [
     },
     {
         "title": "SYSTEM & LAPTOP DIAGNOSTICS",
-        "color": C_RED_D,
+        "color": C_CYAN,
         "items": [
             ("lr", "Laptop Report: Live battery health, thermals & stats"),
             ("sudo powertop", "PowerTop: Process-by-process battery drain"),
@@ -113,13 +114,13 @@ SECTIONS = [
 ]
 
 ARCH_LOGO = f"""
-{C_RED}      /\\      {C_BOLD}{C_RED_D}╭──────────────────────────────────────────╮
-{C_RED}     /  \\     {C_BOLD}{C_RED_D}│  {C_BOLD}ARCH LINUX - TERMINAL CHEATSHEET{C_RED_D}        │
-{C_RED}    /    \\    {C_BOLD}{C_RED_D}╰──────────────────────────────────────────╯
-{C_RED}   /      \\   
-{C_RED}  /   ,,   \\  
-{C_RED} /   |  |   \\ 
-{C_RED}/_-''    ''-_\\{C_RESET}
+{C_CYAN}      /\\      {C_BOLD}{C_GLACIER}╭──────────────────────────────────────────╮
+{C_CYAN}     /  \\     {C_BOLD}{C_GLACIER}│  {C_BOLD}{C_WHITE}ARCH LINUX - TERMINAL CHEATSHEET{C_GLACIER}        │
+{C_CYAN}    /    \\    {C_BOLD}{C_GLACIER}╰──────────────────────────────────────────╯
+{C_CYAN}   /      \\   
+{C_CYAN}  /   ,,   \\  
+{C_CYAN} /   |  |   \\ 
+{C_CYAN}/_-''    ''-_\\{C_RESET}
 """
 
 def main():
@@ -142,20 +143,20 @@ def main():
             continue
 
         matched_total += len(filtered_items)
-        print(f" {C_BOLD}{sec['color']} ┌─ {sec['title']}{C_RESET}")
+        print(f" {C_BOLD}{sec['color']}┌─ {sec['title']}{C_RESET}")
         
         for i, (cmd, desc) in enumerate(filtered_items):
             is_last = (i == len(filtered_items) - 1)
             branch = "└─" if is_last else "├─"
             
-            dots = 14 - len(cmd)
-            dots_str = f"{C_GRAY}{'·' * max(2, dots)}{C_RESET}"
-            print(f" {C_BOLD}{sec['color']} {branch}  {C_BOLD}{C_RED}{cmd:<14}{C_RESET} {dots_str} {C_WHITE}{desc}{C_RESET}")
+            dots = 15 - len(cmd)
+            dots_str = f"{C_MUTED}{'·' * max(2, dots)}{C_RESET}"
+            print(f" {sec['color']}{branch}  {C_BOLD}{C_GLACIER}{cmd:<15}{C_RESET} {dots_str} {C_WHITE}{desc}{C_RESET}")
             
         print() # Spacer
 
     if matched_total == 0:
-        print(f"\n  {C_RED}No commands found matching '{query}'.{C_RESET}")
+        print(f"\n  {C_CYAN}No commands found matching '{query}'.{C_RESET}")
         print(f"  {C_DIM}Type 'cmds' to see the full list.{C_RESET}")
 
     print(f"  {C_DIM}Tip: Type 'cmds <keyword>' to filter (e.g. 'cmds git', 'cmds hypr', 'cmds vim'){C_RESET}\n")

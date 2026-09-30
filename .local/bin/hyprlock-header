@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+echo '<span color="#ff5f56">●</span> <span color="#ffbd2e">●</span> <span color="#27c93f">●</span>   <span color="#506478">ferram@matebook:~</span>'

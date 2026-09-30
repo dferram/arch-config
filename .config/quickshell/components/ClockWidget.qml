@@ -300,40 +300,39 @@ Item {
 
         // Fixed Mexican Holidays & Observances
         let fixed = {
-            "1-1": { name: "Año Nuevo", icon: "🎆", isOfficial: true, desc: "Descanso obligatorio nacional (LFT)" },
-            "1-6": { name: "Día de Reyes", icon: "👑", isOfficial: false, desc: "Tradición mexicana de Reyes Magos y Rosca" },
-            "2-2": { name: "Día de la Candelaria", icon: "🫔", isOfficial: false, desc: "Tradición de tamales y bendición del Niño Dios" },
-            "2-5": { name: "Día de la Constitución", icon: "📜", isOfficial: false, desc: "Aniversario de la Constitución Política de 1917" },
-            "2-14": { name: "Día del Amor y la Amistad", icon: "❤️", isOfficial: false, desc: "Celebración tradicional de San Valentín" },
-            "2-24": { name: "Día de la Bandera", icon: "🇲🇽", isOfficial: false, desc: "Conmemoración del Lábaro Patrio" },
-            "3-8": { name: "Día de la Mujer", icon: "💜", isOfficial: false, desc: "Día Internacional de la Mujer" },
-            "3-18": { name: "Expropiación Petrolera", icon: "🛢️", isOfficial: false, desc: "Decreto de nacionalización de la industria petrolera de 1938" },
-            "3-21": { name: "Natalicio de Benito Juárez", icon: "⚖️", isOfficial: false, desc: "Aniversario del Benemérito de las Américas" },
-            "4-30": { name: "Día del Niño", icon: "🎈", isOfficial: false, desc: "Celebración y festivales infantiles en México" },
-            "5-1": { name: "Día del Trabajo", icon: "🛠️", isOfficial: true, desc: "Descanso obligatorio nacional (LFT)" },
-            "5-5": { name: "Batalla de Puebla", icon: "⚔️", isOfficial: false, desc: "Victoria del ejército mexicano en Puebla de 1862" },
-            "5-10": { name: "Día de las Madres", icon: "💐", isOfficial: false, desc: "Celebración nacional a las madres mexicanas" },
-            "5-15": { name: "Día del Maestro", icon: "📚", isOfficial: false, desc: "Reconocimiento a docentes y educadores" },
-            "9-13": { name: "Día de los Niños Héroes", icon: "🏰", isOfficial: false, desc: "Defensa del Castillo de Chapultepec de 1847" },
-            "9-15": { name: "Grito de Dolores", icon: "🔔", isOfficial: false, desc: "Víspera del Día de la Independencia y tradicional Grito" },
-            "9-16": { name: "Día de la Independencia", icon: "🇲🇽", isOfficial: true, desc: "Descanso obligatorio nacional (LFT) - Fiesta Patria" },
-            "10-12": { name: "Día de la Raza", icon: "🌎", isOfficial: false, desc: "Encuentro de Dos Mundos y diversidad cultural" },
-            "10-31": { name: "Halloween", icon: "🎃", isOfficial: false, desc: "Noche de Brujas y víspera de Todos los Santos" },
-            "11-1": { name: "Día de Todos los Santos", icon: "🏵️", isOfficial: false, desc: "Día de los Angelitos y tradición de Día de Muertos" },
-            "11-2": { name: "Día de Muertos", icon: "💀", isOfficial: false, desc: "Patrimonio Cultural Inmaterial de México y ofrendas a Fieles Difuntos" },
-            "11-20": { name: "Revolución Mexicana", icon: "🐎", isOfficial: false, desc: "Aniversario del inicio de la Revolución de 1910" },
-            "12-12": { name: "Día de la Virgen de Guadalupe", icon: "🌹", isOfficial: false, desc: "Máxima tradición religiosa y popular en México" },
-            "12-24": { name: "Nochebuena", icon: "🕯️", isOfficial: false, desc: "Víspera de Navidad y cenas familiares" },
-            "12-25": { name: "Navidad", icon: "🎄", isOfficial: true, desc: "Descanso obligatorio nacional (LFT)" },
-            "12-28": { name: "Día de los Santos Inocentes", icon: "🎭", isOfficial: false, desc: "Tradición popular de bromas inocentes" },
-            "12-31": { name: "Fin de Año", icon: "🥂", isOfficial: false, desc: "Víspera y brindis de bienvenida al Año Nuevo" }
+            "1-1": { name: "Año Nuevo", isOfficial: true, desc: "Descanso obligatorio nacional (LFT)" },
+            "1-6": { name: "Día de Reyes", isOfficial: false, desc: "Tradición mexicana de Reyes Magos y Rosca" },
+            "2-2": { name: "Día de la Candelaria", isOfficial: false, desc: "Tradición de tamales y bendición del Niño Dios" },
+            "2-5": { name: "Día de la Constitución", isOfficial: false, desc: "Aniversario de la Constitución Política de 1917" },
+            "2-14": { name: "Día del Amor y la Amistad", isOfficial: false, desc: "Celebración tradicional de San Valentín" },
+            "2-24": { name: "Día de la Bandera", isOfficial: false, desc: "Conmemoración del Lábaro Patrio" },
+            "3-8": { name: "Día de la Mujer", isOfficial: false, desc: "Día Internacional de la Mujer" },
+            "3-18": { name: "Expropiación Petrolera", isOfficial: false, desc: "Decreto de nacionalización de la industria petrolera de 1938" },
+            "3-21": { name: "Natalicio de Benito Juárez", isOfficial: false, desc: "Aniversario del Benemérito de las Américas" },
+            "4-30": { name: "Día del Niño", isOfficial: false, desc: "Celebración y festivales infantiles en México" },
+            "5-1": { name: "Día del Trabajo", isOfficial: true, desc: "Descanso obligatorio nacional (LFT)" },
+            "5-5": { name: "Batalla de Puebla", isOfficial: false, desc: "Victoria del ejército mexicano en Puebla de 1862" },
+            "5-10": { name: "Día de las Madres", isOfficial: false, desc: "Celebración nacional a las madres mexicanas" },
+            "5-15": { name: "Día del Maestro", isOfficial: false, desc: "Reconocimiento a docentes y educadores" },
+            "9-13": { name: "Día de los Niños Héroes", isOfficial: false, desc: "Defensa del Castillo de Chapultepec de 1847" },
+            "9-15": { name: "Grito de Dolores", isOfficial: false, desc: "Víspera del Día de la Independencia y tradicional Grito" },
+            "9-16": { name: "Día de la Independencia", isOfficial: true, desc: "Descanso obligatorio nacional (LFT) - Fiesta Patria" },
+            "10-12": { name: "Día de la Raza", isOfficial: false, desc: "Encuentro de Dos Mundos y diversidad cultural" },
+            "10-31": { name: "Halloween", isOfficial: false, desc: "Noche de Brujas y víspera de Todos los Santos" },
+            "11-1": { name: "Día de Todos los Santos", isOfficial: false, desc: "Día de los Angelitos y tradición de Día de Muertos" },
+            "11-2": { name: "Día de Muertos", isOfficial: false, desc: "Patrimonio Cultural Inmaterial de México y ofrendas a Fieles Difuntos" },
+            "11-20": { name: "Revolución Mexicana", isOfficial: false, desc: "Aniversario del inicio de la Revolución de 1910" },
+            "12-12": { name: "Día de la Virgen de Guadalupe", isOfficial: false, desc: "Máxima tradición religiosa y popular en México" },
+            "12-24": { name: "Nochebuena", isOfficial: false, desc: "Víspera de Navidad y cenas familiares" },
+            "12-25": { name: "Navidad", isOfficial: true, desc: "Descanso obligatorio nacional (LFT)" },
+            "12-28": { name: "Día de los Santos Inocentes", isOfficial: false, desc: "Tradición popular de bromas inocentes" },
+            "12-31": { name: "Fin de Año", isOfficial: false, desc: "Víspera y brindis de bienvenida al Año Nuevo" }
         };
 
         // Cambio de Poder Ejecutivo Federal cada 6 años (1 de octubre a partir de 2024: 2024, 2030, etc.)
         if (m === 10 && d === 1 && (y % 6 === 2024 % 6)) {
             return {
                 name: "Transmisión del Poder Ejecutivo",
-                icon: "🏛️",
                 isOfficial: true,
                 desc: "Descanso obligatorio nacional (LFT Art. 74 - cada 6 años)",
                 typeLabel: "Feriado Oficial LFT",
@@ -348,7 +347,6 @@ Item {
         if (m === 2 && d === febMonday) {
             return {
                 name: "Día de la Constitución (Puente Oficial)",
-                icon: "📜",
                 isOfficial: true,
                 desc: "Descanso obligatorio LFT (1er lunes de febrero por el 5 de Feb)",
                 typeLabel: "Feriado Oficial LFT",
@@ -363,7 +361,6 @@ Item {
         if (m === 3 && d === marMonday3) {
             return {
                 name: "Natalicio de Benito Juárez (Puente Oficial)",
-                icon: "⚖️",
                 isOfficial: true,
                 desc: "Descanso obligatorio LFT (3er lunes de marzo por el 21 de Mar)",
                 typeLabel: "Feriado Oficial LFT",
@@ -378,7 +375,6 @@ Item {
         if (m === 11 && d === novMonday3) {
             return {
                 name: "Revolución Mexicana (Puente Oficial)",
-                icon: "🐎",
                 isOfficial: true,
                 desc: "Descanso obligatorio LFT (3er lunes de noviembre por el 20 de Nov)",
                 typeLabel: "Feriado Oficial LFT",
@@ -408,7 +404,6 @@ Item {
         if (m === (juevesSanto.getMonth() + 1) && d === juevesSanto.getDate()) {
             return {
                 name: "Jueves Santo",
-                icon: "🕊️",
                 isOfficial: false,
                 desc: "Jueves de Semana Santa en México",
                 typeLabel: "Festividad Tradicional",
@@ -421,7 +416,6 @@ Item {
         if (m === (viernesSanto.getMonth() + 1) && d === viernesSanto.getDate()) {
             return {
                 name: "Viernes Santo",
-                icon: "✝️",
                 isOfficial: false,
                 desc: "Viernes de Semana Santa en México",
                 typeLabel: "Festividad Tradicional",
@@ -435,7 +429,6 @@ Item {
             let item = fixed[key];
             return {
                 name: item.name,
-                icon: item.icon || "🇲🇽",
                 isOfficial: item.isOfficial,
                 desc: item.desc,
                 typeLabel: item.isOfficial ? "Feriado Oficial LFT" : "Festividad Mexicana",
@@ -448,10 +441,9 @@ Item {
 
     function daySummaryText() {
         let hol = root.getMexicanHoliday(root.selectedDateStr);
-        let holIcon = hol ? (hol.icon || "🇲🇽") : "";
-        let holPrefix = hol ? (holIcon + " " + hol.name + " • ") : "";
+        let holPrefix = hol ? (hol.name + " • ") : "";
 
-        if (!allReminders) return hol ? (holIcon + " " + hol.name + " • No scheduled events") : "No events scheduled";
+        if (!allReminders) return hol ? (hol.name + " • No scheduled events") : "No events scheduled";
         let count = 0;
         let doneCount = 0;
         for (let i = 0; i < allReminders.length; i++) {
@@ -995,14 +987,18 @@ Item {
                                                 }
                                             }
 
-                                            // Holiday Micro-Icon (shown at bottom when day has a holiday and no user reminders)
-                                            Text {
+                                            // Holiday micro-mark (shown when the day has no user reminders).
+                                            Image {
                                                 visible: dayCell.isCurrentMonth && dayCell.dayCats.length === 0 && !!dayCell.mexicanHoliday
                                                 anchors.bottom: parent.bottom
-                                                anchors.bottomMargin: 1
+                                                anchors.bottomMargin: 2
                                                 anchors.horizontalCenter: parent.horizontalCenter
-                                                text: dayCell.mexicanHoliday ? (dayCell.mexicanHoliday.icon || "") : ""
-                                                font.pixelSize: 8
+                                                source: "../icons/holiday.svg"
+                                                sourceSize.width: 8
+                                                sourceSize.height: 8
+                                                width: 8
+                                                height: 8
+                                                smooth: true
                                             }
                                         }
 
@@ -1543,19 +1539,23 @@ Item {
                                         anchors.margins: 10
                                         spacing: 10
 
-                                        // Festive Emblem Badge
+                                        // Monochrome calendar emblem keeps every observance visually consistent.
                                         Rectangle {
                                             Layout.preferredWidth: 36
                                             Layout.preferredHeight: 36
                                             radius: 8
-                                            color: root.selectedHoliday && root.selectedHoliday.isOfficial ? Qt.rgba(16/255, 185/255, 129/255, 0.25) : Qt.rgba(245/255, 158/255, 11/255, 0.22)
-                                            border.color: root.selectedHoliday && root.selectedHoliday.isOfficial ? "#10b981" : "#f59e0b"
+                                            color: "#f4f4f5"
+                                            border.color: Qt.rgba(0, 0, 0, 0.16)
                                             border.width: 1
 
-                                            Text {
+                                            Image {
                                                 anchors.centerIn: parent
-                                                text: root.selectedHoliday ? (root.selectedHoliday.icon || "🇲🇽") : "🇲🇽"
-                                                font.pixelSize: 18
+                                                source: "../icons/holiday.svg"
+                                                sourceSize.width: 18
+                                                sourceSize.height: 18
+                                                width: 18
+                                                height: 18
+                                                smooth: true
                                             }
                                         }
 

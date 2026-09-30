@@ -56,7 +56,6 @@ alias lr="laptop-report"
 alias ld="lazydocker"
 alias d="dust"
 alias kp="killport"
-alias db="dev-db"
 
 # --- Fast Directory Navigation ---
 alias ..="cd .."
@@ -173,3 +172,37 @@ if ! shopt -oq posix; then
     . /etc/bash_completion
   fi
 fi
+
+# --- Colgate-Palmolive Workspace CLI Hook ---
+_check_colgate_workspace() {
+    local cur="$PWD"
+    if [[ "$cur" =~ /Colgate-Palmolive(/.*)?$ ]]; then
+        if [[ "$_CP_LAST_DIR" != "$cur" ]]; then
+            export _CP_LAST_DIR="$cur"
+            if command -v colpal-banner &>/dev/null; then
+                colpal-banner
+            fi
+        fi
+    else
+        unset _CP_LAST_DIR
+    fi
+}
+PROMPT_COMMAND="_check_colgate_workspace${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+
+# --- UAQ / Troyanos Workspace CLI Hook ---
+_check_troyanos_workspace() {
+    local cur="$PWD"
+    if [[ "$cur" =~ /(UAQ|Troyanos|troyanos)(/.*)?$ ]]; then
+        if [[ "$_TROYANOS_LAST_DIR" != "$cur" ]]; then
+            export _TROYANOS_LAST_DIR="$cur"
+            if command -v troyanos-banner &>/dev/null; then
+                troyanos-banner
+            fi
+        fi
+    else
+        unset _TROYANOS_LAST_DIR
+    fi
+}
+PROMPT_COMMAND="_check_troyanos_workspace${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+
+

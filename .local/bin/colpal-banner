@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+import os
+import sys
+import subprocess
+
+def get_git_info(cwd):
+    branch = None
+    clean = True
+    try:
+        branch = subprocess.check_output(
+            ["git", "-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        pass
+
+    if branch:
+        try:
+            status = subprocess.check_output(
+                ["git", "-C", cwd, "status", "--porcelain"],
+                stderr=subprocess.DEVNULL
+            ).decode().strip()
+            clean = (len(status) == 0)
+        except Exception:
+            pass
+
+    return branch, clean
+
+def detect_stack(cwd):
+    stack = []
+    # Check package.json
+    pkg_path = os.path.join(cwd, "package.json")
+    if os.path.exists(pkg_path):
+        stack.append("Node.js")
+        try:
+            with open(pkg_path, "r", errors="ignore") as f:
+                content = f.read().lower()
+                if "typescript" in content:
+                    stack.append("TypeScript")
+                if "react" in content:
+                    stack.append("React")
+                elif "next" in content:
+                    stack.append("Next.js")
+                elif "vite" in content:
+                    stack.append("Vite")
+        except Exception:
+            pass
+    elif os.path.exists(os.path.join(cwd, "requirements.txt")) or os.path.exists(os.path.join(cwd, "pyproject.toml")):
+        stack.append("Python")
+
+    if os.path.exists(os.path.join(cwd, "Dockerfile")) or os.path.exists(os.path.join(cwd, "docker-compose.yml")) or os.path.exists(os.path.join(cwd, "compose.yaml")):
+        stack.append("Docker")
+
+    if not stack:
+        stack = ["TypeScript", "Node.js", "Docker"]
+
+    return " • ".join(stack)
+
+def main():
+    cwd = os.getcwd()
+    rel_dir = cwd.replace(os.path.expanduser("~"), "~")
+    proj_name = os.path.basename(cwd)
+    if proj_name.lower() in ("colgate-palmolive", "colgate", "colpal"):
+        proj_name = "Colgate-Palmolive"
+
+    branch, _ = get_git_info(cwd)
+    stack_str = "JavaScript"
+
+    if branch:
+        git_line = f"\033[38;2;127;196;219mGit\033[0m        \033[1;37m{branch}\033[0m"
+    else:
+        git_line = f"\033[38;2;127;196;219mGit\033[0m        \033[38;2;148;163;184mworkspace root\033[0m"
+
+    logo_lines = [
+        "    ▄▄████████████ █████████▄▄    ",
+        "  ▄██████████████  ████████████▄  ",
+        " ████████████████ ███████████████ ",
+        "█████▄ ▀▀███████  ███████▀▀ ▄█████",
+        "███████▄▄   ▀▀▀▀  ▀▀▀▀   ▄▄███████",
+        "▀██████████▄▄▄▄    ▄▄▄▄██████████▀",
+        " ▀█████████████ ▄███████████████▀ ",
+        "   ▀▀█████████▀ █████████████▀▀   ",
+        "       ▀▀▀▀▀▀▀ ▄███████▀▀▀▀       ",
+        "               ███████            "
+    ]
+
+    info_lines = [
+        "",
+        "\033[1;37mCOLGATE-PALMOLIVE\033[0m \033[38;2;127;196;219mDEVELOPER WORKSPACE\033[0m",
+        "\033[38;2;80;100;120m────────────────────────────────────────────\033[0m",
+        f"\033[38;2;127;196;219mProject\033[0m    \033[1;37m{proj_name}\033[0m",
+        git_line,
+        f"\033[38;2;127;196;219mDirectory\033[0m  \033[38;2;160;180;200m{rel_dir}\033[0m",
+        f"\033[38;2;127;196;219mStack\033[0m      \033[38;2;230;237;243m{stack_str}\033[0m",
+        "",
+        "",
+        ""
+    ]
+
+    C_WHITE = "\033[1;37m"
+    C_RESET = "\033[0m"
+
+    print()
+    for l, r in zip(logo_lines, info_lines):
+        print(f"  {C_WHITE}{l}{C_RESET}  {r}")
+    print()
+
+if __name__ == "__main__":
+    main()

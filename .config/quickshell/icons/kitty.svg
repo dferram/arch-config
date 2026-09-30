@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">
+  <!-- Outer Ear Silhouette -->
+  <path d="M3.8 7.5L6.5 1.6C6.9 0.8 8 0.8 8.4 1.6L10.3 5.2C10.8 5 11.4 4.8 12 4.8C12.6 4.8 13.2 5 13.7 5.2L15.6 1.6C16 0.8 17.1 0.8 17.5 1.6L20.2 7.5H3.8Z" fill="#14171f"/>
+  <!-- Terminal Squircle Body -->
+  <rect x="1" y="4.8" width="22" height="18.2" rx="5" fill="#14171f"/>
+  <!-- Specular Hairline Border -->
+  <rect x="1" y="4.8" width="22" height="18.2" rx="5" stroke="rgba(255,255,255,0.15)" stroke-width="0.8"/>
+  <!-- Inner Ears (Cyan Ambient Sheen) -->
+  <path d="M5.2 6.8L6.8 3.2L8.4 6.2" fill="#7fc4db" fill-opacity="0.4"/>
+  <path d="M15.6 6.2L17.2 3.2L18.8 6.8" fill="#7fc4db" fill-opacity="0.4"/>
+  <!-- Minimalist Eyes -->
+  <circle cx="7.8" cy="10" r="1.1" fill="#7fc4db"/>
+  <circle cx="16.2" cy="10" r="1.1" fill="#7fc4db"/>
+  <!-- Terminal Prompt >_ in Accent Cyan & Pure White -->
+  <path d="M6.8 14.5L9.8 16.8L6.8 19.1" stroke="#7fc4db" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="12" y1="19.1" x2="17" y2="19.1" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

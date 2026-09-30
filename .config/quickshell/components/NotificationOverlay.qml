@@ -653,6 +653,16 @@ PanelWindow {
                         return "file:///home/ferram/.local/share/icons/instagram.svg";
                     }
 
+                    // PostgreSQL / pgAdmin official SVG icon
+                    if (lowerApp.includes("postgres") || lowerApp.includes("pgadmin") || lowerSum.includes("postgres") || lowerSum.includes("pgadmin") || card.metaContext.includes("postgres") || card.metaContext.includes("pgadmin")) {
+                        return "file:///home/ferram/.local/share/icons/postgresql.svg";
+                    }
+
+                    // LinkedIn official SVG icon
+                    if (lowerApp.includes("linkedin") || lowerSum.includes("linkedin") || card.metaContext.includes("linkedin")) {
+                        return "file:///home/ferram/.local/share/icons/linkedin.svg";
+                    }
+
                     // Chromium official SVG icon (monochromatic blue)
                     if (lowerApp.includes("chromium") || lowerIcon.includes("chromium") || card.metaContext.includes("chromium")) {
                         return "file:///home/ferram/.local/share/icons/chromium.svg";

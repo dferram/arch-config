@@ -12,6 +12,8 @@ $hostname\
 $directory\
 $git_branch\
 $git_status\
+$cmd_duration\
+$jobs\
 $character"""
 
 right_format = ""
@@ -46,12 +48,25 @@ behind = "v"
 diverged = "<>"
 up_to_date = "="
 untracked = "?"
-stashed = "$"
+stashed = "\\$"
 modified = "!"
 staged = "+"
 renamed = ">"
 deleted = "-"
-format = "([$all_status$ahead_behind]($style))"
+format = "([$all_status$ahead_behind]($style)) "
+
+[cmd_duration]
+min_time = 2000
+style = "bold #e2b714"
+format = "[$duration]($style) "
+
+[jobs]
+symbol = "✦ "
+style = "bold #7fc4db"
+format = "[$symbol$number]($style) "
+
+[status]
+disabled = true
 
 [python]
 format = "([\\($virtualenv\\)](#a6e3a1 bold) )"
@@ -63,3 +78,5 @@ detect_env_vars = ["VIRTUAL_ENV"]
 [conda]
 format = "([\\($environment\\)](#a6e3a1 bold) )"
 ignore_base = true
+
+

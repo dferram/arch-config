@@ -21,6 +21,8 @@ Item {
     property real ramUsed: 0.0
     property real ramTotal: 0.0
     property int tempC: 0
+    property string cpuName: "Ultra 5"
+    property string cpuFull: "Ultra 5 125H"
 
     // Fetch resources
     Process {
@@ -38,6 +40,8 @@ Item {
                     root.ramUsed = d.ram_used || 0;
                     root.ramTotal = d.ram_total || 0;
                     root.tempC = d.temp || 0;
+                    if (d.cpu_name) root.cpuName = d.cpu_name;
+                    if (d.cpu_full) root.cpuFull = d.cpu_full;
                 } catch(e) {}
             }
         }
@@ -148,14 +152,14 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 2
                         Text {
-                            text: "System Monitor"
+                            text: root.cpuFull !== "" ? root.cpuFull : "System Monitor"
                             color: theme.text
                             font.family: theme.fontFamily
                             font.pixelSize: 13
                             font.weight: Font.Bold
                         }
                         Text {
-                            text: root.tempC > 0 ? "Core Temp: " + root.tempC + "°C" : "Hardware Status"
+                            text: (root.tempC > 0 ? root.tempC + "°C • " : "") + (root.ramTotal > 0 ? root.ramTotal + " GB RAM" : "Hardware Status")
                             color: theme.textSub
                             font.pixelSize: 10
                         }
@@ -167,13 +171,29 @@ Item {
                 // CPU Section
                 Column {
                     width: parent.width
-                    spacing: 4
+                    spacing: 6
 
-                    Row {
+                    Item {
                         width: parent.width
-                        Text { text: "CPU Usage"; color: theme.textSub; font.pixelSize: 11; font.weight: Font.Medium }
-                        Item { Layout.fillWidth: true; width: 1; height: 1 }
-                        Text { text: root.cpuPct + "%"; color: root.statusColor; font.pixelSize: 11; font.weight: Font.Bold }
+                        height: 16
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "CPU Usage"
+                            color: theme.textSub
+                            font.pixelSize: 11
+                            font.weight: Font.Medium
+                        }
+
+                        Text {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: root.cpuPct + "%"
+                            color: root.statusColor
+                            font.pixelSize: 11
+                            font.weight: Font.Bold
+                        }
                     }
 
                     Rectangle {
@@ -194,13 +214,29 @@ Item {
                 // RAM Section
                 Column {
                     width: parent.width
-                    spacing: 4
+                    spacing: 6
 
-                    Row {
+                    Item {
                         width: parent.width
-                        Text { text: "Memory (RAM)"; color: theme.textSub; font.pixelSize: 11; font.weight: Font.Medium }
-                        Item { Layout.fillWidth: true; width: 1; height: 1 }
-                        Text { text: root.ramUsed + " / " + root.ramTotal + " GB (" + root.ramPct + "%)"; color: theme.blueLight; font.pixelSize: 11; font.weight: Font.Bold }
+                        height: 16
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Memory (RAM)"
+                            color: theme.textSub
+                            font.pixelSize: 11
+                            font.weight: Font.Medium
+                        }
+
+                        Text {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: root.ramUsed + " / " + root.ramTotal + " GB (" + root.ramPct + "%)"
+                            color: theme.blueLight
+                            font.pixelSize: 11
+                            font.weight: Font.Bold
+                        }
                     }
 
                     Rectangle {
