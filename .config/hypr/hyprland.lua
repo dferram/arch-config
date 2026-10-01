@@ -298,7 +298,7 @@ hl.bind(mainMod .. " + CTRL + KP_Add",      hl.dsp.exec_cmd("/home/ferram/.local
 hl.bind(mainMod .. " + CTRL + minus",       hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-pip shrink"), { repeating = true })
 hl.bind(mainMod .. " + CTRL + KP_Subtract", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-pip shrink"), { repeating = true })
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))    -- dwindle only
-hl.bind(mainMod .. " + H", hl.dsp.exec_cmd("kitty --class cheatsheet-popup -e bash -c '/home/ferram/.local/bin/cmds; echo -e \"\\n  \\033[2mPress any key to close...\\033[0m\"; read -n 1 -s -r'"))
+hl.bind(mainMod .. " + H", hl.dsp.exec_cmd("kitty --class cheatsheet-popup -e /home/ferram/.local/bin/cmds --popup"))
 hl.bind(mainMod .. " + B", hl.dsp.exec_cmd("kitty --class btop-popup -e btop"))
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
 

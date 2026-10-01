@@ -6,7 +6,7 @@ import sys
 import glob
 
 KNOWN_TOOLS = (
-    "codex", "openai-codex", "agy", "antigravity", "gemini", "claude",
+    "devin", "codex", "openai-codex", "agy", "antigravity", "gemini", "claude",
     "chatgpt", "sgpt", "ollama", "copilot", "deepseek", "aider",
     "lazydocker", "docker", "podman", "lazygit", "git", "gh", "nvim", "neovim", "vim",
     "btop", "htop", "nvtop", "cava", "psql",
@@ -77,7 +77,13 @@ def inspect_process(pid):
     try:
         with open(f"/proc/{pid}/cmdline", "rb") as cf:
             cmd = cf.read().decode("utf-8", errors="ignore").lower()
+            # Match Devin's executable, not a prompt mentioning Devin or a model.
+            executable = os.path.basename(cmd.split("\0", 1)[0])
+            if executable in ("devin", "devin-cli"):
+                return "devin"
             for tool in KNOWN_TOOLS:
+                if tool == "devin":
+                    continue
                 if tool in cmd:
                     return tool
     except Exception:

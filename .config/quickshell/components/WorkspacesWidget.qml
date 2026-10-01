@@ -196,6 +196,15 @@ Item {
         // --- 1. Terminal windows: Smart AI & CLI tool detection ---
         if (isTerm) {
             // A. AI Tools in Terminal
+            // Devin uses task titles, so prefer the detected CLI process.
+            if (proc === "devin" || proc === "devin-cli" ||
+                (!proc && /^devin(?:\s|$)/.test(titleLower))) {
+                return {
+                    icon: "file:///usr/share/pixmaps/devin-desktop.png",
+                    isTerminal: true,
+                    isAi: true
+                };
+            }
             // Antigravity CLI (agy / antigravity)
             if (proc.indexOf("agy") !== -1 || proc.indexOf("antigravity") !== -1 ||
                 titleLower === "agy" || titleLower.startsWith("agy ") || titleLower.indexOf(" agy") !== -1 || titleLower.indexOf("antigravity") !== -1) {

@@ -635,6 +635,13 @@ PanelWindow {
                     let lowerSum = (modelData && modelData.summary) ? modelData.summary.toLowerCase() : "";
                     let lowerBody = (modelData && modelData.body) ? modelData.body.toLowerCase() : "";
 
+                    // Use the same Kitty artwork as the workspace bar.
+                    let desktopEntry = (modelData && modelData.desktopEntry) ? modelData.desktopEntry.toLowerCase() : "";
+                    if (lowerApp === "kitty" || desktopEntry === "kitty" ||
+                        lowerIcon === "kitty" || /(?:^|\/)kitty\.(?:svg|png)$/.test(lowerIcon)) {
+                        return "file:///home/ferram/.local/share/icons/kitty.svg";
+                    }
+
                     // Do Not Disturb / No Molestar official SVG icons
                     if (lowerApp.includes("disturb") || lowerApp.includes("molestar") ||
                         lowerSum.includes("disturb") || lowerSum.includes("molestar") ||
