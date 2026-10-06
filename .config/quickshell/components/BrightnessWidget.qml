@@ -284,7 +284,7 @@ Item {
                         radius: 22
                         color: root.nightModeActive ? "#f59e0b" : "#ffffff"
 
-                        Behavior on width { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+                        Behavior on width { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                         // Specular Top Shine
                         Rectangle {
@@ -486,7 +486,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 x: root.nightModeActive ? 20 : 3
 
-                                Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                                Behavior on x { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                             }
                         }
                     }

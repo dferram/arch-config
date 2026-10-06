@@ -46,11 +46,11 @@ QtObject {
     readonly property color red: "#ff453a"        // Apple Coral Red
     readonly property color purple: "#bf5af2"     // Apple Violet
 
-    // Unified border radius matching Hyprland window rounding (10px)
-    readonly property int windowRadius: 10
-    readonly property int radiusSmall: 10         // Bar pills, workspaces, internal buttons
-    readonly property int radius: 10              // Main status bar container
-    readonly property int radiusLarge: 10         // Popups and cards
+    // Unified border radius matching Hyprland window rounding (4px)
+    readonly property int windowRadius: 4
+    readonly property real radiusSmall: 9.5         // Bar pills, workspaces, internal buttons
+    readonly property int radius: 12              // Main status bar container
+    readonly property int radiusLarge: 12         // Popups and cards
     readonly property int barHeight: 38
 
     // Helper to safely URL-encode colors for SVG data URIs

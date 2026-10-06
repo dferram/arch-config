@@ -155,13 +155,13 @@ PanelWindow {
         y: osdWindow.isShowing ? 0 : -8
 
         Behavior on opacity {
-            NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: 750; easing.type: Easing.InOutQuart }
         }
         Behavior on scale {
-            NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+            NumberAnimation { duration: 750; easing.type: Easing.InOutQuart }
         }
         Behavior on y {
-            NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: 750; easing.type: Easing.InOutQuart }
         }
 
         // Soft deep black drop shadow

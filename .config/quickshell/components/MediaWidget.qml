@@ -13,11 +13,16 @@ Item {
     Theme { id: theme }
 
     required property var parentWindow
+    // Reuse the exact same media card inside the session-lock surface.
+    property bool embedded: false
+    property bool embeddedActive: false
+    readonly property bool cardOpen: embedded ? embeddedActive : activePopupId === "media"
+    readonly property bool hasTrack: activePlayer !== null && currentPlatform !== "" && trackTitle !== ""
     property string activePopupId: ""
     signal togglePopup(string id)
 
-    implicitHeight: pill.implicitHeight
-    implicitWidth: pill.implicitWidth
+    implicitHeight: embedded ? cardLayout.implicitHeight + 32 : pill.implicitHeight
+    implicitWidth: embedded ? 350 : pill.implicitWidth
 
     // Platform caching per player/track so switching tabs never causes the platform or icon to vanish
     property var platformCache: ({})
@@ -88,7 +93,32 @@ Item {
             return "youtube";
         }
 
-        // 5. Browser heuristics: check Hyprland window titles for SoundCloud or YouTube
+
+        // 5. NETFLIX
+        if (ident.includes("netflix") || url.includes("netflix.com") || 
+            tTitle.includes("netflix") || tArtist.includes("netflix")) {
+            root.platformCache[cacheKey] = "netflix";
+            if (dbName) root.playerPlatformCache[dbName] = "netflix";
+            return "netflix";
+        }
+
+        // 6. DISNEY+
+        if (ident.includes("disney") || url.includes("disneyplus.com") || 
+            tTitle.includes("disney") || tArtist.includes("disney")) {
+            root.platformCache[cacheKey] = "disney";
+            if (dbName) root.playerPlatformCache[dbName] = "disney";
+            return "disney";
+        }
+
+        // 7. PRIME VIDEO
+        if (ident.includes("prime") || url.includes("primevideo.com") || url.includes("amazon.com/video") ||
+            tTitle.includes("prime video") || tArtist.includes("prime video")) {
+            root.platformCache[cacheKey] = "prime";
+            if (dbName) root.playerPlatformCache[dbName] = "prime";
+            return "prime";
+        }
+
+        // 8. Browser heuristics: check Hyprland window titles for SoundCloud or YouTube
         if (ident.includes("chromium") || ident.includes("chrome") || ident.includes("firefox") || 
             ident.includes("brave") || ident.includes("edge") || ident.includes("zen") || ident.includes("browser")) {
             try {
@@ -188,7 +218,7 @@ Item {
             if (tTitle.length === 0) continue;
 
             let plat = root.detectPlayerPlatform(p);
-            if (plat === "") continue; // ONLY Spotify, YouTube, SoundCloud
+            if (plat === "") continue; // ONLY Spotify, YouTube, SoundCloud, Netflix, Disney+, Prime Video
 
             // Filter out Spotify internal Chromium CEF ghost instance if native Spotify is present
             if (plat === "spotify" && (p.identity || "").toLowerCase().includes("chromium")) {
@@ -332,6 +362,7 @@ Item {
     }
 
     function focusPlayerWindow() {
+        if (root.embedded) return;
         if (root.activePlayer && root.activePlayer.canRaise) {
             root.activePlayer.raise();
         }
@@ -368,6 +399,9 @@ Item {
     property bool isSpotify: currentPlatform === "spotify"
     property bool isYouTube: currentPlatform === "youtube"
     property bool isSoundCloud: currentPlatform === "soundcloud"
+    property bool isNetflix: currentPlatform === "netflix"
+    property bool isDisney: currentPlatform === "disney"
+    property bool isPrimeVideo: currentPlatform === "prime"
     property bool isInstagram: false
     property bool isTwitch: false
 
@@ -378,13 +412,19 @@ Item {
 
     // Base platform accent color (Dynamic for Spotify based on album, fixed for YouTube & SoundCloud)
     property color mediaAccentColor: {
-        if (isSpotify) return dynamicAlbumColor;
+        if (isSpotify || (embedded && artUrl !== "")) return dynamicAlbumColor;
         if (isYouTube) return "#ef4444";
         if (isSoundCloud) return "#ff5500";
+        if (isNetflix) return "#e50914";
+        if (isDisney) return "#0032ac";
+        if (isPrimeVideo) return "#00a8e1";
+        if (isNetflix) return "#e50914";
+        if (isDisney) return "#0032ac";
+        if (isPrimeVideo) return "#00a8e1";
         return theme.blueLight;
     }
 
-    Behavior on mediaAccentColor { ColorAnimation { duration: 350; easing.type: Easing.OutQuad } }
+    Behavior on mediaAccentColor { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
     property bool isAccentLight: {
         let lum = 0.299 * root.mediaAccentColor.r + 0.587 * root.mediaAccentColor.g + 0.114 * root.mediaAccentColor.b;
@@ -393,30 +433,30 @@ Item {
 
     // Visualizer Bars Colorimetry (Matches album for Spotify, strictly red for YouTube, orange for SoundCloud)
     property color albumColorPrimary: {
-        if (isSpotify) return dynamicAlbumColor;
+        if (isSpotify || (embedded && artUrl !== "")) return dynamicAlbumColor;
         if (isYouTube) return "#ef4444";
         if (isSoundCloud) return "#ff5500";
         return theme.blueLight;
     }
     property color albumColorSecondary: {
-        if (isSpotify) return dynamicAlbumColorSecondary;
+        if (isSpotify || (embedded && artUrl !== "")) return dynamicAlbumColorSecondary;
         return Qt.lighter(albumColorPrimary, 1.25);
     }
     property color albumColorAccent: {
-        if (isSpotify) return dynamicAlbumColorAccent;
+        if (isSpotify || (embedded && artUrl !== "")) return dynamicAlbumColorAccent;
         return Qt.lighter(albumColorSecondary, 1.35);
     }
 
-    Behavior on albumColorPrimary { ColorAnimation { duration: 350; easing.type: Easing.OutQuad } }
-    Behavior on albumColorSecondary { ColorAnimation { duration: 350; easing.type: Easing.OutQuad } }
-    Behavior on albumColorAccent { ColorAnimation { duration: 350; easing.type: Easing.OutQuad } }
+    Behavior on albumColorPrimary { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+    Behavior on albumColorSecondary { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+    Behavior on albumColorAccent { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
     Process {
         id: paletteProc
         command: ["/home/ferram/.local/bin/hypr-media-palette", root.artUrl, root.trackTitle, root.trackAlbum]
         stdout: StdioCollector {
             onTextChanged: {
-                if (!root.isSpotify) return;
+                if (!root.isSpotify && !root.embedded) return;
                 let lines = text.trim().split("\n");
                 if (lines.length >= 3) {
                     let c1 = lines[0].trim();
@@ -431,7 +471,7 @@ Item {
     }
 
     function updatePalette() {
-        if (root.isSpotify && root.artUrl && root.artUrl !== "") {
+        if ((root.isSpotify || root.embedded) && root.artUrl && root.artUrl !== "") {
             paletteProc.command = ["/home/ferram/.local/bin/hypr-media-palette", root.artUrl, root.trackTitle, root.trackAlbum];
             paletteProc.running = true;
         } else {
@@ -450,6 +490,9 @@ Item {
         if (isYouTube) return "YouTube";
         if (isSpotify) return "Spotify";
         if (isSoundCloud) return "SoundCloud";
+        if (isNetflix) return "Netflix";
+        if (isDisney) return "Disney+";
+        if (isPrimeVideo) return "Prime Video";
         return "Media";
     }
 
@@ -473,6 +516,10 @@ Item {
         let col = theme.urlColor(root.mediaAccentColor);
         return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'><g transform='translate(12, 12) scale(0.78) translate(-12, -12)'><path d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z' fill='" + col + "'/></g></svg>";
     }
+
+    property string netflixSvgUri: "file:///home/ferram/.local/share/icons/netflix.svg"
+    property string disneySvgUri: "file:///home/ferram/.local/share/icons/disney.svg"
+    property string primeSvgUri: "file:///home/ferram/.local/share/icons/prime.svg"
 
     // Lucide Control SVG Vectors (Constant standard theme colors)
     property string shuffleSvgUri: {
@@ -513,7 +560,7 @@ Item {
     Timer {
         id: pausedSyncTimer
         interval: 1000
-        running: root.activePlayer !== null && (!root.isPlaying || root.activePopupId === "media")
+        running: root.activePlayer !== null && (!root.isPlaying || root.cardOpen)
         repeat: true
         onTriggered: root.syncPosition()
     }
@@ -535,20 +582,24 @@ Item {
     }
 
     // Only show pill if an allowed player (Spotify, YouTube, SoundCloud) has a track loaded
-    visible: root.activePlayer !== null && root.currentPlatform !== "" && root.trackTitle !== ""
+    visible: root.hasTrack
 
     // --- BAR PILL: CLEAN BRAND LOGO + TRACK TITLE ---
     BarPill {
         id: pill
+        visible: !root.embedded
         iconSource: {
             if (root.isYouTube) return root.youtubeSvgUri;
             if (root.isSpotify) return root.spotifySvgUri;
             if (root.isSoundCloud) return root.soundcloudSvgUri;
+            if (root.isNetflix) return root.netflixSvgUri;
+            if (root.isDisney) return root.disneySvgUri;
+            if (root.isPrimeVideo) return root.primeSvgUri;
             return root.defaultMediaSvgUri;
         }
         text: root.displayLabel
         accentColor: root.mediaAccentColor
-        active: root.activePopupId === "media"
+        active: root.cardOpen
         pulsingIcon: false
 
         onClicked: {
@@ -582,7 +633,7 @@ Item {
                 }
                 color: root.mediaAccentColor
 
-                Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutQuad } }
+                Behavior on width { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
             }
         }
     }
@@ -590,13 +641,13 @@ Item {
     // --- POPUP WINDOW: ULTRA-MODERN GLASS LIQUID MEDIA CARD ---
     PopupWindow {
         id: popup
-        anchor.window: root.parentWindow
-        anchor.item: pill
+        anchor.window: root.embedded ? null : root.parentWindow
+        anchor.item: root.embedded ? null : pill
         anchor.edges: Edges.Bottom
         anchor.gravity: Edges.Bottom
         anchor.margins.top: 8
 
-        visible: root.activePopupId === "media" && root.activePlayer !== null && root.currentPlatform !== "" && root.trackTitle !== ""
+        visible: !root.embedded && root.cardOpen && root.hasTrack
         onVisibleChanged: if (visible) root.updatePalette()
         implicitWidth: 350
         implicitHeight: cardLayout.implicitHeight + 42
@@ -604,24 +655,25 @@ Item {
 
         Rectangle {
             id: cardContainer
+            parent: root.embedded ? root : popup.contentItem
             anchors.fill: parent
-            anchors.topMargin: 10
+            anchors.topMargin: root.embedded ? 0 : 10
             color: theme.popupBg
             border.color: theme.border
             border.width: 1
             radius: 16
             clip: true
 
-            opacity: popup.visible ? 1.0 : 0.0
-            scale: popup.visible ? 1.0 : 0.95
+            opacity: root.cardOpen ? 1.0 : 0.0
+            scale: root.cardOpen ? 1.0 : 0.95
             transformOrigin: Item.Top
             transform: Translate {
-                y: popup.visible ? 0 : -8
-                Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                y: root.cardOpen ? 0 : -8
+                Behavior on y { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
             }
 
-            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.08 } }
+            Behavior on opacity { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+            Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
             // 1. Ambient Brand Aura (Spotify Green / Platform Brand)
             RadialGradient {
@@ -697,6 +749,12 @@ Item {
                                     if (root.isYouTube) return root.youtubeSvgUri;
                                     if (root.isSpotify) return root.spotifySvgUri;
                                     if (root.isSoundCloud) return root.soundcloudSvgUri;
+            if (root.isNetflix) return root.netflixSvgUri;
+            if (root.isDisney) return root.disneySvgUri;
+            if (root.isPrimeVideo) return root.primeSvgUri;
+                                    if (root.isNetflix) return root.netflixSvgUri;
+                                    if (root.isDisney) return root.disneySvgUri;
+                                    if (root.isPrimeVideo) return root.primeSvgUri;
                                     return root.defaultMediaSvgUri;
                                 }
                                 fillMode: Image.PreserveAspectFit
@@ -714,6 +772,7 @@ Item {
 
                         MouseArea {
                             id: brandMa
+                            enabled: !root.embedded
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
@@ -779,7 +838,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         scale: root.isPlaying ? 1.0 : 0.96
 
-                        Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
+                        Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                         // 1. Soft Ambient Diffuse Glow behind Artwork
                         RectangularGlow {
@@ -790,7 +849,7 @@ Item {
                             color: Qt.rgba(root.mediaAccentColor.r, root.mediaAccentColor.g, root.mediaAccentColor.b, root.isPlaying ? 0.45 : 0.18)
                             cornerRadius: 14
 
-                            Behavior on glowRadius { NumberAnimation { duration: 300; easing.type: Easing.OutQuad } }
+                            Behavior on glowRadius { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                             Behavior on color { ColorAnimation { duration: 300 } }
                         }
 
@@ -856,9 +915,33 @@ Item {
 
                             Image {
                                 anchors.centerIn: parent
+                                width: 50
+                                height: 50
+                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && root.isNetflix
+                                source: root.netflixSvgUri
+                                fillMode: Image.PreserveAspectFit
+                            }
+                            Image {
+                                anchors.centerIn: parent
+                                width: 50
+                                height: 50
+                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && root.isDisney
+                                source: root.disneySvgUri
+                                fillMode: Image.PreserveAspectFit
+                            }
+                            Image {
+                                anchors.centerIn: parent
+                                width: 50
+                                height: 50
+                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && root.isPrimeVideo
+                                source: root.primeSvgUri
+                                fillMode: Image.PreserveAspectFit
+                            }
+                            Image {
+                                anchors.centerIn: parent
                                 width: 40
                                 height: 40
-                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && !root.isSoundCloud && !root.isSpotify && !root.isYouTube
+                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && !root.isSoundCloud && !root.isSpotify && !root.isYouTube && !root.isNetflix && !root.isDisney && !root.isPrimeVideo
                                 source: root.defaultMediaSvgUri
                                 fillMode: Image.PreserveAspectFit
                             }
@@ -986,7 +1069,7 @@ Item {
                         Process {
                             id: cavaProc
                             command: ["/home/ferram/.local/bin/cava", "-p", "/home/ferram/.config/cava/quickshell.conf"]
-                            running: root.isPlaying && popup.visible
+                            running: root.isPlaying && root.cardOpen
                             stdout: SplitParser {
                                 splitMarker: "\n"
                                 onRead: data => {
@@ -1053,8 +1136,10 @@ Item {
                                         GradientStop { position: 1.0; color: Qt.rgba(root.albumColorPrimary.r, root.albumColorPrimary.g, root.albumColorPrimary.b, 0.35) }
                                     }
 
+                                    // Short duration + OutQuad: cava pushes ~30 fps, so a long InOut easing
+                                    // gets restarted every frame and the bar never visibly moves.
                                     Behavior on height {
-                                        NumberAnimation { duration: 45; easing.type: Easing.OutQuad }
+                                        NumberAnimation { duration: 70; easing.type: Easing.OutQuad }
                                     }
                                 }
 
@@ -1073,7 +1158,7 @@ Item {
                                     color: Qt.lighter(root.albumColorPrimary, 1.25)
 
                                     Behavior on anchors.bottomMargin {
-                                        NumberAnimation { duration: 45; easing.type: Easing.OutQuad }
+                                        NumberAnimation { duration: 70; easing.type: Easing.OutQuad }
                                     }
                                 }
                             }
@@ -1133,7 +1218,7 @@ Item {
 
                                 Behavior on width {
                                     enabled: !root.isDraggingSeek
-                                    NumberAnimation { duration: 180; easing.type: Easing.OutQuad }
+                                    NumberAnimation { duration: 750; easing.type: Easing.InOutQuart }
                                 }
                             }
 
@@ -1158,7 +1243,7 @@ Item {
                                 Behavior on width { NumberAnimation { duration: 120 } }
                                 Behavior on x {
                                     enabled: !root.isDraggingSeek
-                                    NumberAnimation { duration: 180; easing.type: Easing.OutQuad }
+                                    NumberAnimation { duration: 750; easing.type: Easing.InOutQuart }
                                 }
                             }
                         }
@@ -1289,7 +1374,7 @@ Item {
                         border.width: 1
                         anchors.verticalCenter: parent.verticalCenter
                         scale: prevMa.pressed ? 0.88 : (prevMa.containsMouse ? 1.08 : 1.0)
-                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                        Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                         Behavior on color { ColorAnimation { duration: 150 } }
 
                         Image {
@@ -1340,7 +1425,7 @@ Item {
                                 GradientStop { position: 1.0; color: Qt.darker(root.mediaAccentColor, 1.20) }
                             }
                             scale: playMa.pressed ? 0.90 : (playMa.containsMouse ? 1.06 : 1.0)
-                            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                            Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                             Image {
                                 anchors.centerIn: parent
@@ -1377,7 +1462,7 @@ Item {
                         border.width: 1
                         anchors.verticalCenter: parent.verticalCenter
                         scale: nextMa.pressed ? 0.88 : (nextMa.containsMouse ? 1.08 : 1.0)
-                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                        Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                         Behavior on color { ColorAnimation { duration: 150 } }
 
                         Image {

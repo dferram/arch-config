@@ -112,11 +112,11 @@ Item {
             transformOrigin: Item.Top
             transform: Translate {
                 y: popup.visible ? 0 : -6
-                Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                Behavior on y { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
             }
 
-            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.08 } }
+            Behavior on opacity { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+            Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
             Column {
                 id: cardLayout
@@ -206,7 +206,7 @@ Item {
                             height: parent.height
                             radius: 3
                             color: root.statusColor
-                            Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                            Behavior on width { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                         }
                     }
                 }
@@ -249,7 +249,7 @@ Item {
                             height: parent.height
                             radius: 3
                             color: root.ramPct > 80 ? theme.red : theme.blue
-                            Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+                            Behavior on width { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                         }
                     }
                 }
@@ -264,7 +264,7 @@ Item {
                     border.width: 1
 
                     scale: btopMa.pressed ? 0.95 : (btopMa.containsMouse ? 1.025 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
+                    Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                     Behavior on color { ColorAnimation { duration: 160 } }
                     Behavior on border.color { ColorAnimation { duration: 160 } }
 

@@ -135,11 +135,11 @@ Item {
             transformOrigin: Item.Top
             transform: Translate {
                 y: popup.visible ? 0 : -6
-                Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                Behavior on y { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
             }
 
-            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.08 } }
+            Behavior on opacity { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+            Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
             Column {
                 id: cardLayout

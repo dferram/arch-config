@@ -35,6 +35,9 @@ ShellRoot {
         osdService: osdService
     }
 
+    // Lock screen: OLED flip clock -> control panel on click / typing (Super+L)
+    LockScreen {}
+
     Variants {
         model: Quickshell.screens
 
@@ -80,117 +83,137 @@ ShellRoot {
 
                 Theme { id: theme }
 
-                // Main Bar Background Container (Apple iPhone Liquid Glass Dynamic Island)
-                Rectangle {
-                    id: barContainer
+                // Background click area to dismiss active popups
+                MouseArea {
                     anchors.fill: parent
+                    z: 0
+                    onClicked: barWindow.currentPopup = ""
+                }
+
+                // Left Island: Arch Badge + Workspaces + Media
+                Rectangle {
+                    id: leftIsland
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: parent.height
+                    width: leftSection.implicitWidth + 16
                     radius: theme.radius
                     color: theme.bgGlass
                     border.color: theme.border
                     border.width: 1
 
-                    // Click anywhere on empty bar to dismiss active popups
-                    MouseArea {
-                        anchors.fill: parent
-                        z: 0
-                        onClicked: barWindow.currentPopup = ""
+                    Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+
+                    Row {
+                        id: leftSection
+                        anchors.centerIn: parent
+                        spacing: 10
+
+                        HostBadge {
+                            parentWindow: barWindow
+                            activePopupId: barWindow.currentPopup
+                            onTogglePopup: (id) => barWindow.togglePopup(id)
+                        }
+
+                        // Subtle vertical separator
+                        Rectangle {
+                            width: 1
+                            height: 16
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: theme.borderSubtle
+                        }
+
+                        WorkspacesWidget {
+                            anchors.verticalCenter: parent.verticalCenter
+                            targetScreen: barWindow.screen ? barWindow.screen : modelData
+                        }
+
+                        MediaWidget {
+                            parentWindow: barWindow
+                            activePopupId: barWindow.currentPopup
+                            onTogglePopup: (id) => barWindow.togglePopup(id)
+                        }
                     }
+                }
 
-                    // Content layer
-                    Item {
-                        anchors.fill: parent
-                        z: 1
+                // Center Island: Clock
+                Rectangle {
+                    id: centerIsland
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: parent.height
+                    width: centerSection.implicitWidth + 24
+                    radius: theme.radius
+                    color: theme.bgGlass
+                    border.color: theme.border
+                    border.width: 1
 
-                        // Left Section: Accurate Arch Badge + Hyprland Workspaces + Spotify/Media Player
-                        Row {
-                            id: leftSection
-                            anchors.left: parent.left
-                            anchors.leftMargin: 8
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 10
+                    Row {
+                        id: centerSection
+                        anchors.centerIn: parent
+                        spacing: 14
 
-                            HostBadge {
-                                parentWindow: barWindow
-                                activePopupId: barWindow.currentPopup
-                                onTogglePopup: (id) => barWindow.togglePopup(id)
-                            }
+                        WeatherWidget {
+                            parentWindow: barWindow
+                            activePopupId: barWindow.currentPopup
+                            onTogglePopup: (id) => barWindow.togglePopup(id)
+                        }
+                        ClockWidget {
+                            parentWindow: barWindow
+                            activePopupId: barWindow.currentPopup
+                            onTogglePopup: (id) => barWindow.togglePopup(id)
+                        }
+                    }
+                }
 
-                            // Subtle vertical separator
-                            Rectangle {
-                                width: 1
-                                height: 16
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: theme.borderSubtle
-                            }
+                // Right Island: System Widgets
+                Rectangle {
+                    id: rightIsland
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: parent.height
+                    width: rightSection.implicitWidth + 24
+                    radius: theme.radius
+                    color: theme.bgGlass
+                    border.color: theme.border
+                    border.width: 1
 
-                            WorkspacesWidget {
-                                anchors.verticalCenter: parent.verticalCenter
-                                targetScreen: barWindow.screen ? barWindow.screen : modelData
-                            }
+                    Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
 
-                            MediaWidget {
-                                parentWindow: barWindow
-                                activePopupId: barWindow.currentPopup
-                                onTogglePopup: (id) => barWindow.togglePopup(id)
-                            }
+                    Row {
+                        id: rightSection
+                        anchors.centerIn: parent
+                        spacing: 14
+
+                        
+                        SysResourceWidget {
+                            parentWindow: barWindow
+                            activePopupId: barWindow.currentPopup
+                            onTogglePopup: (id) => barWindow.togglePopup(id)
                         }
 
-                        // Center Section: Pure Clean Time & Date Clock (No icon)
-                        Row {
-                            id: centerSection
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.verticalCenter: parent.verticalCenter
-
-                            ClockWidget {
-                                parentWindow: barWindow
-                                activePopupId: barWindow.currentPopup
-                                onTogglePopup: (id) => barWindow.togglePopup(id)
-                            }
+                        BluetoothWidget {
+                            parentWindow: barWindow
+                            activePopupId: barWindow.currentPopup
+                            onTogglePopup: (id) => barWindow.togglePopup(id)
                         }
 
-                        // Right Section: System Resources, Volume, Bluetooth, Network, Display, Battery
-                        Row {
-                            id: rightSection
-                            anchors.right: parent.right
-                            anchors.rightMargin: 8
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 9
+                        WifiWidget {
+                            parentWindow: barWindow
+                            activePopupId: barWindow.currentPopup
+                            onTogglePopup: (id) => barWindow.togglePopup(id)
+                        }
 
-                            SysResourceWidget {
-                                parentWindow: barWindow
-                                activePopupId: barWindow.currentPopup
-                                onTogglePopup: (id) => barWindow.togglePopup(id)
-                            }
+                        DisplayWidget {
+                            parentWindow: barWindow
+                            activePopupId: barWindow.currentPopup
+                            onTogglePopup: (id) => barWindow.togglePopup(id)
+                        }
 
-                            BluetoothWidget {
-                                parentWindow: barWindow
-                                activePopupId: barWindow.currentPopup
-                                onTogglePopup: (id) => barWindow.togglePopup(id)
-                            }
-
-                            WifiWidget {
-                                parentWindow: barWindow
-                                activePopupId: barWindow.currentPopup
-                                onTogglePopup: (id) => barWindow.togglePopup(id)
-                            }
-
-                            DndWidget {
-                                parentWindow: barWindow
-                                activePopupId: barWindow.currentPopup
-                                onTogglePopup: (id) => barWindow.togglePopup(id)
-                            }
-
-                            DisplayWidget {
-                                parentWindow: barWindow
-                                activePopupId: barWindow.currentPopup
-                                onTogglePopup: (id) => barWindow.togglePopup(id)
-                            }
-
-                            BatteryWidget {
-                                parentWindow: barWindow
-                                activePopupId: barWindow.currentPopup
-                                onTogglePopup: (id) => barWindow.togglePopup(id)
-                            }
+                        BatteryWidget {
+                            parentWindow: barWindow
+                            activePopupId: barWindow.currentPopup
+                            onTogglePopup: (id) => barWindow.togglePopup(id)
                         }
                     }
                 }

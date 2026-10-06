@@ -66,11 +66,11 @@ Item {
             transformOrigin: Item.Top
             transform: Translate {
                 y: popup.visible ? 0 : -6
-                Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                Behavior on y { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
             }
 
-            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.08 } }
+            Behavior on opacity { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+            Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
             Column {
                 id: cardLayout
@@ -87,7 +87,7 @@ Item {
                     radius: theme.radiusSmall
                     color: lockMouse.containsMouse ? theme.surfaceHover : "transparent"
                     scale: lockMouse.pressed ? 0.95 : (lockMouse.containsMouse ? 1.025 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                    Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                     Behavior on color { ColorAnimation { duration: 150 } }
 
                     Row {
@@ -96,7 +96,7 @@ Item {
                         spacing: 8
                         transform: Translate {
                             x: lockMouse.containsMouse ? 2 : 0
-                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                            Behavior on x { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                         }
 
                         Image {
@@ -128,7 +128,7 @@ Item {
                     radius: theme.radiusSmall
                     color: suspMouse.containsMouse ? theme.surfaceHover : "transparent"
                     scale: suspMouse.pressed ? 0.95 : (suspMouse.containsMouse ? 1.025 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                    Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                     Behavior on color { ColorAnimation { duration: 150 } }
 
                     Row {
@@ -137,7 +137,7 @@ Item {
                         spacing: 8
                         transform: Translate {
                             x: suspMouse.containsMouse ? 2 : 0
-                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                            Behavior on x { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                         }
 
                         Image {
@@ -169,7 +169,7 @@ Item {
                     radius: theme.radiusSmall
                     color: rebootMouse.containsMouse ? theme.surfaceHover : "transparent"
                     scale: rebootMouse.pressed ? 0.95 : (rebootMouse.containsMouse ? 1.025 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                    Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                     Behavior on color { ColorAnimation { duration: 150 } }
 
                     Row {
@@ -178,7 +178,7 @@ Item {
                         spacing: 8
                         transform: Translate {
                             x: rebootMouse.containsMouse ? 2 : 0
-                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                            Behavior on x { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                         }
 
                         Image {
@@ -210,7 +210,7 @@ Item {
                     radius: theme.radiusSmall
                     color: shutMouse.containsMouse ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.2) : "transparent"
                     scale: shutMouse.pressed ? 0.95 : (shutMouse.containsMouse ? 1.025 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                    Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                     Behavior on color { ColorAnimation { duration: 150 } }
 
                     Row {
@@ -219,7 +219,7 @@ Item {
                         spacing: 8
                         transform: Translate {
                             x: shutMouse.containsMouse ? 2 : 0
-                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                            Behavior on x { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                         }
 
                         Image {

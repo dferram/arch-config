@@ -206,3 +206,19 @@ _check_troyanos_workspace() {
 PROMPT_COMMAND="_check_troyanos_workspace${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 
 
+
+# --- Honatu Hidroponia Workspace CLI Hook ---
+_check_honatu_workspace() {
+    local cur="$PWD"
+    if [[ "$cur" =~ /Honatu(-Hidroponia|)(/.*)?$ ]]; then
+        if [[ "$_HONATU_LAST_DIR" != "$cur" ]]; then
+            export _HONATU_LAST_DIR="$cur"
+            if command -v honatu-banner &>/dev/null; then
+                honatu-banner
+            fi
+        fi
+    else
+        unset _HONATU_LAST_DIR
+    fi
+}
+PROMPT_COMMAND="_check_honatu_workspace${PROMPT_COMMAND:+; $PROMPT_COMMAND}"

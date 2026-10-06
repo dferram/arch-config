@@ -278,7 +278,7 @@ Item {
                         radius: 22
                         color: root.isMuted ? theme.surfaceHover : "#ffffff"
 
-                        Behavior on width { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+                        Behavior on width { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                         // Specular Top Shine
                         Rectangle {

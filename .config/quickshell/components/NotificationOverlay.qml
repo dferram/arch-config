@@ -235,9 +235,9 @@ PanelWindow {
 
                 ParallelAnimation {
                     id: notifEntrance
-                    NumberAnimation { target: card; property: "opacity"; from: 0.0; to: 1.0; duration: 220; easing.type: Easing.OutCubic }
-                    NumberAnimation { target: card; property: "scale"; from: 0.95; to: 1.0; duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.08 }
-                    NumberAnimation { target: cardSlide; property: "x"; from: 24; to: 0; duration: 220; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: card; property: "opacity"; from: 0.0; to: 1.0; duration: 750; easing.type: Easing.InOutQuart }
+                    NumberAnimation { target: card; property: "scale"; from: 0.95; to: 1.0; duration: 750; easing.type: Easing.InOutQuart }
+                    NumberAnimation { target: cardSlide; property: "x"; from: 24; to: 0; duration: 750; easing.type: Easing.InOutQuart }
                 }
 
                 property string appName: modelData ? (modelData.appName || "") : ""
@@ -941,7 +941,7 @@ PanelWindow {
                                     radius: 8
                                     color: closeMouse.containsMouse ? theme.surfaceActive : "transparent"
                                     scale: closeMouse.pressed ? 0.88 : (closeMouse.containsMouse ? 1.15 : 1.0)
-                                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                                    Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                                     Behavior on color { ColorAnimation { duration: 150 } }
 
                                     Text {

@@ -42,11 +42,11 @@ Rectangle {
     }
     border.width: 1
 
-    Behavior on color { ColorAnimation { duration: 260; easing.type: Easing.OutQuad } }
-    Behavior on border.color { ColorAnimation { duration: 260; easing.type: Easing.OutQuad } }
+    Behavior on color { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+    Behavior on border.color { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
-    scale: mouseArea.pressed ? 0.96 : (mouseArea.containsMouse ? 1.025 : 1.0)
-    Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+    scale: mouseArea.pressed ? 0.95 : (mouseArea.containsMouse ? 1.025 : 1.0)
+    Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
     Row {
         id: contentRow
@@ -122,7 +122,7 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: 1.5
 
-            Behavior on color { ColorAnimation { duration: 140 } }
+            Behavior on color { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
         }
 
         // Subtext (if any)

@@ -61,6 +61,10 @@ Item {
         onTriggered: sysfsProc.running = true
     }
 
+    Process { id: setSaverCmd; command: ["powerprofilesctl", "set", "power-saver"] }
+    Process { id: setBalCmd; command: ["powerprofilesctl", "set", "balanced"] }
+    Process { id: setPerfCmd; command: ["powerprofilesctl", "set", "performance"] }
+
     // Format time helper (seconds -> "Xh Ym")
     function formatSeconds(secs) {
         if (!secs || secs <= 0 || isNaN(secs)) return "Calculating...";
@@ -157,11 +161,11 @@ Item {
             transformOrigin: Item.Top
             transform: Translate {
                 y: popup.visible ? 0 : -6
-                Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                Behavior on y { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
             }
 
-            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.08 } }
+            Behavior on opacity { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+            Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
             Column {
                 id: cardLayout
@@ -221,7 +225,7 @@ Item {
                         radius: 4
                         color: root.batteryColor
 
-                        Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+                        Behavior on width { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                     }
                 }
 
@@ -315,10 +319,10 @@ Item {
                             border.color: isCurrent ? theme.green : theme.borderSubtle
                             border.width: 1
 
-                            scale: saverMouse.pressed ? 0.94 : (saverMouse.containsMouse ? 1.03 : 1.0)
-                            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
-                            Behavior on color { ColorAnimation { duration: 160 } }
-                            Behavior on border.color { ColorAnimation { duration: 160 } }
+                            scale: saverMouse.pressed ? 0.97 : (saverMouse.containsMouse ? 1.015 : 1.0)
+                            Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+                            Behavior on color { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+                            Behavior on border.color { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                             Text {
                                 anchors.centerIn: parent
@@ -333,7 +337,10 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: PowerProfiles.profile = PowerProfile.PowerSaver
+                                onClicked: {
+                                    setSaverCmd.running = true;
+                                    PowerProfiles.profile = PowerProfile.PowerSaver;
+                                }
                             }
                         }
 
@@ -347,10 +354,10 @@ Item {
                             border.color: isCurrent ? theme.blue : theme.borderSubtle
                             border.width: 1
 
-                            scale: balMouse.pressed ? 0.94 : (balMouse.containsMouse ? 1.03 : 1.0)
-                            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
-                            Behavior on color { ColorAnimation { duration: 160 } }
-                            Behavior on border.color { ColorAnimation { duration: 160 } }
+                            scale: balMouse.pressed ? 0.97 : (balMouse.containsMouse ? 1.015 : 1.0)
+                            Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+                            Behavior on color { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+                            Behavior on border.color { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                             Text {
                                 anchors.centerIn: parent
@@ -365,7 +372,10 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: PowerProfiles.profile = PowerProfile.Balanced
+                                onClicked: {
+                                    setBalCmd.running = true;
+                                    PowerProfiles.profile = PowerProfile.Balanced;
+                                }
                             }
                         }
 
@@ -379,10 +389,10 @@ Item {
                             border.color: isCurrent ? theme.peach : theme.borderSubtle
                             border.width: 1
 
-                            scale: perfMouse.pressed ? 0.94 : (perfMouse.containsMouse ? 1.03 : 1.0)
-                            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
-                            Behavior on color { ColorAnimation { duration: 160 } }
-                            Behavior on border.color { ColorAnimation { duration: 160 } }
+                            scale: perfMouse.pressed ? 0.97 : (perfMouse.containsMouse ? 1.015 : 1.0)
+                            Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+                            Behavior on color { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+                            Behavior on border.color { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                             Text {
                                 anchors.centerIn: parent
@@ -397,7 +407,10 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: PowerProfiles.profile = PowerProfile.Performance
+                                onClicked: {
+                                    setPerfCmd.running = true;
+                                    PowerProfiles.profile = PowerProfile.Performance;
+                                }
                             }
                         }
                     }

@@ -148,6 +148,8 @@ Item {
         { keywords: ["twitter", "x.com", " x - "], icon: "file:///home/ferram/.local/share/icons/x.svg" },
         { keywords: ["twitch"], icon: "file:///home/ferram/.local/share/icons/twitch.svg" },
         { keywords: ["netflix"], icon: "file:///home/ferram/.local/share/icons/netflix.svg" },
+        { keywords: ["disney+", "disneyplus", "disney plus", "disney video"], icon: "file:///home/ferram/.local/share/icons/disney.svg" },
+        { keywords: ["prime video", "amazon prime", "primevideo"], icon: "file:///home/ferram/.local/share/icons/prime.svg" },
         { keywords: ["notion"], icon: "file:///home/ferram/.local/share/icons/notion.svg" },
         { keywords: ["discord"], icon: "file:///home/ferram/.local/share/icons/discord.svg" },
         { keywords: ["telegram", "web.telegram"], icon: "file:///home/ferram/.local/share/icons/telegram.svg" },
@@ -205,9 +207,9 @@ Item {
                     isAi: true
                 };
             }
-            // Antigravity CLI (agy / antigravity)
-            if (proc.indexOf("agy") !== -1 || proc.indexOf("antigravity") !== -1 ||
-                titleLower === "agy" || titleLower.startsWith("agy ") || titleLower.indexOf(" agy") !== -1 || titleLower.indexOf("antigravity") !== -1) {
+            // Antigravity CLI (agy / antigravity / codex)
+            if (proc.indexOf("agy") !== -1 || proc.indexOf("antigravity") !== -1 || proc.indexOf("codex") !== -1 ||
+                titleLower === "agy" || titleLower.startsWith("agy ") || titleLower.indexOf(" agy") !== -1 || titleLower.indexOf("antigravity") !== -1 || titleLower === "codex" || titleLower.startsWith("codex ") || titleLower.indexOf(" codex") !== -1) {
                 return {
                     icon: "file:///home/ferram/.local/share/icons/antigravity.png",
                     isTerminal: true,
@@ -243,8 +245,7 @@ Item {
                 };
             }
             // OpenAI Codex CLI
-            if (proc.indexOf("codex") !== -1 || proc.indexOf("openai-codex") !== -1 ||
-                titleLower === "codex" || titleLower.startsWith("codex ") || titleLower.indexOf(" codex") !== -1 || titleLower.indexOf("openai-codex") !== -1) {
+            if (proc.indexOf("openai-codex") !== -1 || titleLower.indexOf("openai-codex") !== -1) {
                 return {
                     icon: "file:///home/ferram/.local/share/icons/codex.svg",
                     isTerminal: true,
@@ -401,7 +402,7 @@ Item {
         }
 
         // OpenAI Codex
-        if (lower.indexOf("codex") !== -1 || titleLower.indexOf("codex") !== -1) {
+        if (lower.indexOf("openai-codex") !== -1 || titleLower.indexOf("openai-codex") !== -1) {
             return { icon: "file:///home/ferram/.local/share/icons/codex.svg", isTerminal: false, isAi: true };
         }
 
@@ -460,6 +461,9 @@ Item {
         }
 
         // Known desktop applications
+        if (lower.indexOf("filezilla") !== -1 || titleLower.indexOf("filezilla") !== -1) {
+            return { icon: "file:///usr/share/icons/hicolor/scalable/apps/filezilla.svg", isTerminal: false, isAi: false };
+        }
         if (lower.indexOf("whatsapp") !== -1 || titleLower.indexOf("whatsapp") !== -1) {
             return { icon: "file:///home/ferram/.local/share/icons/whatsapp.svg", isTerminal: false, isAi: false };
         }
@@ -649,7 +653,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
 
                     Behavior on width {
-                        NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                        NumberAnimation { duration: 750; easing.type: Easing.InOutQuart }
                     }
 
                     // Frosted glass background: translucent obsidian with blue ambient glow
@@ -669,11 +673,11 @@ Item {
                     }
                     border.width: 1
 
-                    Behavior on color { ColorAnimation { duration: 220; easing.type: Easing.OutQuad } }
-                    Behavior on border.color { ColorAnimation { duration: 220; easing.type: Easing.OutQuad } }
+                    Behavior on color { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+                    Behavior on border.color { ColorAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                     scale: wsMouse.containsMouse ? 1.03 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                    Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                     // Luminous glowing bottom capsule indicator for active workspace
                     Rectangle {
@@ -688,7 +692,7 @@ Item {
                         color: wsPill.isFocused ? theme.blueLight : theme.blue
 
                         Behavior on width {
-                            NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+                            NumberAnimation { duration: 750; easing.type: Easing.InOutQuart }
                         }
                     }
 
@@ -707,7 +711,7 @@ Item {
                         visible: wsPill.hasClients && wsPill.iconSource !== "" && !wsPill.imageError
 
                         scale: wsPill.isFocused ? 1.08 : (wsMouse.containsMouse ? 1.05 : 1.0)
-                        Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
+                        Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                         onStatusChanged: {
                             if (status === Image.Error) {
@@ -738,14 +742,14 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
 
                         scale: wsPill.isFocused ? 1.06 : 1.0
-                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
+                        Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                     }
 
                     // 3. Multi-window Badge (shows client count when more than 1 window is open)
                     Rectangle {
                         visible: wsPill.clientCount > 1
                         scale: wsPill.clientCount > 1 ? 1.0 : 0.0
-                        Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.3 } }
+                        Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                         anchors.top: parent.top
                         anchors.right: parent.right
@@ -773,7 +777,7 @@ Item {
                         id: termBadge
                         visible: wsPill.isTerminalClient
                         scale: wsPill.isTerminalClient ? 1.0 : 0.0
-                        Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                        Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                         anchors.bottom: parent.bottom
                         anchors.left: parent.left

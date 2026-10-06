@@ -493,11 +493,11 @@ Item {
             transformOrigin: Item.Top
             transform: Translate {
                 y: popup.visible ? 0 : -6
-                Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                Behavior on y { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
             }
 
-            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.08 } }
+            Behavior on opacity { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+            Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
             Flickable {
                 anchors.fill: parent
@@ -637,7 +637,7 @@ Item {
                                         border.width: 1
 
                                         scale: todayMa.pressed ? 0.94 : (todayMa.containsMouse ? 1.04 : 1.0)
-                                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                                        Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                                         Behavior on color { ColorAnimation { duration: 150 } }
 
                                         Text {
@@ -668,7 +668,7 @@ Item {
                                         border.width: 1
 
                                         scale: prevMa.pressed ? 0.88 : (prevMa.containsMouse ? 1.10 : 1.0)
-                                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                                        Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                                         Behavior on color { ColorAnimation { duration: 150 } }
 
                                         Text {
@@ -699,7 +699,7 @@ Item {
                                         border.width: 1
 
                                         scale: nextMa.pressed ? 0.88 : (nextMa.containsMouse ? 1.10 : 1.0)
-                                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                                        Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                                         Behavior on color { ColorAnimation { duration: 150 } }
 
                                         Text {
@@ -806,199 +806,48 @@ Item {
                                             anchors.centerIn: parent
                                             width: 28
                                             height: 28
-                                            radius: 8
-                                            clip: true
-                                            color: "transparent"
-
-                                            // 1. Full-cell Dynamic Colored Background Tint Layer
-                                            Item {
-                                                anchors.fill: parent
-
-                                                // Single Category Reminder: Solid vivid glass tint
-                                                Rectangle {
-                                                    anchors.fill: parent
-                                                    visible: dayCell.isCurrentMonth && dayCell.dayCats.length === 1
-                                                    color: {
-                                                        if (dayCell.dayCats.length === 1) {
-                                                            let col = root.getCategoryColor(dayCell.dayCats[0]);
-                                                            return Qt.rgba(col.r, col.g, col.b, 0.22);
-                                                        }
-                                                        return "transparent";
-                                                    }
-                                                }
-
-                                                // Multi-Category: Segmented Multi-Tone Split Glass (Dual or Tri-color slices)
-                                                Row {
-                                                    anchors.fill: parent
-                                                    visible: dayCell.isCurrentMonth && dayCell.dayCats.length >= 2
-
-                                                    Repeater {
-                                                        model: dayCell.dayCats
-                                                        Rectangle {
-                                                            width: cellBox.width / dayCell.dayCats.length
-                                                            height: cellBox.height
-                                                            color: {
-                                                                let col = root.getCategoryColor(modelData);
-                                                                return Qt.rgba(col.r, col.g, col.b, 0.24);
-                                                            }
-
-                                                            // Subtle hairline divider between color panes
-                                                            Rectangle {
-                                                                visible: index > 0
-                                                                anchors.left: parent.left
-                                                                anchors.top: parent.top
-                                                                anchors.bottom: parent.bottom
-                                                                width: 1
-                                                                color: Qt.rgba(255, 255, 255, 0.25)
-                                                            }
-                                                        }
-                                                    }
-                                                }
-
-                                                // Holiday-only background tint (when day has no user reminders)
-                                                Rectangle {
-                                                    anchors.fill: parent
-                                                    visible: dayCell.isCurrentMonth && dayCell.dayCats.length === 0 && !!dayCell.mexicanHoliday
-                                                    color: dayCell.mexicanHoliday ? (dayCell.mexicanHoliday.isOfficial ? Qt.rgba(16/255, 185/255, 129/255, 0.18) : Qt.rgba(245/255, 158/255, 11/255, 0.14)) : "transparent"
-                                                }
-
-                                                // Selection & Hover State Overlays
-                                                Rectangle {
-                                                    anchors.fill: parent
-                                                    color: {
-                                                        if (dayCell.isSelected && dayCell.isToday) return Qt.rgba(255, 255, 255, 0.24);
-                                                        if (dayCell.isSelected) return Qt.rgba(255, 255, 255, 0.18);
-                                                        if (dayCell.isToday && dayCell.dayCats.length === 0 && !dayCell.mexicanHoliday) return Qt.rgba(255, 255, 255, 0.08);
-                                                        if (dayCellMa.containsMouse) return theme.surfaceHover;
-                                                        return "transparent";
-                                                    }
-                                                }
-                                            }
-
-                                            // Top Specular Highlight Line (Liquid Glass effect)
-                                            Rectangle {
-                                                anchors.left: parent.left
-                                                anchors.right: parent.right
-                                                anchors.top: parent.top
-                                                height: 1
-                                                color: Qt.rgba(255, 255, 255, (dayCell.dayCats.length > 0 || dayCell.mexicanHoliday) ? 0.35 : 0.12)
-                                            }
-
-                                            border.color: {
-                                                if (dayCell.isSelected) return theme.frost;
-                                                if (dayCell.isToday) return theme.borderGlow;
-                                                if (dayCellMa.containsMouse) return theme.border;
-                                                if (dayCell.mexicanHoliday && dayCell.isCurrentMonth) {
-                                                    return dayCell.mexicanHoliday.isOfficial ? Qt.rgba(16/255, 185/255, 129/255, 0.65) : Qt.rgba(245/255, 158/255, 11/255, 0.55);
-                                                }
-                                                if (dayCell.dayCats.length > 0 && dayCell.isCurrentMonth) {
-                                                    let primaryCol = root.getCategoryColor(dayCell.dayCats[0]);
-                                                    return Qt.rgba(primaryCol.r, primaryCol.g, primaryCol.b, 0.60);
-                                                }
+                                            radius: 14
+                                            color: {
+                                                if (dayCell.isSelected) return theme.blue;
+                                                if (dayCellMa.containsMouse) return theme.surfaceHover;
+                                                if (dayCell.mexicanHoliday && dayCell.isCurrentMonth) return Qt.rgba(245/255, 158/255, 11/255, 0.15);
                                                 return "transparent";
                                             }
-                                            border.width: dayCell.isSelected ? 1.5 : ((dayCell.isToday || dayCell.dayCats.length > 0 || (dayCell.mexicanHoliday && dayCell.isCurrentMonth)) ? 1 : 0)
+                                            border.color: (dayCell.isToday && !dayCell.isSelected) ? theme.blue : "transparent"
+                                            border.width: 1
 
-                                            // Distinctive Mexican Holiday Marker (Top-Right illuminated gem)
-                                            Rectangle {
-                                                visible: !!dayCell.mexicanHoliday && dayCell.isCurrentMonth
-                                                anchors.top: parent.top
-                                                anchors.right: parent.right
-                                                anchors.topMargin: 2
-                                                anchors.rightMargin: 2
-                                                width: 5
-                                                height: 5
-                                                radius: 2.5
-                                                color: dayCell.mexicanHoliday ? dayCell.mexicanHoliday.badgeColor : "transparent"
+                                            Behavior on color { ColorAnimation { duration: 150 } }
 
-                                                Rectangle {
-                                                    anchors.centerIn: parent
-                                                    width: 9
-                                                    height: 9
-                                                    radius: 4.5
-                                                    color: "transparent"
-                                                    border.color: parent.color
-                                                    border.width: 1
-                                                    opacity: 0.4
-                                                }
-                                            }
-
-                                            // High Activity Micro Badge (Top-Left, 3+ tasks)
-                                            Rectangle {
-                                                property int rCount: root.getDayReminderCount(dayCell.dateStr)
-                                                visible: dayCell.isCurrentMonth && rCount >= 3
-                                                anchors.top: parent.top
-                                                anchors.left: parent.left
-                                                anchors.topMargin: 2
-                                                anchors.leftMargin: 2
-                                                width: 9
-                                                height: 9
-                                                radius: 4.5
-                                                color: Qt.rgba(0, 0, 0, 0.4)
-                                                border.color: Qt.rgba(255, 255, 255, 0.5)
-                                                border.width: 0.5
-
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: parent.rCount > 9 ? "+" : String(parent.rCount)
-                                                    color: "#ffffff"
-                                                    font.family: theme.fontFamily
-                                                    font.pixelSize: 6
-                                                    font.weight: Font.Bold
-                                                }
-                                            }
-
-                                            // Day number text
                                             Text {
-                                                anchors.horizontalCenter: parent.horizontalCenter
-                                                anchors.top: parent.top
-                                                anchors.topMargin: (dayCell.dayCats.length > 0 || dayCell.mexicanHoliday) ? 3 : 6
+                                                anchors.centerIn: parent
                                                 text: dayCell.dayNum
                                                 color: {
-                                                    if (dayCell.isSelected || dayCell.isToday) return theme.text;
-                                                    if (!dayCell.isCurrentMonth) return theme.textDim;
-                                                    if (dayCell.dayCats.length > 0) return "#ffffff";
-                                                    if (dayCell.mexicanHoliday) return dayCell.mexicanHoliday.isOfficial ? "#34d399" : "#fbbf24";
-                                                    return theme.textSub;
+                                                    if (!dayCell.isCurrentMonth) return theme.textMuted;
+                                                    if (dayCell.isSelected) return theme.bgDark;
+                                                    if (dayCell.isToday) return theme.blueLight;
+                                                    if (dayCell.mexicanHoliday) return "#fbbf24";
+                                                    return theme.text;
                                                 }
                                                 font.family: theme.fontFamily
-                                                font.pixelSize: 11
-                                                font.weight: (dayCell.isToday || dayCell.isSelected || dayCell.dayCats.length > 0 || (dayCell.mexicanHoliday && dayCell.isCurrentMonth)) ? Font.Bold : Font.Normal
+                                                font.pixelSize: 12
+                                                font.weight: (dayCell.isSelected || dayCell.isToday || dayCell.mexicanHoliday) ? Font.Bold : Font.DemiBold
                                             }
 
-                                            // Category dots row (up to 3 distinct category dots)
                                             Row {
-                                                visible: dayCell.dayCats.length > 0
                                                 anchors.bottom: parent.bottom
                                                 anchors.bottomMargin: 3
                                                 anchors.horizontalCenter: parent.horizontalCenter
-                                                spacing: 2.5
-
+                                                spacing: 2
+                                                
                                                 Repeater {
-                                                    model: dayCell.dayCats
+                                                    model: Math.min(dayCell.dayCats.length, 3)
                                                     Rectangle {
-                                                        width: 3.5
-                                                        height: 3.5
+                                                        width: 4
+                                                        height: 4
                                                         radius: 2
-                                                        color: root.getCategoryColor(modelData)
-                                                        border.color: Qt.rgba(0, 0, 0, 0.5)
-                                                        border.width: 0.5
+                                                        color: dayCell.isSelected ? theme.bgDark : root.getCategoryColor(dayCell.dayCats[index])
                                                     }
                                                 }
-                                            }
-
-                                            // Holiday micro-mark (shown when the day has no user reminders).
-                                            Image {
-                                                visible: dayCell.isCurrentMonth && dayCell.dayCats.length === 0 && !!dayCell.mexicanHoliday
-                                                anchors.bottom: parent.bottom
-                                                anchors.bottomMargin: 2
-                                                anchors.horizontalCenter: parent.horizontalCenter
-                                                source: "../icons/holiday.svg"
-                                                sourceSize.width: 8
-                                                sourceSize.height: 8
-                                                width: 8
-                                                height: 8
-                                                smooth: true
                                             }
                                         }
 
@@ -1675,42 +1524,46 @@ Item {
                                         id: remCard
                                         property color catCol: root.getCategoryColor(modelData.category)
                                         width: dayDetailCol.width
-                                        height: 42
-                                        radius: 8
+                                        height: 52
+                                        radius: theme.radiusSmall
                                         color: modelData.done
-                                            ? Qt.rgba(255, 255, 255, 0.02)
-                                            : (cardMa.containsMouse ? theme.surfaceHover : theme.surface)
+                                            ? Qt.rgba(0, 0, 0, 0.25)
+                                            : (cardMa.containsMouse ? theme.surfaceHover : Qt.rgba(255,255,255,0.03))
                                         border.color: modelData.done
                                             ? theme.borderSubtle
-                                            : (cardMa.containsMouse ? theme.borderGlow : theme.border)
+                                            : (cardMa.containsMouse ? remCard.catCol : Qt.rgba(remCard.catCol.r, remCard.catCol.g, remCard.catCol.b, 0.15))
                                         border.width: 1
                                         clip: true
 
-                                        // Category colored left accent stripe
+                                        Behavior on color { ColorAnimation { duration: 150 } }
+                                        Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                                        // Glowing accent strip
                                         Rectangle {
                                             anchors.left: parent.left
                                             anchors.top: parent.top
                                             anchors.bottom: parent.bottom
-                                            width: 3.5
+                                            width: 4
                                             color: remCard.catCol
-                                            opacity: modelData.done ? 0.4 : 1.0
+                                            opacity: modelData.done ? 0.3 : (cardMa.containsMouse ? 1.0 : 0.8)
+                                            Behavior on opacity { NumberAnimation { duration: 150 } }
                                         }
 
                                         Row {
                                             anchors.left: parent.left
                                             anchors.right: delBtn.left
                                             anchors.verticalCenter: parent.verticalCenter
-                                            anchors.leftMargin: 10
-                                            anchors.rightMargin: 6
-                                            spacing: 8
+                                            anchors.leftMargin: 14
+                                            anchors.rightMargin: 10
+                                            spacing: 12
 
-                                            // Checkbox circle
+                                            // Checkbox Squircle
                                             Rectangle {
-                                                width: 18
-                                                height: 18
-                                                radius: 9
-                                                color: modelData.done ? remCard.catCol : (chkMa.containsMouse ? theme.surfaceHover : "transparent")
-                                                border.color: modelData.done ? remCard.catCol : (chkMa.containsMouse ? theme.frost : theme.borderGlow)
+                                                width: 20
+                                                height: 20
+                                                radius: 6
+                                                color: modelData.done ? remCard.catCol : (chkMa.containsMouse ? Qt.rgba(remCard.catCol.r, remCard.catCol.g, remCard.catCol.b, 0.15) : "transparent")
+                                                border.color: modelData.done ? remCard.catCol : (chkMa.containsMouse ? remCard.catCol : theme.borderSubtle)
                                                 border.width: 1.5
                                                 anchors.verticalCenter: parent.verticalCenter
 
@@ -1719,7 +1572,7 @@ Item {
                                                     anchors.centerIn: parent
                                                     text: "✓"
                                                     color: theme.bgDark
-                                                    font.pixelSize: 10
+                                                    font.pixelSize: 12
                                                     font.weight: Font.Bold
                                                 }
 
@@ -1732,66 +1585,59 @@ Item {
                                                 }
                                             }
 
-                                            // Task Details Column (Time, Category, Title)
+                                            // Text Info
                                             Column {
                                                 anchors.verticalCenter: parent.verticalCenter
-                                                spacing: 2
-                                                width: parent.width - 26
+                                                spacing: 3
+                                                width: parent.width - 32
 
-                                                Row {
-                                                    spacing: 5
-
-                                                    // Time badge
-                                                    Rectangle {
-                                                        height: 14
-                                                        width: timeTxt.implicitWidth + 8
-                                                        radius: 3
-                                                        color: Qt.rgba(255, 255, 255, 0.06)
-                                                        border.color: theme.borderSubtle
-                                                        border.width: 1
-
-                                                        Text {
-                                                            id: timeTxt
-                                                            anchors.centerIn: parent
-                                                            text: modelData.time
-                                                            color: theme.textSub
-                                                            font.family: theme.fontFamily
-                                                            font.pixelSize: 9
-                                                            font.weight: Font.DemiBold
-                                                        }
-                                                    }
-
-                                                    // Category capsule badge
-                                                    Rectangle {
-                                                        height: 14
-                                                        width: catTxt.implicitWidth + 8
-                                                        radius: 3
-                                                        color: Qt.rgba(remCard.catCol.r, remCard.catCol.g, remCard.catCol.b, 0.15)
-                                                        border.color: Qt.rgba(remCard.catCol.r, remCard.catCol.g, remCard.catCol.b, 0.35)
-                                                        border.width: 1
-
-                                                        Text {
-                                                            id: catTxt
-                                                            anchors.centerIn: parent
-                                                            text: modelData.category
-                                                            color: remCard.catCol
-                                                            font.family: theme.fontFamily
-                                                            font.pixelSize: 8
-                                                            font.weight: Font.DemiBold
-                                                        }
-                                                    }
-                                                }
-
-                                                // Title Text
                                                 Text {
                                                     width: parent.width
                                                     text: modelData.title
                                                     color: modelData.done ? theme.textDim : theme.text
                                                     font.family: theme.fontFamily
-                                                    font.pixelSize: 11
-                                                    font.weight: modelData.done ? Font.Normal : Font.Medium
+                                                    font.pixelSize: 13
+                                                    font.weight: modelData.done ? Font.Normal : Font.DemiBold
                                                     font.strikeout: modelData.done
                                                     elide: Text.ElideRight
+                                                }
+
+                                                Row {
+                                                    spacing: 6
+                                                    
+                                                    Row {
+                                                        spacing: 4
+                                                        Text {
+                                                            text: "⏱"
+                                                            color: remCard.catCol
+                                                            font.pixelSize: 10
+                                                            opacity: 0.8
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                        }
+                                                        Text {
+                                                            text: modelData.time
+                                                            color: theme.textSub
+                                                            font.family: theme.fontFamily
+                                                            font.pixelSize: 10
+                                                            font.weight: Font.Medium
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                        }
+                                                    }
+
+                                                    Text {
+                                                        text: "•"
+                                                        color: theme.borderSubtle
+                                                        font.pixelSize: 10
+                                                    }
+
+                                                    Text {
+                                                        text: modelData.category
+                                                        color: remCard.catCol
+                                                        font.family: theme.fontFamily
+                                                        font.pixelSize: 10
+                                                        font.weight: Font.Bold
+                                                        opacity: 0.9
+                                                    }
                                                 }
                                             }
                                         }
@@ -1800,20 +1646,22 @@ Item {
                                         Rectangle {
                                             id: delBtn
                                             anchors.right: parent.right
-                                            anchors.rightMargin: 8
+                                            anchors.rightMargin: 10
                                             anchors.verticalCenter: parent.verticalCenter
-                                            width: 22
-                                            height: 22
-                                            radius: 11
-                                            color: delMa.containsMouse ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.2) : "transparent"
-                                            border.color: delMa.containsMouse ? theme.red : "transparent"
+                                            width: 26
+                                            height: 26
+                                            radius: 13
+                                            color: delMa.containsMouse ? theme.red : "transparent"
+                                            border.color: delMa.containsMouse ? theme.red : (cardMa.containsMouse ? theme.borderSubtle : "transparent")
                                             border.width: 1
+                                            opacity: cardMa.containsMouse ? 1.0 : 0.0
+                                            Behavior on opacity { NumberAnimation { duration: 150 } }
 
                                             Text {
                                                 anchors.centerIn: parent
                                                 text: "✕"
-                                                color: delMa.containsMouse ? theme.red : theme.textDim
-                                                font.pixelSize: 10
+                                                color: delMa.containsMouse ? theme.text : theme.textMuted
+                                                font.pixelSize: 11
                                                 font.weight: Font.Bold
                                             }
 

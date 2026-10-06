@@ -121,11 +121,11 @@ Item {
             transformOrigin: Item.Top
             transform: Translate {
                 y: popup.visible ? 0 : -6
-                Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                Behavior on y { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
             }
 
-            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.08 } }
+            Behavior on opacity { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
+            Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
             Column {
                 id: cardLayout
@@ -187,7 +187,7 @@ Item {
                     border.width: 1
 
                     scale: toggleMouse.pressed ? 0.97 : (toggleMouse.containsMouse ? 1.02 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                    Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
                     RowLayout {
                         anchors.fill: parent
@@ -216,7 +216,7 @@ Item {
                                 color: "#ffffff"
                                 anchors.verticalCenter: parent.verticalCenter
                                 x: root.isDndOn ? parent.width - width - 2 : 2
-                                Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                                Behavior on x { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
                             }
                         }
                     }

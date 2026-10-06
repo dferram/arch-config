@@ -153,27 +153,27 @@ enabled = true,
 },
 })
 
--- Futuristic, silky-smooth minimalist curves (no abrupt snaps)
-hl.curve("futureGlide",    { type = "bezier", points = { {0.25, 1.0}, {0.4, 1.0} } })
-hl.curve("futureFade",     { type = "bezier", points = { {0.25, 0.1}, {0.25, 1.0} } })
-hl.curve("smoothLinear",   { type = "bezier", points = { {0.0, 0.0},   {1.0, 1.0} } })
+-- Cinematic and floaty curves (very visible difference)
+hl.curve("cinematic",  { type = "bezier", points = { {0.75, 0.0}, {0.25, 1.0} } }) -- easeInOutQuart, slow start and end
+hl.curve("smoothOut",  { type = "bezier", points = { {0.1, 0.9}, {0.2, 1.0} } })
+hl.curve("linear",     { type = "bezier", points = { {0.0, 0.0}, {1.0, 1.0} } })
 
--- Animations: Minimalist, futuristic, gentle inertia
-hl.animation({ leaf = "windows",          enabled = true, speed = 6.0, bezier = "futureGlide" })
-hl.animation({ leaf = "windowsIn",        enabled = true, speed = 5.5, bezier = "futureGlide", style = "popin 95%" })
-hl.animation({ leaf = "windowsOut",       enabled = true, speed = 4.5, bezier = "futureFade",  style = "popin 95%" })
-hl.animation({ leaf = "windowsMove",      enabled = true, speed = 5.5, bezier = "futureGlide" })
-hl.animation({ leaf = "fadeIn",           enabled = true, speed = 5.0, bezier = "futureFade" })
-hl.animation({ leaf = "fadeOut",          enabled = true, speed = 4.0, bezier = "futureFade" })
-hl.animation({ leaf = "fadeSwitch",       enabled = true, speed = 4.5, bezier = "futureFade" })
-hl.animation({ leaf = "border",           enabled = true, speed = 6.5, bezier = "futureFade" })
-hl.animation({ leaf = "borderangle",      enabled = true, speed = 30.0, bezier = "smoothLinear", style = "loop" })
-hl.animation({ leaf = "layers",           enabled = true, speed = 5.0, bezier = "futureGlide" })
-hl.animation({ leaf = "layersIn",         enabled = true, speed = 4.5, bezier = "futureFade",  style = "fade" })
-hl.animation({ leaf = "layersOut",        enabled = true, speed = 3.5, bezier = "futureFade",  style = "fade" })
-hl.animation({ leaf = "workspaces",       enabled = true, speed = 5.5, bezier = "futureGlide", style = "slidefade 15%" })
-hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 5.5, bezier = "futureGlide", style = "slidefadevert 15%" })
-hl.animation({ leaf = "zoomFactor",       enabled = true, speed = 6.0, bezier = "futureGlide" })
+-- Animations: Cinematic, floaty, deliberate
+hl.animation({ leaf = "windows",          enabled = true, speed = 8.5, bezier = "cinematic", style = "popin 90%" })
+hl.animation({ leaf = "windowsIn",        enabled = true, speed = 8.5, bezier = "cinematic", style = "popin 90%" })
+hl.animation({ leaf = "windowsOut",       enabled = true, speed = 8.5, bezier = "cinematic", style = "popin 90%" })
+hl.animation({ leaf = "windowsMove",      enabled = true, speed = 8.5, bezier = "cinematic" })
+hl.animation({ leaf = "fadeIn",           enabled = true, speed = 8.0, bezier = "cinematic" })
+hl.animation({ leaf = "fadeOut",          enabled = true, speed = 8.0, bezier = "cinematic" })
+hl.animation({ leaf = "fadeSwitch",       enabled = true, speed = 8.0, bezier = "cinematic" })
+hl.animation({ leaf = "border",           enabled = true, speed = 10.0, bezier = "cinematic" })
+hl.animation({ leaf = "borderangle",      enabled = true, speed = 80.0, bezier = "linear", style = "loop" })
+hl.animation({ leaf = "layers",           enabled = true, speed = 8.0, bezier = "cinematic" })
+hl.animation({ leaf = "layersIn",         enabled = true, speed = 8.0, bezier = "cinematic", style = "fade" })
+hl.animation({ leaf = "layersOut",        enabled = true, speed = 8.0, bezier = "cinematic", style = "fade" })
+hl.animation({ leaf = "workspaces",       enabled = true, speed = 9.0, bezier = "cinematic", style = "slide" })
+hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 9.0, bezier = "cinematic", style = "slidevert" })
+hl.animation({ leaf = "zoomFactor",       enabled = true, speed = 8.5, bezier = "cinematic" })
 
 -- Ref https://wiki.hypr.land/Configuring/Basics/Workspace-Rules/
 -- "Smart gaps" / "No gaps when only"
@@ -223,6 +223,7 @@ misc = {
 force_default_wallpaper = 0,    -- Set to 0 or 1 to disable the anime mascot wallpapers
 disable_hyprland_logo   = true, -- If true disables the random hyprland logo / anime girl background. :(
 disable_splash_rendering = true, -- Disables splash quotes/text at bottom of screen
+allow_session_lock_restore = true, -- Quickshell lock screen can re-acquire the lock after a restart
 },
 })
 
@@ -279,7 +280,7 @@ hl.bind(mainMod .. " + ALT + W",  hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-
 hl.bind(mainMod .. " + CTRL + W", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-wallpaper menu"))
 hl.bind(mainMod .. " + G", hl.dsp.exec_cmd('/usr/bin/chromium "--profile-directory=Profile 1" --app-id=mjoklplbddabcmpepnokjaffbmgbkkgg'))
 hl.bind(mainMod .. " + A", hl.dsp.exec_cmd("antigravity-ide"))
-hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("hyprlock"))
+hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("qs ipc call lock lock || hyprlock"))
 local closeWindowBind = hl.bind(mainMod .. " + C", hl.dsp.window.close())
 -- (Super + M poweroff/exit removed as requested)
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
