@@ -49,6 +49,13 @@ Item {
         // Cache key for track
         let cacheKey = (dbName || ident || "player") + "::" + tTitle + "::" + tArtist;
 
+        // 0. STREMIO (native Flatpak client exposes MPRIS as "Stremio")
+        if (ident.includes("stremio") || dEntry.includes("stremio") || dbName.includes("stremio")) {
+            root.platformCache[cacheKey] = "stremio";
+            if (dbName) root.playerPlatformCache[dbName] = "stremio";
+            return "stremio";
+        }
+
         // 1. Strict ban on social & messaging apps (Instagram, WhatsApp, Telegram, Facebook, Twitter, TikTok, Discord, LinkedIn, etc.)
         let allInfo = tTitle + " " + tArtist + " " + tAlbum + " " + ident + " " + url;
         if (allInfo.includes("instagram") || 
@@ -118,12 +125,31 @@ Item {
             return "prime";
         }
 
-        // 8. Browser heuristics: check Hyprland window titles for SoundCloud or YouTube
+        // 8. HBO MAX
+        if (ident.includes("hbo") || url.includes("max.com") || url.includes("hbomax.com") ||
+            tTitle.includes("hbo max") || tArtist.includes("hbo max")) {
+            root.platformCache[cacheKey] = "hbomax";
+            if (dbName) root.playerPlatformCache[dbName] = "hbomax";
+            return "hbomax";
+        }
+
+        // 9. Browser heuristics: check Hyprland window titles for SoundCloud or YouTube
         if (ident.includes("chromium") || ident.includes("chrome") || ident.includes("firefox") || 
             ident.includes("brave") || ident.includes("edge") || ident.includes("zen") || ident.includes("browser")) {
             try {
                 if (typeof Hyprland !== "undefined" && Hyprland.toplevels && Hyprland.toplevels.values) {
                     let toplevels = Hyprland.toplevels.values;
+
+                    // Pass A0: Check for HBO Max anywhere in open window titles
+                    for (let i = 0; i < toplevels.length; i++) {
+                        let win = toplevels[i];
+                        let wTitle = (win.title || "").toLowerCase();
+                        if (wTitle.includes("hbo max") || wTitle.includes("max.com") || wTitle.includes("hbomax.com")) {
+                            root.platformCache[cacheKey] = "hbomax";
+                            if (dbName) root.playerPlatformCache[dbName] = "hbomax";
+                            return "hbomax";
+                        }
+                    }
 
                     // Pass A: Check for SoundCloud anywhere in open window titles
                     for (let i = 0; i < toplevels.length; i++) {
@@ -368,7 +394,9 @@ Item {
         }
         try {
             if (typeof Hyprland !== "undefined") {
-                if (root.isSpotify) {
+                if (root.isStremio) {
+                    Hyprland.dispatch("focuswindow class:^(com.stremio.Stremio)$");
+                } else if (root.isSpotify) {
                     Hyprland.dispatch("focuswindow class:^(Spotify|spotify)$");
                 } else if (root.isYouTube || root.isSoundCloud) {
                     Hyprland.dispatch("focuswindow class:^(chromium|google-chrome|firefox|zen|brave)$");
@@ -402,6 +430,17 @@ Item {
     property bool isNetflix: currentPlatform === "netflix"
     property bool isDisney: currentPlatform === "disney"
     property bool isPrimeVideo: currentPlatform === "prime"
+    property bool isHboMax: currentPlatform === "hbomax"
+    property bool isStremio: currentPlatform === "stremio"
+    // Spider-Man content on any media platform (Stremio, Spotify, YouTube, Disney+, Netflix...)
+    property bool isSpiderMan: {
+        let t = (trackTitle + " " + trackArtist + " " + trackAlbum).toLowerCase();
+        let kws = ["spider-man", "spiderman", "spider man", "spider.man", "spider_man", "hombre araña", "hombre arana", "peter parker", "miles morales", "spider-verse", "spiderverse", "tu amigo y vecino"];
+        for (let i = 0; i < kws.length; i++) {
+            if (t.indexOf(kws[i]) !== -1) return true;
+        }
+        return false;
+    }
     property bool isInstagram: false
     property bool isTwitch: false
 
@@ -410,17 +449,16 @@ Item {
     property color dynamicAlbumColorSecondary: "#cbd5e1"
     property color dynamicAlbumColorAccent: "#94a3b8"
 
-    // Base platform accent color (Dynamic for Spotify based on album, fixed for YouTube & SoundCloud)
     property color mediaAccentColor: {
+        if (isSpiderMan) return "#e23636";
         if (isSpotify || (embedded && artUrl !== "")) return dynamicAlbumColor;
+        if (isStremio) return "#7b5bf5";
         if (isYouTube) return "#ef4444";
         if (isSoundCloud) return "#ff5500";
         if (isNetflix) return "#e50914";
         if (isDisney) return "#0032ac";
         if (isPrimeVideo) return "#00a8e1";
-        if (isNetflix) return "#e50914";
-        if (isDisney) return "#0032ac";
-        if (isPrimeVideo) return "#00a8e1";
+        if (isHboMax) return "#5822b4";
         return theme.blueLight;
     }
 
@@ -433,17 +471,19 @@ Item {
 
     // Visualizer Bars Colorimetry (Matches album for Spotify, strictly red for YouTube, orange for SoundCloud)
     property color albumColorPrimary: {
+        if (isSpiderMan) return "#e23636";
+        if (isStremio) return "#7b5bf5";
         if (isSpotify || (embedded && artUrl !== "")) return dynamicAlbumColor;
         if (isYouTube) return "#ef4444";
         if (isSoundCloud) return "#ff5500";
         return theme.blueLight;
     }
     property color albumColorSecondary: {
-        if (isSpotify || (embedded && artUrl !== "")) return dynamicAlbumColorSecondary;
+        if (!(isSpiderMan || isStremio) && (isSpotify || (embedded && artUrl !== ""))) return dynamicAlbumColorSecondary;
         return Qt.lighter(albumColorPrimary, 1.25);
     }
     property color albumColorAccent: {
-        if (isSpotify || (embedded && artUrl !== "")) return dynamicAlbumColorAccent;
+        if (!(isSpiderMan || isStremio) && (isSpotify || (embedded && artUrl !== ""))) return dynamicAlbumColorAccent;
         return Qt.lighter(albumColorSecondary, 1.35);
     }
 
@@ -487,12 +527,15 @@ Item {
     Component.onCompleted: updatePalette()
 
     property string playerBrandName: {
+        if (isSpiderMan) return "Spider-Man";
+        if (isStremio) return "Stremio";
         if (isYouTube) return "YouTube";
         if (isSpotify) return "Spotify";
         if (isSoundCloud) return "SoundCloud";
         if (isNetflix) return "Netflix";
         if (isDisney) return "Disney+";
         if (isPrimeVideo) return "Prime Video";
+        if (isHboMax) return "HBO Max";
         return "Media";
     }
 
@@ -520,6 +563,9 @@ Item {
     property string netflixSvgUri: "file:///home/ferram/.local/share/icons/netflix.svg"
     property string disneySvgUri: "file:///home/ferram/.local/share/icons/disney.svg"
     property string primeSvgUri: "file:///home/ferram/.local/share/icons/prime.svg"
+    property string hboMaxSvgUri: "file:///home/ferram/.local/share/icons/hbo.svg"
+    property string stremioSvgUri: "file:///home/ferram/.local/share/icons/stremio.svg"
+    property string spiderSvgUri: "file:///home/ferram/.local/share/icons/spiderman.png"
 
     // Lucide Control SVG Vectors (Constant standard theme colors)
     property string shuffleSvgUri: {
@@ -589,12 +635,15 @@ Item {
         id: pill
         visible: !root.embedded
         iconSource: {
+            if (root.isSpiderMan) return root.spiderSvgUri;
+            if (root.isStremio) return root.stremioSvgUri;
             if (root.isYouTube) return root.youtubeSvgUri;
             if (root.isSpotify) return root.spotifySvgUri;
             if (root.isSoundCloud) return root.soundcloudSvgUri;
             if (root.isNetflix) return root.netflixSvgUri;
             if (root.isDisney) return root.disneySvgUri;
             if (root.isPrimeVideo) return root.primeSvgUri;
+            if (root.isHboMax) return root.hboMaxSvgUri;
             return root.defaultMediaSvgUri;
         }
         text: root.displayLabel
@@ -746,15 +795,15 @@ Item {
                                 height: 14
                                 anchors.verticalCenter: parent.verticalCenter
                                 source: {
+                                    if (root.isSpiderMan) return root.spiderSvgUri;
+                                    if (root.isStremio) return root.stremioSvgUri;
                                     if (root.isYouTube) return root.youtubeSvgUri;
                                     if (root.isSpotify) return root.spotifySvgUri;
                                     if (root.isSoundCloud) return root.soundcloudSvgUri;
-            if (root.isNetflix) return root.netflixSvgUri;
-            if (root.isDisney) return root.disneySvgUri;
-            if (root.isPrimeVideo) return root.primeSvgUri;
                                     if (root.isNetflix) return root.netflixSvgUri;
                                     if (root.isDisney) return root.disneySvgUri;
                                     if (root.isPrimeVideo) return root.primeSvgUri;
+                                    if (root.isHboMax) return root.hboMaxSvgUri;
                                     return root.defaultMediaSvgUri;
                                 }
                                 fillMode: Image.PreserveAspectFit
@@ -784,6 +833,7 @@ Item {
                     Rectangle {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
+                        visible: !root.isPlaying
                         height: 24
                         width: statusRow.implicitWidth + 14
                         radius: 12
@@ -879,7 +929,7 @@ Item {
                                 anchors.fill: parent
                                 source: root.artUrl
                                 visible: root.artUrl !== "" && status === Image.Ready
-                                fillMode: Image.PreserveAspectCrop
+                                fillMode: (root.isSpiderMan || root.isStremio) ? Image.PreserveAspectFit : Image.PreserveAspectCrop
                                 asynchronous: true
                                 cache: true
                                 mipmap: true
@@ -917,7 +967,7 @@ Item {
                                 anchors.centerIn: parent
                                 width: 50
                                 height: 50
-                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && root.isNetflix
+                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && root.isNetflix && !root.isSpiderMan
                                 source: root.netflixSvgUri
                                 fillMode: Image.PreserveAspectFit
                             }
@@ -925,7 +975,7 @@ Item {
                                 anchors.centerIn: parent
                                 width: 50
                                 height: 50
-                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && root.isDisney
+                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && root.isDisney && !root.isSpiderMan
                                 source: root.disneySvgUri
                                 fillMode: Image.PreserveAspectFit
                             }
@@ -933,15 +983,23 @@ Item {
                                 anchors.centerIn: parent
                                 width: 50
                                 height: 50
-                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && root.isPrimeVideo
+                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && root.isPrimeVideo && !root.isSpiderMan
                                 source: root.primeSvgUri
+                                fillMode: Image.PreserveAspectFit
+                            }
+                            Image {
+                                anchors.centerIn: parent
+                                width: 50
+                                height: 50
+                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && (root.isSpiderMan || root.isStremio)
+                                source: root.isSpiderMan ? root.spiderSvgUri : root.stremioSvgUri
                                 fillMode: Image.PreserveAspectFit
                             }
                             Image {
                                 anchors.centerIn: parent
                                 width: 40
                                 height: 40
-                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && !root.isSoundCloud && !root.isSpotify && !root.isYouTube && !root.isNetflix && !root.isDisney && !root.isPrimeVideo
+                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && !root.isSoundCloud && !root.isSpotify && !root.isYouTube && !root.isNetflix && !root.isDisney && !root.isPrimeVideo && !root.isStremio && !root.isSpiderMan
                                 source: root.defaultMediaSvgUri
                                 fillMode: Image.PreserveAspectFit
                             }

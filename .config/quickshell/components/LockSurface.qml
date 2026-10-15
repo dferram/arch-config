@@ -44,6 +44,29 @@ Item {
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: root.revealDuration; easing.type: Easing.OutCubic } }
 
+        // Blurred wallpaper base (album-art layers sit on top of it)
+        Image {
+            id: wallImg
+            anchors.fill: parent
+            source: root.ctx.wallpaperUrl
+            fillMode: Image.PreserveAspectCrop
+            sourceSize.width: 384
+            sourceSize.height: 384
+            asynchronous: true
+            visible: false
+        }
+        MultiEffect {
+            anchors.fill: parent
+            source: wallImg
+            visible: wallImg.status === Image.Ready
+            blurEnabled: true
+            blur: 1.0
+            blurMax: 64
+            saturation: 0.1
+            brightness: -0.15
+            opacity: 0.55
+        }
+
         Image {
             id: bgArtA
             anchors.fill: parent
@@ -57,7 +80,6 @@ Item {
         MultiEffect {
             anchors.fill: parent
             source: bgArtA
-            visible: opacity > 0.01
             blurEnabled: true
             blur: 1.0
             blurMax: 64
@@ -79,7 +101,6 @@ Item {
         MultiEffect {
             anchors.fill: parent
             source: bgArtB
-            visible: opacity > 0.01
             blurEnabled: true
             blur: 1.0
             blurMax: 64
@@ -97,6 +118,7 @@ Item {
                 GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.16) }
             }
         }
+
     }
 
     // Media controls and agent scrolling also keep the panel awake.
@@ -164,31 +186,13 @@ Item {
         }
     }
 
-    // Date under the mini clock
-    Text {
-        id: dateLabel
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: root.miniTop + root.miniHeight + 12
-        text: {
-            let s = Qt.locale("en_US").toString(root.ctx.now, "dddd, MMMM d");
-            return s.charAt(0).toUpperCase() + s.slice(1) + "  ·  " + Qt.formatDateTime(root.ctx.now, "h:mm AP");
-        }
-        color: theme.textMuted
-        font.family: theme.fontFamily
-        font.pixelSize: 15
-        font.weight: Font.Medium
-        font.letterSpacing: 0.4
-        opacity: root.revealed ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
-    }
-
     // ==========================================================================
     // CONTROL PANEL
     // ==========================================================================
     Column {
         id: panel
         anchors.horizontalCenter: parent.horizontalCenter
-        y: dateLabel.y + dateLabel.height + 24 + slide
+        y: root.miniTop + root.miniHeight + 24 + slide
         scale: Math.min(1, (root.width - 40) / 646, (root.height - y - 24) / Math.max(1, implicitHeight))
         transformOrigin: Item.Top
         spacing: 24
@@ -203,10 +207,11 @@ Item {
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 16
+            readonly property real rowH: Math.max(236, lockMedia.hasTrack ? lockMedia.implicitHeight : 0)
 
             Item {
                 width: 350
-                height: lockMedia.hasTrack ? lockMedia.implicitHeight : 180
+                height: parent.rowH
                 MediaWidget {
                     id: lockMedia
                     anchors.fill: parent
@@ -231,14 +236,26 @@ Item {
                 }
             }
 
-            LockAgentCard {
+
+            LockCalendarCard {
                 width: 280
-                height: lockMedia.hasTrack ? lockMedia.implicitHeight : 180
-                agents: root.ctx.agents
-                available: root.ctx.agentsAvailable
+                height: parent.rowH
+                now: root.ctx.now
+                reminders: root.ctx.reminders
                 accent: root.accent
+                active: root.revealed
             }
         }
+
+        LockRemindersCard {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 646
+            now: root.ctx.now
+            reminders: root.ctx.reminders
+            accent: root.accent
+            active: root.revealed
+        }
+
 
         // ---------------- AUTH ----------------
         Column {

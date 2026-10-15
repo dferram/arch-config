@@ -120,11 +120,33 @@ def get_foreground_process(pid):
             return found
     return None
 
+def get_stremio_active_names():
+    """Names of torrents Stremio is currently streaming (local server stats)."""
+    try:
+        import urllib.request
+        with urllib.request.urlopen("http://127.0.0.1:11470/stats.json", timeout=0.4) as r:
+            data = json.loads(r.read().decode("utf-8", errors="ignore"))
+        names = []
+        for t in data.values():
+            if not isinstance(t, dict) or t.get("swarmPaused"):
+                continue
+            if t.get("wires") or t.get("swarmConnections"):
+                n = t.get("name")
+                if n:
+                    names.append(n)
+        return names
+    except Exception:
+        return []
+
 try:
     raw = subprocess.check_output(["hyprctl", "clients", "-j"])
     clients = json.loads(raw)
     for c in clients:
         cls = (c.get("class") or "").lower()
+        if "stremio" in cls:
+            names = get_stremio_active_names()
+            if names:
+                c["title"] = f"{c.get('title') or 'Stremio'} - {', '.join(names)}"
         if any(term in cls for term in ("kitty", "terminal", "alacritty", "foot", "wezterm", "xterm")):
             pid = c.get("pid")
             if pid:

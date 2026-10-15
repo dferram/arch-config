@@ -123,11 +123,16 @@ Item {
     // Official Troyanos UAQ SVG
     property string troyanosSvgUri: "file:///home/ferram/.local/share/icons/troyanos.svg"
 
+    // Spider-Man logo (shown when a window/tab title mentions him)
+    property string spiderUri: "file:///home/ferram/.local/share/icons/spiderman.png"
+    property var spiderKeywords: ["spider-man", "spiderman", "spider man", "spider.man", "spider_man", "hombre araña", "hombre arana", "peter parker", "miles morales", "spider-verse", "spiderverse"]
+
     // Official Kitty Terminal SVG
     property string kittySvgUri: "file:///home/ferram/.local/share/icons/kitty.svg"
 
     // Rules to dynamically detect active browser tabs by window title
     property var webTabRules: [
+        { keywords: root.spiderKeywords, icon: root.spiderUri },
         { keywords: ["colgate", "colpal"], icon: root.cpSvgUri },
         { keywords: ["troyanos", "uaq"], icon: root.troyanosSvgUri },
         { keywords: ["swagger", "swagger-ui", "api-docs", "/docs", "openapi"], icon: root.swaggerSvgUri },
@@ -135,7 +140,7 @@ Item {
         { keywords: ["whatsapp", "web.whatsapp"], icon: "file:///home/ferram/.local/share/icons/whatsapp.svg" },
         { keywords: ["instagram"], icon: "file:///home/ferram/.local/share/icons/instagram.svg" },
         { keywords: ["chatgpt", "openai"], icon: "file:///home/ferram/.local/share/icons/chatgpt.svg" },
-        { keywords: ["codex", "codex.openai"], icon: "file:///home/ferram/.local/share/icons/codex.svg" },
+        { keywords: ["codex", "codex.openai"], icon: "file:///home/ferram/.local/share/icons/chatgpt.svg" },
         { keywords: ["claude", "anthropic"], icon: "file:///home/ferram/.local/share/icons/claude.svg" },
         { keywords: ["gemini", "bard.google"], icon: "file:///home/ferram/.local/share/icons/gemini.svg" },
         { keywords: ["github"], icon: root.githubSvgUri },
@@ -148,6 +153,7 @@ Item {
         { keywords: ["twitter", "x.com", " x - "], icon: "file:///home/ferram/.local/share/icons/x.svg" },
         { keywords: ["twitch"], icon: "file:///home/ferram/.local/share/icons/twitch.svg" },
         { keywords: ["netflix"], icon: "file:///home/ferram/.local/share/icons/netflix.svg" },
+        { keywords: ["hbo max", "hbomax", "max.com"], icon: "file:///home/ferram/.local/share/icons/hbo.svg" },
         { keywords: ["disney+", "disneyplus", "disney plus", "disney video"], icon: "file:///home/ferram/.local/share/icons/disney.svg" },
         { keywords: ["prime video", "amazon prime", "primevideo"], icon: "file:///home/ferram/.local/share/icons/prime.svg" },
         { keywords: ["notion"], icon: "file:///home/ferram/.local/share/icons/notion.svg" },
@@ -167,6 +173,14 @@ Item {
         { keywords: ["google search", "búsqueda de google", "busqueda de google", "google"], icon: "file:///home/ferram/.local/share/icons/google.svg" },
         { keywords: ["chrome://", "about:blank", "new tab - chromium", "nueva pestaña"], icon: "file:///home/ferram/.local/share/icons/chromium.svg" }
     ]
+
+    function resolveSpiderIcon(titleLower) {
+        if (!titleLower) return "";
+        for (let i = 0; i < root.spiderKeywords.length; i++) {
+            if (titleLower.indexOf(root.spiderKeywords[i]) !== -1) return root.spiderUri;
+        }
+        return "";
+    }
 
     function resolveWebTabIcon(titleLower) {
         if (!titleLower) return "";
@@ -207,9 +221,17 @@ Item {
                     isAi: true
                 };
             }
-            // Antigravity CLI (agy / antigravity / codex)
-            if (proc.indexOf("agy") !== -1 || proc.indexOf("antigravity") !== -1 || proc.indexOf("codex") !== -1 ||
-                titleLower === "agy" || titleLower.startsWith("agy ") || titleLower.indexOf(" agy") !== -1 || titleLower.indexOf("antigravity") !== -1 || titleLower === "codex" || titleLower.startsWith("codex ") || titleLower.indexOf(" codex") !== -1) {
+            // OpenAI Codex CLI -> ChatGPT logo (must be checked before agy: it was being swallowed by it)
+            if (proc.indexOf("codex") !== -1 || /(^|[\s\-_/])codex($|[\s\-_/])/.test(titleLower)) {
+                return {
+                    icon: "file:///home/ferram/.local/share/icons/chatgpt.svg",
+                    isTerminal: true,
+                    isAi: true
+                };
+            }
+            // Antigravity CLI (agy / antigravity)
+            if (proc.indexOf("agy") !== -1 || proc.indexOf("antigravity") !== -1 ||
+                titleLower === "agy" || titleLower.startsWith("agy ") || titleLower.indexOf(" agy") !== -1 || titleLower.indexOf("antigravity") !== -1) {
                 return {
                     icon: "file:///home/ferram/.local/share/icons/antigravity.png",
                     isTerminal: true,
@@ -247,7 +269,7 @@ Item {
             // OpenAI Codex CLI
             if (proc.indexOf("openai-codex") !== -1 || titleLower.indexOf("openai-codex") !== -1) {
                 return {
-                    icon: "file:///home/ferram/.local/share/icons/codex.svg",
+                    icon: "file:///home/ferram/.local/share/icons/chatgpt.svg",
                     isTerminal: true,
                     isAi: true
                 };
@@ -395,6 +417,9 @@ Item {
         }
 
         // --- 2. GUI Applications ---
+        // Spider-Man content (Stremio, streaming PWAs, browser tabs...) takes priority
+        let spiderIcon = root.resolveSpiderIcon(titleLower);
+        if (spiderIcon) return { icon: spiderIcon, isTerminal: false, isAi: false };
         // Antigravity IDE (GUI)
         if (lower.indexOf("antigravity") !== -1) {
             let agIcon = "file:///home/ferram/.local/share/icons/antigravity.png";
@@ -403,7 +428,7 @@ Item {
 
         // OpenAI Codex
         if (lower.indexOf("openai-codex") !== -1 || titleLower.indexOf("openai-codex") !== -1) {
-            return { icon: "file:///home/ferram/.local/share/icons/codex.svg", isTerminal: false, isAi: true };
+            return { icon: "file:///home/ferram/.local/share/icons/chatgpt.svg", isTerminal: false, isAi: true };
         }
 
         // Docker Desktop / GUI

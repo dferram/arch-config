@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 AGENTS = {
-    'codex': ('Antigravity', 'antigravity.png'), 'openai-codex': ('Codex', 'codex.svg'),
+    'codex': ('Codex', 'chatgpt.svg'), 'openai-codex': ('Codex', 'chatgpt.svg'),
     'claude': ('Claude Code', 'claude.svg'), 'claude-code': ('Claude Code', 'claude.svg'),
     'agy': ('Antigravity', 'antigravity.png'), 'gemini': ('Gemini', 'gemini.svg'),
     'opencode': ('OpenCode', ''), 'aider': ('Aider', ''),

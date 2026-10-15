@@ -38,6 +38,9 @@ ShellRoot {
     // Lock screen: OLED flip clock -> control panel on click / typing (Super+L)
     LockScreen {}
 
+    // Spotlight / Raycast-style Liquid Obsidian App Launcher (Super+R)
+    AppLauncher {}
+
     Variants {
         model: Quickshell.screens
 

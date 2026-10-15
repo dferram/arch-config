@@ -51,6 +51,8 @@ Scope {
             statusText = "";
             failCount = 0;
             refreshAgents();
+            refreshReminders();
+            refreshWallpaper();
             if (fingerprintAvailable) {
                 fprintProc.running = true;
             }
@@ -178,6 +180,47 @@ Scope {
         repeat: true
         running: ctx.locked
         onTriggered: ctx.refreshAgents()
+    }
+
+    // Calendar reminders (same store as the bar clock popup) + current wallpaper.
+    property var reminders: []
+    function refreshReminders() {
+        if (!remProc.running) remProc.running = true;
+    }
+    Process {
+        id: remProc
+        command: ["/home/ferram/.local/bin/hypr-reminders", "list"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const r = JSON.parse(text);
+                    ctx.reminders = Array.isArray(r) ? r : [];
+                } catch (e) {
+                    ctx.reminders = [];
+                }
+            }
+        }
+    }
+    Timer {
+        interval: 60000
+        repeat: true
+        running: ctx.locked
+        onTriggered: ctx.refreshReminders()
+    }
+
+    property string wallpaperUrl: ""
+    function refreshWallpaper() {
+        if (!wallProc.running) wallProc.running = true;
+    }
+    Process {
+        id: wallProc
+        command: ["sh", "-c", "sed -n 's/^[[:space:]]*path[[:space:]]*=[[:space:]]*//p' \"$HOME/.config/hypr/hyprpaper.conf\" | head -1"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const p = text.trim();
+                ctx.wallpaperUrl = p !== "" ? "file://" + encodeURI(p) : "";
+            }
+        }
     }
 
     readonly property string userName: Quickshell.env("USER") || "ferram"
