@@ -12,14 +12,14 @@ SECTIONS = [
     ('APPLICATIONS · HYPRLAND', [
         ('Super + H', 'Open this command reference'),
         ('Super + Q', 'Kitty terminal'),
-        ('Super + R', 'Hyprlauncher application launcher'),
+        ('Super + R', 'Quickshell Spotlight application launcher'),
         ('Super + W', 'Chromium'),
         ('Super + G', 'Chromium web app (profile 1)'),
         ('Super + A', 'Antigravity IDE'),
         ('Super + E', 'Dolphin file manager'),
         ('Super + S', 'Spotify'),
         ('Super + B', 'Btop resource monitor'),
-        ('Super + L', 'Lock the session with Hyprlock'),
+        ('Super + L', 'Lock session (Quickshell OLED flip clock / Hyprlock)'),
     ]),
     ('WINDOWS · HYPRLAND', [
         ('Super + C', 'Close the active window'),
@@ -137,39 +137,24 @@ SECTIONS = [
     ]),
 ]
 
-# Native terminal pixel art: no image protocol or extra dependency required.
-# Compact charcoal keycap, with a flat face and beveled pixel edges.
+# Arch silhouette rendered directly in the terminal.
 LOGO = [
-    '   ▄▄▄▄▄▄▄▄▄▄▄▄       ',
-    ' ▄█▀          ▀█▄     ',
-    ' ██            ██     ',
-    ' ██    Ctrl    ██  +  ',
-    ' ██            ██     ',
-    ' ▀█▄▄▄▄▄▄▄▄▄▄▄▄█▀     ',
-    '   ▀▀▀▀▀▀▀▀▀▀▀▀       ',
+    '          ▄          ',
+    '         ▟█▙         ',
+    '        ▟███▙        ',
+    '       ▟◤ ▜██▙       ',
+    '      ▟██  ███▙      ',
+    '     ▟██▛  ▜███▙     ',
+    '    ▟█▛      ▜██▙    ',
 ]
 
 
 def styled_runs(line, style):
-    """Share the keycap palette between curses and ordinary terminal output."""
+    """Share the Arch blue palette between curses and terminal output."""
     if style < 10:
         return [(line, style)]
-    row = style - 10
-    runs = []
-    for x, char in enumerate(line):
-        if x >= len(LOGO[row]):
-            color = 1
-        elif 1 <= row <= 5 and 3 <= x < 15:
-            color = 5 if char in ' Ctrl' else 6
-        elif char in '▄▀█':
-            color = 4
-        else:
-            color = 0
-        if runs and runs[-1][1] == color:
-            runs[-1] = (runs[-1][0] + char, color)
-        else:
-            runs.append((char, color))
-    return runs
+    logo_width = len(LOGO[style - 10])
+    return [(line[:logo_width], 4), (line[logo_width:], 1)]
 
 
 def normalize(value):
@@ -218,21 +203,16 @@ def render(width, query=''):
 
 def popup(screen, initial_query=''):
     curses.curs_set(0)
-    styles = [0, curses.A_BOLD, curses.A_DIM, curses.A_BOLD, 0, curses.A_BOLD, 0]
+    styles = [0, curses.A_BOLD, curses.A_DIM, curses.A_BOLD, curses.A_BOLD]
     if curses.has_colors():
         curses.start_color()
         curses.use_default_colors()
         curses.init_pair(1, curses.COLOR_CYAN, -1)
         styles[1] |= curses.color_pair(1)
         styles[3] |= curses.color_pair(1)
-        # xterm's neutral grays keep the key distinct from the cyan guide.
-        edge, face = (238, 242) if curses.COLORS >= 256 else (curses.COLOR_BLACK, curses.COLOR_BLACK)
-        curses.init_pair(2, edge, -1)
-        curses.init_pair(3, curses.COLOR_WHITE, face)
-        curses.init_pair(4, edge, face)
-        styles[4] = curses.color_pair(2)
-        styles[5] |= curses.color_pair(3)
-        styles[6] = curses.color_pair(4)
+        arch_blue = 38 if curses.COLORS >= 256 else curses.COLOR_CYAN
+        curses.init_pair(2, arch_blue, -1)
+        styles[4] |= curses.color_pair(2)
     query, offset, editing = initial_query, 0, False
     while True:
         height, width = screen.getmaxyx()
@@ -302,7 +282,7 @@ def main():
         curses.wrapper(popup, query)
     else:
         colors = ['', '\033[1;38;2;127;196;219m', '\033[2m', '\033[38;2;66;160;191m',
-                  '\033[38;5;238m', '\033[1;37;48;5;242m', '\033[38;5;238;48;5;242m']
+                  '\033[1;38;2;23;147;209m']
         for line, style in render(shutil.get_terminal_size((100, 30)).columns - 2, query):
             print(''.join(f'{colors[color]}{text}\033[0m' for text, color in styled_runs(line, style))
                   if sys.stdout.isatty() else line)

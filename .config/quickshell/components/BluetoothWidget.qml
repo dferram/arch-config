@@ -1,7 +1,6 @@
 import QtQuick
-import QtQuick.Layouts
+import QtQuick.Controls
 import Quickshell
-import Quickshell.Bluetooth
 import Quickshell.Io
 import "../theme"
 
@@ -23,6 +22,12 @@ Item {
     property string connectedName: ""
     property int connectedBattery: -1
     property var pairedDevices: []
+    property var nearbyDevices: []
+    property bool hasScanned: false
+    readonly property var visibleDevices: pairedDevices.concat(nearbyDevices.filter(d => !pairedDevices.some(p => p.mac === d.mac)))
+    property string actionError: ""
+    property string pendingAction: ""
+    readonly property bool busy: actionProc.running || toggleProc.running || ctlProc.running || scanProc.running
     property bool isConnecting: false
     property string connectingMac: ""
 
@@ -57,10 +62,11 @@ Item {
                     root.isPowered = !!data.powered;
                     root.isConnected = !!data.connected;
                     root.connectedName = data.connected_name || "";
-                    root.pairedDevices = data.devices || [];
+                    root.pairedDevices = (data.devices || []).sort((a, b) => Number(b.connected) - Number(a.connected) || a.name.localeCompare(b.name));
+                    root.connectedBattery = -1;
                     if (data.connected_name) {
-                        for (let d of data.devices) {
-                            if (d.connected && d.battery > 0) {
+                        for (let d of root.pairedDevices) {
+                            if (d.connected && d.name === root.connectedName && d.battery >= 0) {
                                 root.connectedBattery = d.battery;
                                 break;
                             }
@@ -90,15 +96,38 @@ Item {
     // Toggle process
     Process {
         id: toggleProc
-        onExited: btProc.running = true
+        onExited: (exitCode) => {
+            if (exitCode !== 0) root.actionError = "Could not complete the action. Please try again.";
+            btProc.running = true;
+        }
     }
 
     // Device connect/disconnect process
     Process {
         id: actionProc
-        onExited: {
+        onExited: (exitCode) => {
+            if (exitCode !== 0) root.actionError = "Could not " + root.pendingAction + ". Check the device and try again.";
             root.isConnecting = false;
             root.connectingMac = "";
+            btProc.running = true;
+        }
+    }
+
+    Process {
+        id: scanProc
+        command: ["/home/ferram/.local/bin/hypr-bluetooth", "scan-json"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.nearbyDevices = JSON.parse(text);
+                    root.hasScanned = true;
+                } catch (e) {
+                    root.actionError = "Could not search for devices. Please try again.";
+                }
+            }
+        }
+        onExited: (exitCode) => {
+            if (exitCode !== 0) root.actionError = "Could not search for devices. Please try again.";
             btProc.running = true;
         }
     }
@@ -106,14 +135,17 @@ Item {
     // External Rofi / Menu process
     Process {
         id: ctlProc
-        onExited: btProc.running = true
+        onExited: (exitCode) => {
+            if (exitCode !== 0) root.actionError = "Could not complete the action. Please try again.";
+            btProc.running = true;
+        }
     }
 
     BarPill {
         id: pill
         iconSource: root.iconDataUri
         text: root.pillText
-        subText: root.connectedBattery > 0 ? (root.connectedBattery + "%") : ""
+        subText: root.isConnected && root.connectedBattery >= 0 ? (root.connectedBattery + "%") : ""
         accentColor: theme.blue
         active: root.activePopupId === "bluetooth"
 
@@ -122,7 +154,6 @@ Item {
         }
     }
 
-    // Detailed Popover Card with In-Card Paired Devices
     PopupWindow {
         id: popup
         anchor.window: root.parentWindow
@@ -130,30 +161,18 @@ Item {
         anchor.edges: Edges.Bottom
         anchor.gravity: Edges.Bottom
         anchor.margins.top: 8
-
         visible: root.activePopupId === "bluetooth"
-        implicitWidth: 290
-        implicitHeight: cardLayout.implicitHeight + 38
+        implicitWidth: 320
+        implicitHeight: cardLayout.implicitHeight + 36
         color: "transparent"
 
         Rectangle {
             anchors.fill: parent
-            anchors.topMargin: 10
+            anchors.topMargin: 8
             color: theme.popupBg
             border.color: theme.border
             border.width: 1
             radius: theme.radiusLarge
-
-            opacity: popup.visible ? 1.0 : 0.0
-            scale: popup.visible ? 1.0 : 0.95
-            transformOrigin: Item.Top
-            transform: Translate {
-                y: popup.visible ? 0 : -6
-                Behavior on y { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
-            }
-
-            Behavior on opacity { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
-            Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
             Column {
                 id: cardLayout
@@ -161,317 +180,221 @@ Item {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.margins: 14
-                spacing: 12
+                spacing: 11
 
-                // Header: Status + Toggle Switch
-                Item {
+                Row {
                     width: parent.width
-                    height: 28
-
-                    Row {
-                        anchors.left: parent.left
+                    spacing: 10
+                    Image {
+                        source: root.iconDataUri
+                        width: 26
+                        height: 26
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 8
-
-                        Image {
-                            source: root.iconDataUri
-                            width: 22
-                            height: 22
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            Text {
-                                text: "Bluetooth"
-                                color: theme.text
-                                font.family: theme.fontFamily
-                                font.pixelSize: 13
-                                font.weight: Font.Bold
-                            }
-                            Text {
-                                text: root.isConnected ? root.connectedName : (root.isPowered ? "Powered On" : "Disabled")
-                                color: root.isConnected ? theme.blue : theme.textMuted
-                                font.family: theme.fontFamily
-                                font.pixelSize: 10
-                                font.weight: Font.Medium
-                                elide: Text.ElideRight
-                                width: 140
-                            }
-                        }
                     }
-
-                    // Power Toggle Pill
-                    Rectangle {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 58
-                        height: 24
-                        radius: 12
-                        color: root.isPowered ? Qt.rgba(59/255, 130/255, 246/255, 0.22) : Qt.rgba(255, 255, 255, 0.08)
-                        border.color: root.isPowered ? theme.blue : Qt.rgba(255, 255, 255, 0.15)
-                        border.width: 1
-
+                    Column {
+                        width: parent.width - 36
+                        spacing: 1
                         Text {
-                            anchors.centerIn: parent
-                            text: root.isPowered ? "ON" : "OFF"
-                            color: root.isPowered ? theme.blueLight : theme.textMuted
+                            text: "Bluetooth"
+                            color: theme.text
                             font.family: theme.fontFamily
-                            font.pixelSize: 10
-                            font.weight: Font.Bold
+                            font.pixelSize: 14
+                            font.weight: Font.DemiBold
                         }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                toggleProc.command = ["/home/ferram/.local/bin/hypr-bluetooth", "toggle"];
-                                toggleProc.running = true;
-                            }
+                        Text {
+                            width: parent.width
+                            text: toggleProc.running ? "Updating Bluetooth…"
+                                : !root.isPowered ? "Turn on to connect your devices"
+                                : root.isConnected ? root.pairedDevices.filter(d => d.connected).length + " connected · Ready to pair"
+                                : "Not connected · Ready to pair"
+                            color: root.isConnected ? theme.blueLight : theme.textMuted
+                            font.family: theme.fontFamily
+                            font.pixelSize: 11
+                            elide: Text.ElideRight
                         }
                     }
                 }
 
-                // Section Label
-                Text {
-                    text: "PAIRED DEVICES"
-                    color: theme.textMuted
-                    font.family: theme.fontFamily
-                    font.pixelSize: 10
-                    font.weight: Font.Bold
+                Rectangle { width: parent.width; height: 1; color: theme.borderSubtle }
+
+                Row {
                     visible: root.isPowered
+                    width: parent.width
+                    Text {
+                        width: parent.width - 30
+                        text: root.hasScanned ? "Paired & Nearby Devices" : "Paired Devices"
+                        color: theme.textDim
+                        font.family: theme.fontFamily
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                    }
+                    Text {
+                        width: 30
+                        text: root.visibleDevices.length
+                        horizontalAlignment: Text.AlignRight
+                        color: theme.textMuted
+                        font.family: theme.fontFamily
+                        font.pixelSize: 10
+                    }
                 }
 
-                // In-Card Paired Devices List
-                Column {
+                ScrollView {
+                    visible: root.isPowered && root.visibleDevices.length > 0
                     width: parent.width
-                    spacing: 6
-                    visible: root.isPowered
-
-                    Repeater {
-                        model: root.pairedDevices
-
-                        delegate: Rectangle {
-                            required property var modelData
-                            width: parent.width
-                            height: 44
-                            radius: theme.radiusSmall
-                            color: devMa.containsMouse ? Qt.rgba(255, 255, 255, 0.08) : theme.surface
-                            border.color: modelData.connected ? Qt.rgba(59/255, 130/255, 246/255, 0.40) : theme.borderSubtle
-                            border.width: 1
-
-                            Behavior on color { ColorAnimation { duration: 150 } }
-
-                            Row {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 10
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 8
-                                width: parent.width - 96
-
+                    height: Math.min(deviceList.implicitHeight, 264)
+                    contentWidth: availableWidth
+                    clip: true
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    Column {
+                        id: deviceList
+                        width: parent.width
+                        spacing: 6
+                        Repeater {
+                            model: root.visibleDevices
+                            delegate: Rectangle {
+                                id: deviceRow
+                                required property var modelData
+                                readonly property bool pending: root.isConnecting && root.connectingMac === modelData.mac
+                                width: deviceList.width
+                                height: 48
+                                radius: 6
+                                color: modelData.connected ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.12) : "transparent"
+                                border.color: modelData.connected ? theme.blueDeep : "transparent"
+                                border.width: 1
                                 Text {
-                                    text: modelData.type === "audio" ? "󰋋" : "󰂯"
-                                    font.family: theme.fontFamily
-                                    font.pixelSize: 15
-                                    color: modelData.connected ? theme.blueLight : theme.textMuted
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 8
                                     anchors.verticalCenter: parent.verticalCenter
+                                    text: deviceRow.modelData.type === "audio" ? "󰋋" : "󰂯"
+                                    font.family: "GeistMono Nerd Font Propo"
+                                    font.pixelSize: 16
+                                    color: deviceRow.modelData.connected ? theme.blueLight : theme.textMuted
                                 }
-
                                 Column {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 34
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - 24
-
+                                    width: parent.width - 126
+                                    spacing: 2
                                     Text {
-                                        text: modelData.name
-                                        color: theme.text
-                                        font.family: theme.fontFamily
-                                        font.pixelSize: 12
-                                        font.weight: Font.DemiBold
-                                        elide: Text.ElideRight
                                         width: parent.width
+                                        text: deviceRow.modelData.name
+                                        elide: Text.ElideRight
+                                        color: deviceRow.modelData.connected ? theme.blueLight : theme.text
+                                        font.family: theme.fontFamily
+                                        font.pixelSize: 11
+                                        font.weight: Font.DemiBold
                                     }
-
                                     Text {
-                                        text: {
-                                            if (root.isConnecting && root.connectingMac === modelData.mac) return "Connecting…";
-                                            if (modelData.connected) {
-                                                return modelData.battery > 0 ? ("Connected • " + modelData.battery + "%") : "Connected";
-                                            }
-                                            return "Saved";
-                                        }
-                                        color: modelData.connected ? theme.blueLight : theme.textMuted
+                                        width: parent.width
+                                        text: deviceRow.pending ? (root.pendingAction === "pair" ? "Pairing…" : root.pendingAction === "connect" ? "Connecting…" : "Disconnecting…")
+                                            : deviceRow.modelData.connected ? "Connected" + (deviceRow.modelData.battery >= 0 ? " · " + deviceRow.modelData.battery + "%" : "") : deviceRow.modelData.discovered ? "Available to pair" : "Not connected"
+                                        elide: Text.ElideRight
+                                        color: theme.textMuted
                                         font.family: theme.fontFamily
                                         font.pixelSize: 10
-                                        font.weight: Font.Medium
                                     }
                                 }
-                            }
-
-                            // Connect / Disconnect Action Button
-                            Rectangle {
-                                anchors.right: parent.right
-                                anchors.rightMargin: 8
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 72
-                                height: 26
-                                radius: 13
-                                color: {
-                                    if (modelData.connected) {
-                                        return btnMa.containsMouse ? Qt.rgba(239/255, 68/255, 68/255, 0.25) : Qt.rgba(255, 255, 255, 0.06);
-                                    }
-                                    return btnMa.containsMouse ? Qt.lighter(theme.blue, 1.15) : theme.blue;
-                                }
-                                border.color: modelData.connected ? (btnMa.containsMouse ? "#ef4444" : Qt.rgba(255, 255, 255, 0.12)) : "transparent"
-                                border.width: 1
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: {
-                                        if (root.isConnecting && root.connectingMac === modelData.mac) return "…";
-                                        return modelData.connected ? "Disconnect" : "Connect";
-                                    }
-                                    color: modelData.connected ? (btnMa.containsMouse ? "#ef4444" : theme.textSub) : "#ffffff"
-                                    font.family: theme.fontFamily
-                                    font.pixelSize: 10
-                                    font.weight: Font.Bold
-                                }
-
-                                MouseArea {
-                                    id: btnMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
+                                BluetoothActionButton {
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 6
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 80
+                                    text: deviceRow.pending ? "Please wait…" : deviceRow.modelData.discovered ? "Pair" : deviceRow.modelData.connected ? "Disconnect" : "Connect"
+                                    accent: deviceRow.modelData.connected
+                                    enabled: !root.busy
+                                    Accessible.name: text + " " + deviceRow.modelData.name
                                     onClicked: {
+                                        root.actionError = "";
+                                        root.pendingAction = deviceRow.modelData.discovered ? "pair" : deviceRow.modelData.connected ? "disconnect" : "connect";
                                         root.isConnecting = true;
-                                        root.connectingMac = modelData.mac;
-                                        if (modelData.connected) {
-                                            actionProc.command = ["/home/ferram/.local/bin/hypr-bluetooth", "disconnect", modelData.mac, modelData.name];
-                                        } else {
-                                            actionProc.command = ["/home/ferram/.local/bin/hypr-bluetooth", "connect", modelData.mac, modelData.name];
-                                        }
+                                        root.connectingMac = deviceRow.modelData.mac;
+                                        actionProc.command = ["/home/ferram/.local/bin/hypr-bluetooth", root.pendingAction, deviceRow.modelData.mac, deviceRow.modelData.name];
                                         actionProc.running = true;
                                     }
                                 }
                             }
-
-                            MouseArea {
-                                id: devMa
-                                anchors.fill: parent
-                                z: -1
-                                hoverEnabled: true
-                            }
-                        }
-                    }
-
-                    // Empty state
-                    Rectangle {
-                        visible: root.pairedDevices.length === 0
-                        width: parent.width
-                        height: 38
-                        radius: theme.radiusSmall
-                        color: theme.surface
-                        Text {
-                            anchors.centerIn: parent
-                            text: "No paired devices found"
-                            color: theme.textMuted
-                            font.family: theme.fontFamily
-                            font.pixelSize: 11
                         }
                     }
                 }
 
-                // Action Buttons (Scan + Sleek Rofi Menu)
+                Rectangle {
+                    visible: !root.isPowered || root.visibleDevices.length === 0
+                    width: parent.width
+                    height: emptyText.implicitHeight + 24
+                    radius: theme.radiusSmall
+                    color: theme.surface
+                    Text {
+                        id: emptyText
+                        anchors.centerIn: parent
+                        width: parent.width - 24
+                        text: !root.isPowered ? "Bluetooth is off. Turn it on to reconnect or pair a device." : "No paired devices yet. Put your device in pairing mode, then choose Pair New Device."
+                        wrapMode: Text.WordWrap
+                        color: theme.textMuted
+                        font.family: theme.fontFamily
+                        font.pixelSize: 11
+                    }
+                }
+
+                Text {
+                    visible: root.actionError !== ""
+                    width: parent.width
+                    text: root.actionError
+                    wrapMode: Text.WordWrap
+                    color: theme.red
+                    font.family: theme.fontFamily
+                    font.pixelSize: 11
+                }
+
+                Text {
+                    visible: root.isPowered && (scanProc.running || root.hasScanned)
+                    width: parent.width
+                    text: scanProc.running ? "Searching for nearby devices…"
+                        : root.nearbyDevices.filter(d => !root.pairedDevices.some(p => p.mac === d.mac)).length > 0
+                        ? "Choose Pair next to a nearby device."
+                        : "No new devices found. Enable pairing mode and scan again."
+                    wrapMode: Text.WordWrap
+                    color: theme.textMuted
+                    font.family: theme.fontFamily
+                    font.pixelSize: 11
+                }
+
+                BluetoothActionButton {
+                    visible: root.isPowered
+                    width: parent.width
+                    text: scanProc.running ? "Searching…" : root.hasScanned ? "Scan Again" : "＋  Pair New Device"
+                    enabled: !root.busy
+                    onClicked: {
+                        root.actionError = "";
+                        root.nearbyDevices = [];
+                        root.hasScanned = false;
+                        scanProc.running = true;
+                    }
+                }
+
                 Row {
                     width: parent.width
                     spacing: 8
-                    visible: root.isPowered
-
-                    // Scan Nearby Button
-                    Rectangle {
+                    BluetoothActionButton {
                         width: (parent.width - 8) / 2
-                        height: 28
-                        radius: theme.radiusSmall
-                        color: scanMa.containsMouse ? theme.surfaceHover : theme.surface
-                        border.color: theme.borderSubtle
-                        border.width: 1
-
-                        Row {
-                            anchors.centerIn: parent
-                            spacing: 6
-
-                            Text {
-                                text: "󰍉"
-                                color: theme.textSub
-                                font.pixelSize: 13
-                                font.family: theme.fontFamily
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            Text {
-                                text: "Scan Nearby"
-                                color: theme.textSub
-                                font.pixelSize: 11
-                                font.family: theme.fontFamily
-                                font.weight: Font.Medium
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: scanMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                root.togglePopup("");
-                                ctlProc.command = ["/home/ferram/.local/bin/hypr-bluetooth", "scan"];
-                                ctlProc.running = true;
-                            }
+                        text: toggleProc.running ? "Please wait…" : root.isPowered ? "Turn Bluetooth Off" : "Turn Bluetooth On"
+                        enabled: !root.busy
+                        onClicked: {
+                            root.actionError = "";
+                            toggleProc.command = ["/home/ferram/.local/bin/hypr-bluetooth", "toggle"];
+                            toggleProc.running = true;
                         }
                     }
-
-                    // Full Bluetooth Menu Button
-                    Rectangle {
+                    BluetoothActionButton {
                         width: (parent.width - 8) / 2
-                        height: 28
-                        radius: theme.radiusSmall
-                        color: menuMa.containsMouse ? Qt.rgba(59/255, 130/255, 246/255, 0.20) : theme.surface
-                        border.color: theme.blue
-                        border.width: 1
-
-                        Row {
-                            anchors.centerIn: parent
-                            spacing: 6
-
-                            Text {
-                                text: "󰂯"
-                                color: theme.blueLight
-                                font.pixelSize: 13
-                                font.family: theme.fontFamily
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            Text {
-                                text: "Bluetooth Menu"
-                                color: theme.blueLight
-                                font.pixelSize: 11
-                                font.family: theme.fontFamily
-                                font.weight: Font.Medium
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: menuMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                root.togglePopup("");
-                                ctlProc.command = ["/home/ferram/.local/bin/hypr-bluetooth", "menu"];
-                                ctlProc.running = true;
-                            }
+                        text: "Manage Bluetooth"
+                        accent: true
+                        enabled: !root.busy
+                        onClicked: {
+                            root.actionError = "";
+                            root.togglePopup("");
+                            ctlProc.command = ["/home/ferram/.local/bin/hypr-bluetooth", "menu"];
+                            ctlProc.running = true;
                         }
                     }
                 }

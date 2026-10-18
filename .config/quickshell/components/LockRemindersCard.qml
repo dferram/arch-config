@@ -4,13 +4,12 @@ import "../theme"
 // Upcoming calendar reminders (from hypr-reminders) for the lock screen.
 Rectangle {
     id: root
+    Theme { id: theme }
     property date now: new Date()
     property var reminders: []
-    property color accent: "#42a0bf"
+    property color accent: theme.blue
     property bool active: false
     property int maxItems: 3
-
-    Theme { id: theme }
     radius: 16
     color: theme.popupBg
     border.width: 1

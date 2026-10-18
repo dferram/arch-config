@@ -53,7 +53,7 @@ Item {
     // Comprehensive battery telemetry read
     Process {
         id: sysfsProc
-        command: ["/home/ferram/Personal/dotfiles/.config/quickshell/scripts/battery-details.py"]
+        command: ["python3", Quickshell.shellPath("scripts/battery-details.py")]
         running: true
         stdout: StdioCollector {
             onTextChanged: {

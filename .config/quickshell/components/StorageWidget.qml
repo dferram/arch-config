@@ -27,7 +27,7 @@ Item {
     // Fetch disk storage details
     Process {
         id: diskProc
-        command: ["/home/ferram/Personal/dotfiles/.config/quickshell/scripts/disk-partitions.py"]
+        command: ["python3", Quickshell.shellPath("scripts/disk-partitions.py")]
         running: true
         stdout: StdioCollector {
             onTextChanged: {

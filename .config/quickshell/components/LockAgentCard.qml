@@ -4,16 +4,16 @@ import "../theme"
 
 Rectangle {
     id: root
+    Theme { id: theme }
     property var agents: []
     property bool available: false
-    property color accent: "#42a0bf"
+    property color accent: theme.blue
     // Use the exact asset paths used by WorkspacesWidget.
     function iconFor(agent) {
         if (agent.name === "Devin") return "file:///usr/share/pixmaps/devin-desktop.png";
         if (agent.icon) return "file://" + Quickshell.env("HOME") + "/.local/share/icons/" + agent.icon;
         return "";
     }
-    Theme { id: theme }
     radius: 16
     color: theme.popupBg
     border.width: 1

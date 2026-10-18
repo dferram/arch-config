@@ -294,6 +294,7 @@ PanelWindow {
                     let lowerSum = (summary || "").toLowerCase();
                     let lowerBody = (bodyText || "").toLowerCase();
                     let appIconName = (modelData && modelData.appIcon) ? modelData.appIcon.toLowerCase() : "";
+                    let ctx = (card.metaContext || "").toLowerCase();
 
                     // Night Light / Sunset Mode (Warm Amber / Gold)
                     if (lowerApp.includes("night") || lowerSum.includes("night") ||
@@ -334,6 +335,166 @@ PanelWindow {
                         };
                     }
 
+                    // Volume & Brightness (Neutral Apple Glass)
+                    if (lowerApp.includes("volume") || lowerApp.includes("volumen")) {
+                        return {
+                            primary: "#ffffff",
+                            secondary: "#e2e8f0",
+                            accent: "#94a3b8",
+                            label: "VOLUME",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    if (lowerApp.includes("bright") || lowerApp.includes("brillo")) {
+                        return {
+                            primary: "#ffffff",
+                            secondary: "#fef08a",
+                            accent: "#cbd5e1",
+                            label: "BRIGHTNESS",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // --- 1. AI Coding Agents & LLMs ---
+                    // Devin (Pure Specular White & Platinum / Clean Obsidian Glass)
+                    if (lowerApp.includes("devin") || ctx.includes("devin")) {
+                        return {
+                            primary: "#ffffff",    // Specular White
+                            secondary: "#e2e8f0",  // Crisp Platinum
+                            accent: "#94a3b8",     // Slate Glow
+                            label: "DEVIN",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Antigravity IDE (Cosmic Cyan / Electric Blue / Cosmic Indigo)
+                    if (lowerApp.includes("antigravity") || ctx.includes("antigravity")) {
+                        return {
+                            primary: "#38bdf8",    // Electric Cyan
+                            secondary: "#3b82f6",  // Antigravity Blue
+                            accent: "#818cf8",     // Cosmic Indigo
+                            label: "ANTIGRAVITY IDE",
+                            isAntigravity: true,
+                            isNightLight: false
+                        };
+                    }
+
+                    // ChatGPT / OpenAI Codex (OpenAI Emerald Teal)
+                    if (lowerApp.includes("chatgpt") || ctx.includes("chatgpt") || lowerApp.includes("codex") || ctx.includes("codex") || ctx.includes("openai")) {
+                        return {
+                            primary: "#10a37f",    // OpenAI Emerald
+                            secondary: "#1a7f64",  // Deep Teal
+                            accent: "#2dd4bf",     // Mint Glow
+                            label: ctx.includes("codex") ? "OPENAI CODEX" : "CHATGPT",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Anthropic Claude (Claude Warm Terracotta)
+                    if (lowerApp.includes("claude") || ctx.includes("claude") || ctx.includes("anthropic")) {
+                        return {
+                            primary: "#da7756",    // Claude Terracotta
+                            secondary: "#c15f3e",  // Deep Rust
+                            accent: "#f4a261",     // Warm Amber Glow
+                            label: "CLAUDE",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Google Gemini (Gemini Sparkle Blue / Lilac)
+                    if (lowerApp.includes("gemini") || ctx.includes("gemini") || ctx.includes("bard")) {
+                        return {
+                            primary: "#4e82ee",    // Sparkle Blue
+                            secondary: "#9b72cf",  // Celestial Lilac
+                            accent: "#ba9efc",     // Violet Glow
+                            label: "GEMINI",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // DeepSeek (Cobalt Electric Blue)
+                    if (lowerApp.includes("deepseek") || ctx.includes("deepseek")) {
+                        return {
+                            primary: "#0066ff",    // DeepSeek Blue
+                            secondary: "#004ecc",  // Deep Navy
+                            accent: "#60a5fa",     // Sky Glow
+                            label: "DEEPSEEK",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // GitHub Copilot (Electric Lilac / Indigo)
+                    if (lowerApp.includes("copilot") || ctx.includes("copilot")) {
+                        return {
+                            primary: "#6e40c9",    // Copilot Indigo
+                            secondary: "#552da3",  // Deep Purple
+                            accent: "#a371f7",     // Neon Glow
+                            label: "GITHUB COPILOT",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Ollama (Pure Monochrome / Silver)
+                    if (lowerApp.includes("ollama") || ctx.includes("ollama")) {
+                        return {
+                            primary: "#ffffff",    // Crisp White
+                            secondary: "#cbd5e1",  // Slate Silver
+                            accent: "#94a3b8",     // Soft Glow
+                            label: "OLLAMA",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // --- 2. Custom Affiliations & Themes ---
+                    // Spider-Man (Marvel Vibrant Red & Electric Blue)
+                    if (ctx.includes("spider-man") || ctx.includes("spiderman") || ctx.includes("spider man") ||
+                        ctx.includes("spider_man") || ctx.includes("hombre araña") || ctx.includes("peter parker") ||
+                        ctx.includes("miles morales") || ctx.includes("spider-verse") || ctx.includes("spiderverse")) {
+                        return {
+                            primary: "#e23636",    // Spidey Crimson
+                            secondary: "#0266c8",  // Web Electric Blue
+                            accent: "#38bdf8",     // Neon Blue Glow
+                            label: "SPIDER-MAN",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Colgate-Palmolive (Official CP Crimson & Ruby)
+                    if (ctx.includes("colgate") || ctx.includes("colpal")) {
+                        return {
+                            primary: "#e21836",    // Colgate Red
+                            secondary: "#b81027",  // Deep Ruby
+                            accent: "#ff6b6b",     // Soft Red Glow
+                            label: "COLGATE-PALMOLIVE",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Troyanos UAQ (UAQ Royal Blue & Gold)
+                    if (ctx.includes("troyanos") || ctx.includes("uaq")) {
+                        return {
+                            primary: "#0072ce",    // UAQ Royal Blue
+                            secondary: "#002b49",  // Deep Navy
+                            accent: "#f2a900",     // Troyanos Gold
+                            label: "TROYANOS UAQ",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // --- 3. Social & Messaging ---
                     // WhatsApp (Vibrant Emerald Green)
                     if (card.isWhatsApp) {
                         return {
@@ -358,49 +519,484 @@ PanelWindow {
                         };
                     }
 
-                    // Hyprland / Arch Linux (Official Arch Cyan)
-                    if (lowerApp.includes("hypr") || lowerApp.includes("arch") || lowerSum.includes("hypr") || lowerSum.includes("arch")) {
+                    // Discord / Vesktop (Blurple)
+                    if (lowerApp.includes("discord") || lowerApp.includes("vesktop") || ctx.includes("discord")) {
                         return {
-                            primary: "#1793d1",    // Arch Cyan
-                            secondary: "#0f6c9c",  // Deep Arch Blue
-                            accent: "#38bdf8",     // Sky Blue Glow
-                            label: lowerApp.includes("hypr") ? "HYPRLAND" : "ARCH LINUX",
+                            primary: "#5865f2",    // Discord Blurple
+                            secondary: "#7289da",  // Soft Lilac
+                            accent: "#818cf8",     // Indigo Glow
+                            label: "DISCORD",
                             isAntigravity: false,
                             isNightLight: false
                         };
                     }
 
-                    // System / Power / Critical alerts (Red LED beam)
-                    if (lowerApp.includes("system") || lowerApp.includes("sistema") ||
-                        lowerApp.includes("power") || lowerApp.includes("hypr-battery") || card.urgency === 2) {
+                    // Telegram (Electric Cyan-Blue)
+                    if (lowerApp.includes("telegram") || ctx.includes("telegram")) {
                         return {
-                            primary: "#ff3b30",    // Apple Coral Red
-                            secondary: "#e22b31",  // Deep Carmine
-                            accent: "#ff787d",     // Red glow
-                            label: (appName && appName.length > 0) ? appName.toUpperCase() : "SYSTEM",
+                            primary: "#229ed9",    // Telegram Blue
+                            secondary: "#0088cc",  // Deep Cyan
+                            accent: "#38bdf8",     // Sky Glow
+                            label: "TELEGRAM",
                             isAntigravity: false,
                             isNightLight: false
                         };
                     }
 
-                    // Volume & Brightness (Neutral Apple Glass)
-                    if (lowerApp.includes("volume") || lowerApp.includes("volumen")) {
+                    // Slack (Aubergine & Emerald)
+                    if (lowerApp.includes("slack") || ctx.includes("slack")) {
                         return {
-                            primary: "#ffffff",
-                            secondary: "#e2e8f0",
-                            accent: "#94a3b8",
-                            label: "VOLUME",
+                            primary: "#e01e5a",    // Slack Rose
+                            secondary: "#ecb22e",  // Slack Gold
+                            accent: "#2eb67d",     // Slack Green
+                            label: "SLACK",
                             isAntigravity: false,
                             isNightLight: false
                         };
                     }
 
-                    if (lowerApp.includes("bright") || lowerApp.includes("brillo")) {
+                    // LinkedIn (Corporate Electric Blue)
+                    if (lowerApp.includes("linkedin") || ctx.includes("linkedin")) {
                         return {
-                            primary: "#ffffff",
-                            secondary: "#fef08a",
-                            accent: "#cbd5e1",
-                            label: "BRIGHTNESS",
+                            primary: "#0a66c2",    // LinkedIn Blue
+                            secondary: "#004182",  // Deep Navy
+                            accent: "#38bdf8",     // Sky Glow
+                            label: "LINKEDIN",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Reddit (Vibrant Reddit Orange)
+                    if (lowerApp.includes("reddit") || ctx.includes("reddit")) {
+                        return {
+                            primary: "#ff4500",    // Reddit Orange
+                            secondary: "#e03d00",  // Deep Amber-Red
+                            accent: "#ff784e",     // Coral Glow
+                            label: "REDDIT",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Twitter / X (Pure Monochrome Platinum)
+                    if (lowerApp.includes("twitter") || ctx.includes("twitter") || ctx.includes("x.com") || lowerApp === "x") {
+                        return {
+                            primary: "#ffffff",    // White
+                            secondary: "#cbd5e1",  // Slate Silver
+                            accent: "#94a3b8",     // Slate Glow
+                            label: "X / TWITTER",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Twitch (Twitch Purple)
+                    if (lowerApp.includes("twitch") || ctx.includes("twitch")) {
+                        return {
+                            primary: "#9146ff",    // Twitch Electric Purple
+                            secondary: "#772ce8",  // Deep Violet
+                            accent: "#a970ff",     // Neon Glow
+                            label: "TWITCH",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // --- 4. Google Workspace Ecosystem ---
+                    // Gmail (Google Mail Red)
+                    if (lowerApp.includes("gmail") || ctx.includes("gmail") || ctx.includes("mail.google")) {
+                        return {
+                            primary: "#ea4335",    // Gmail Red
+                            secondary: "#c5221f",  // Deep Crimson
+                            accent: "#f87171",     // Coral Glow
+                            label: "GMAIL",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Google Meet (Google Meet Green)
+                    if (lowerApp.includes("meet") || ctx.includes("google meet") || ctx.includes("meet.google")) {
+                        return {
+                            primary: "#00ac47",    // Meet Green
+                            secondary: "#00832d",  // Deep Jade
+                            accent: "#34d399",     // Mint Glow
+                            label: "GOOGLE MEET",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Google Classroom (Classroom Chalk Green)
+                    if (lowerApp.includes("classroom") || ctx.includes("classroom") || ctx.includes("google classroom")) {
+                        return {
+                            primary: "#0f9d58",    // Classroom Green
+                            secondary: "#137333",  // Forest Green
+                            accent: "#f4b400",     // Warm Gold
+                            label: "GOOGLE CLASSROOM",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Google Docs (Docs Royal Blue)
+                    if (ctx.includes("google docs") || ctx.includes("docs.google") || ctx.includes("documentos de google")) {
+                        return {
+                            primary: "#4285f4",    // Google Blue
+                            secondary: "#1a73e8",  // Royal Blue
+                            accent: "#93c5fd",     // Sky Glow
+                            label: "GOOGLE DOCS",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Google Sheets (Sheets Emerald)
+                    if (ctx.includes("google sheets") || ctx.includes("sheets.google") || ctx.includes("hojas de cálculo") || ctx.includes("hoja de cálculo")) {
+                        return {
+                            primary: "#0f9d58",    // Sheets Emerald
+                            secondary: "#1e8e3e",  // Deep Green
+                            accent: "#6ee7b7",     // Mint Glow
+                            label: "GOOGLE SHEETS",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Google Slides (Slides Sun Yellow)
+                    if (ctx.includes("google slides") || ctx.includes("slides.google") || ctx.includes("presentaciones de google")) {
+                        return {
+                            primary: "#f4b400",    // Slides Yellow
+                            secondary: "#f9ab00",  // Deep Gold
+                            accent: "#fde047",     // Bright Sun
+                            label: "GOOGLE SLIDES",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Google Drive (Drive Trifold Tricolor)
+                    if (ctx.includes("google drive") || ctx.includes("drive.google") || ctx.includes("mi unidad") || ctx.includes("my drive")) {
+                        return {
+                            primary: "#0f9d58",    // Drive Green
+                            secondary: "#4285f4",  // Drive Blue
+                            accent: "#f4b400",     // Drive Yellow
+                            label: "GOOGLE DRIVE",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Google Keep (Keep Amber)
+                    if (ctx.includes("google keep") || ctx.includes("keep.google")) {
+                        return {
+                            primary: "#fbbc04",    // Keep Amber
+                            secondary: "#f9ab00",  // Deep Gold
+                            accent: "#fde047",     // Sun Glow
+                            label: "GOOGLE KEEP",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Google Forms (Forms Purple)
+                    if (ctx.includes("google forms") || ctx.includes("forms.google") || ctx.includes("formularios de google")) {
+                        return {
+                            primary: "#7248b9",    // Forms Purple
+                            secondary: "#5e35b1",  // Deep Violet
+                            accent: "#c084fc",     // Lilac Glow
+                            label: "GOOGLE FORMS",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // --- 5. Media & Streaming ---
+                    // Spotify (Balanced Green)
+                    if (lowerApp.includes("spotify") || ctx.includes("spotify")) {
+                        return {
+                            primary: "#1db954",    // Spotify Green
+                            secondary: "#168a3e",  // Dark Green
+                            accent: "#10b981",     // Emerald Glow
+                            label: "SPOTIFY",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // YouTube / YouTube Music (YouTube Red)
+                    if (lowerApp.includes("youtube") || ctx.includes("youtube") || ctx.includes("youtu.be")) {
+                        return {
+                            primary: "#ff0000",    // YouTube Red
+                            secondary: "#cc0000",  // Deep Crimson
+                            accent: "#ff4d4d",     // Red Glow
+                            label: "YOUTUBE",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // SoundCloud (SoundCloud Sunset Orange)
+                    if (lowerApp.includes("soundcloud") || ctx.includes("soundcloud")) {
+                        return {
+                            primary: "#ff5500",    // SoundCloud Orange
+                            secondary: "#e04b00",  // Deep Sunset
+                            accent: "#ff884d",     // Warm Glow
+                            label: "SOUNDCLOUD",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Netflix (Netflix Cinema Red)
+                    if (lowerApp.includes("netflix") || ctx.includes("netflix")) {
+                        return {
+                            primary: "#e50914",    // Netflix Red
+                            secondary: "#b20710",  // Dark Ruby
+                            accent: "#ff3b30",     // Electric Red
+                            label: "NETFLIX",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Disney+ (Disney Deep Royal Blue)
+                    if (ctx.includes("disney+") || ctx.includes("disneyplus") || ctx.includes("disney plus")) {
+                        return {
+                            primary: "#113ccf",    // Disney Royal Blue
+                            secondary: "#002796",  // Deep Space Navy
+                            accent: "#38bdf8",     // Ice Glow
+                            label: "DISNEY+",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // HBO Max / Max (Max Royal Purple & Neon Blue)
+                    if (ctx.includes("hbo max") || ctx.includes("hbomax") || ctx.includes("max.com") || lowerApp.includes("hbo")) {
+                        return {
+                            primary: "#5822b4",    // Max Violet
+                            secondary: "#002be7",  // Electric Blue
+                            accent: "#a855f7",     // Purple Sheen
+                            label: "MAX",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Prime Video (Amazon Sky Blue)
+                    if (ctx.includes("prime video") || ctx.includes("amazon prime") || ctx.includes("primevideo")) {
+                        return {
+                            primary: "#00a8e1",    // Prime Blue
+                            secondary: "#0073a8",  // Ocean Blue
+                            accent: "#38bdf8",     // Cyan Glow
+                            label: "PRIME VIDEO",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Stremio (Stremio Purple)
+                    if (lowerApp.includes("stremio") || ctx.includes("stremio")) {
+                        return {
+                            primary: "#6a38b3",    // Stremio Purple
+                            secondary: "#502390",  // Deep Violet
+                            accent: "#a855f7",     // Lilac Glow
+                            label: "STREMIO",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // --- 6. Developer & System Tools ---
+                    // GitHub (Pearl White & Sky Blue)
+                    if ((lowerApp.includes("github") || ctx.includes("github") || ctx.includes("github.com")) && !ctx.includes("copilot")) {
+                        return {
+                            primary: "#f0f6fc",    // Pearl White
+                            secondary: "#8b949e",  // Slate Silver
+                            accent: "#58a6ff",     // GitHub Blue
+                            label: "GITHUB",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Git / Lazygit (Git Flame Orange)
+                    if (lowerApp.includes("lazygit") || ctx.includes("lazygit") || (lowerApp === "git" || ctx.includes("git commit") || ctx.includes("git push"))) {
+                        return {
+                            primary: "#f05032",    // Git Orange
+                            secondary: "#d83e20",  // Deep Burnt
+                            accent: "#fb923c",     // Amber Glow
+                            label: "GIT",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Docker / Containers / Podman / Lazydocker (Docker Cyan-Blue)
+                    if (lowerApp.includes("docker") || ctx.includes("docker") || ctx.includes("lazydocker") || ctx.includes("podman") || ctx.includes("container")) {
+                        return {
+                            primary: "#2496ed",    // Docker Blue
+                            secondary: "#0db7ed",  // Ocean Cyan
+                            accent: "#38bdf8",     // Sky Glow
+                            label: "DOCKER",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Node.js (Node Emerald)
+                    if (ctx.includes("node.js") || ctx.includes("nodejs") || ctx.includes(" npm") || ctx.includes("npm ") || ctx.includes("bun ") || ctx.includes("vite")) {
+                        return {
+                            primary: "#339933",    // Node Green
+                            secondary: "#267326",  // Deep Green
+                            accent: "#4ade80",     // Mint Glow
+                            label: "NODE.JS",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // PostgreSQL / pgAdmin / DBeaver / psql (Postgres Blue)
+                    if (lowerApp.includes("postgres") || lowerApp.includes("pgadmin") || ctx.includes("postgres") || ctx.includes("pgadmin") || ctx.includes("psql") || ctx.includes("dbeaver")) {
+                        return {
+                            primary: "#336791",    // Postgres Blue
+                            secondary: "#244b6b",  // Navy
+                            accent: "#38bdf8",     // Cyan Glow
+                            label: "POSTGRESQL",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Swagger / OpenAPI (Swagger Lime-Green)
+                    if (lowerApp.includes("swagger") || ctx.includes("swagger") || ctx.includes("openapi") || ctx.includes("api-docs")) {
+                        return {
+                            primary: "#85ea2d",    // Swagger Lime
+                            secondary: "#49cc90",  // Mint Green
+                            accent: "#a3e635",     // Lime Glow
+                            label: "SWAGGER API",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Kitty Terminal / Terminal (Terminal Warm Amber-Orange)
+                    if (lowerApp === "kitty" || lowerApp.includes("terminal") || ctx.includes("kitty") || ctx.includes("alacritty")) {
+                        return {
+                            primary: "#f97316",    // Warm Orange
+                            secondary: "#ea580c",  // Burnt Amber
+                            accent: "#fb923c",     // Soft Glow
+                            label: "KITTY TERMINAL",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // VS Code (Code Electric Blue)
+                    if (lowerApp.includes("code") || lowerApp.includes("vscode") || ctx.includes("vscode")) {
+                        return {
+                            primary: "#007acc",    // VS Code Blue
+                            secondary: "#0098ff",  // Electric Blue
+                            accent: "#38bdf8",     // Sky Glow
+                            label: "VS CODE",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // LeetCode (LeetCode Amber-Gold)
+                    if (lowerApp.includes("leetcode") || ctx.includes("leetcode")) {
+                        return {
+                            primary: "#ffa116",    // LeetCode Amber
+                            secondary: "#ea8c00",  // Deep Gold
+                            accent: "#fbbf24",     // Warm Glow
+                            label: "LEETCODE",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Notion (Notion Obsidian White)
+                    if (lowerApp.includes("notion") || ctx.includes("notion")) {
+                        return {
+                            primary: "#ffffff",    // Crisp White
+                            secondary: "#e2e8f0",  // Light Slate
+                            accent: "#64748b",     // Slate Glass
+                            label: "NOTION",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // FileZilla (FileZilla Burgundy-Red)
+                    if (lowerApp.includes("filezilla") || ctx.includes("filezilla")) {
+                        return {
+                            primary: "#ba0000",    // Burgundy
+                            secondary: "#8b0000",  // Dark Wine
+                            accent: "#ef5350",     // Red Sheen
+                            label: "FILEZILLA",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Dolphin / File Manager (KDE Blue)
+                    if (lowerApp.includes("dolphin") || lowerApp.includes("thunar") || lowerApp.includes("nautilus") || ctx.includes("dolphin")) {
+                        return {
+                            primary: "#1d99f3",    // KDE Blue
+                            secondary: "#0d6efd",  // Electric Blue
+                            accent: "#60a5fa",     // Soft Sky
+                            label: "FILES",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // EasyEffects / Audio DSP (Audio Violet)
+                    if (lowerApp.includes("easyeffects") || lowerApp.includes("pavucontrol") || ctx.includes("easyeffects")) {
+                        return {
+                            primary: "#7c3aed",    // Audio Violet
+                            secondary: "#6d28d9",  // Deep Purple
+                            accent: "#a78bfa",     // Glow Lilac
+                            label: "EASYEFFECTS",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Firefox / Zen (Warm Flame)
+                    if (lowerApp.includes("firefox") || lowerApp.includes("zen")) {
+                        return {
+                            primary: "#ff7139",    // Firefox Orange
+                            secondary: "#ff3b30",  // Coral Red
+                            accent: "#a855f7",     // Violet Flame
+                            label: "BROWSER",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Chromium (Cyan & Blue shades)
+                    if (lowerApp.includes("chromium") || ctx.includes("chromium")) {
+                        return {
+                            primary: "#1767d1",    // Chromium Blue
+                            secondary: "#679ef5",  // Sky Cyan
+                            accent: "#afccf9",     // Ice Glow
+                            label: "CHROMIUM",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Google Chrome (Google Blue)
+                    if (lowerApp.includes("chrome") || ctx.includes("chrome")) {
+                        return {
+                            primary: "#4285f4",    // Google Blue
+                            secondary: "#ea4335",  // Google Red
+                            accent: "#fbbc05",     // Google Yellow
+                            label: "CHROME",
                             isAntigravity: false,
                             isNightLight: false
                         };
@@ -504,115 +1100,32 @@ PanelWindow {
                         };
                     }
 
-                    // Antigravity (Cosmic Cyan / Electric Blue / Cosmic Indigo)
-                    if (lowerApp.includes("antigravity")) {
+                    // Hyprland / Arch Linux (Official Arch Cyan)
+                    if (lowerApp.includes("hypr") || lowerApp.includes("arch") || lowerSum.includes("hypr") || lowerSum.includes("arch") || ctx.includes("hypr") || ctx.includes("arch")) {
                         return {
-                            primary: "#38bdf8",    // Electric Cyan
-                            secondary: "#3b82f6",  // Antigravity Blue
-                            accent: "#818cf8",     // Cosmic Indigo
-                            label: "ANTIGRAVITY IDE",
-                            isAntigravity: true,
-                            isNightLight: false
-                        };
-                    }
-
-                    // Spotify (Balanced Green)
-                    if (lowerApp.includes("spotify")) {
-                        return {
-                            primary: "#1db954",
-                            secondary: "#168a3e",
-                            accent: "#10b981",
-                            label: "SPOTIFY",
+                            primary: "#1793d1",    // Arch Cyan
+                            secondary: "#0f6c9c",  // Deep Arch Blue
+                            accent: "#38bdf8",     // Sky Blue Glow
+                            label: lowerApp.includes("hypr") ? "HYPRLAND" : "ARCH LINUX",
                             isAntigravity: false,
                             isNightLight: false
                         };
                     }
 
-                    // Discord / Vesktop (Blurple)
-                    if (lowerApp.includes("discord") || lowerApp.includes("vesktop")) {
+                    // System / Power / Critical alerts (Red LED beam)
+                    if (lowerApp.includes("system") || lowerApp.includes("sistema") ||
+                        lowerApp.includes("power") || lowerApp.includes("hypr-battery") || card.urgency === 2) {
                         return {
-                            primary: "#5865f2",
-                            secondary: "#7289da",
-                            accent: "#818cf8",
-                            label: "DISCORD",
+                            primary: "#ff3b30",    // Apple Coral Red
+                            secondary: "#e22b31",  // Deep Carmine
+                            accent: "#ff787d",     // Red glow
+                            label: (appName && appName.length > 0) ? appName.toUpperCase() : "SYSTEM",
                             isAntigravity: false,
                             isNightLight: false
                         };
                     }
 
-                    // Telegram (Blue)
-                    if (lowerApp.includes("telegram")) {
-                        return {
-                            primary: "#229ed9",
-                            secondary: "#0088cc",
-                            accent: "#38bdf8",
-                            label: "TELEGRAM",
-                            isAntigravity: false,
-                            isNightLight: false
-                        };
-                    }
-
-                    // Slack (Aubergine / Multi-accent)
-                    if (lowerApp.includes("slack")) {
-                        return {
-                            primary: "#e01e5a",
-                            secondary: "#ecb22e",
-                            accent: "#2eb67d",
-                            label: "SLACK",
-                            isAntigravity: false,
-                            isNightLight: false
-                        };
-                    }
-
-                    // Firefox / Zen (Warm flame)
-                    if (lowerApp.includes("firefox") || lowerApp.includes("zen")) {
-                        return {
-                            primary: "#ff7139",
-                            secondary: "#ff3b30",
-                            accent: "#a855f7",
-                            label: "BROWSER",
-                            isAntigravity: false,
-                            isNightLight: false
-                        };
-                    }
-
-                    // Chromium (Cyan & Blue shades)
-                    if (lowerApp.includes("chromium") || card.metaContext.includes("chromium")) {
-                        return {
-                            primary: "#1767d1",
-                            secondary: "#679ef5",
-                            accent: "#afccf9",
-                            label: "CHROMIUM",
-                            isAntigravity: false,
-                            isNightLight: false
-                        };
-                    }
-
-                    // Google Chrome (Google Blue)
-                    if (lowerApp.includes("chrome")) {
-                        return {
-                            primary: "#4285f4",
-                            secondary: "#ea4335",
-                            accent: "#fbbc05",
-                            label: "CHROME",
-                            isAntigravity: false,
-                            isNightLight: false
-                        };
-                    }
-
-                    // VS Code (Code Blue)
-                    if (lowerApp.includes("code") || lowerApp.includes("vscode")) {
-                        return {
-                            primary: "#007acc",
-                            secondary: "#0098ff",
-                            accent: "#38bdf8",
-                            label: "VS CODE",
-                            isAntigravity: false,
-                            isNightLight: false
-                        };
-                    }
-
-                    // Default (Dynamic Wallpaper Red / Crimson LED Beam)
+                    // Default (Dynamic Wallpaper Accent)
                     return {
                         primary: theme.blue,
                         secondary: theme.blueLight,
@@ -634,9 +1147,62 @@ PanelWindow {
                     let lowerApp = (appName || "").toLowerCase();
                     let lowerSum = (modelData && modelData.summary) ? modelData.summary.toLowerCase() : "";
                     let lowerBody = (modelData && modelData.body) ? modelData.body.toLowerCase() : "";
-
-                    // Use the same Kitty artwork as the workspace bar.
+                    let ctx = (card.metaContext || "").toLowerCase();
                     let desktopEntry = (modelData && modelData.desktopEntry) ? modelData.desktopEntry.toLowerCase() : "";
+
+                    // Devin official desktop logo
+                    if (lowerApp.includes("devin") || desktopEntry.includes("devin") || lowerIcon.includes("devin") || ctx.includes("devin")) {
+                        return "file:///usr/share/pixmaps/devin-desktop.png";
+                    }
+
+                    // ChatGPT / OpenAI Codex
+                    if (lowerApp.includes("chatgpt") || ctx.includes("chatgpt") || lowerApp.includes("codex") || ctx.includes("codex") || ctx.includes("openai")) {
+                        return "file:///home/ferram/.local/share/icons/chatgpt.svg";
+                    }
+
+                    // Claude
+                    if (lowerApp.includes("claude") || ctx.includes("claude") || ctx.includes("anthropic")) {
+                        return "file:///home/ferram/.local/share/icons/claude.svg";
+                    }
+
+                    // Gemini
+                    if (lowerApp.includes("gemini") || ctx.includes("gemini") || ctx.includes("bard")) {
+                        return "file:///home/ferram/.local/share/icons/gemini.svg";
+                    }
+
+                    // DeepSeek
+                    if (lowerApp.includes("deepseek") || ctx.includes("deepseek")) {
+                        return "file:///home/ferram/.local/share/icons/deepseek.svg";
+                    }
+
+                    // Copilot
+                    if (lowerApp.includes("copilot") || ctx.includes("copilot")) {
+                        return "file:///home/ferram/.local/share/icons/copilot.svg";
+                    }
+
+                    // Ollama
+                    if (lowerApp.includes("ollama") || ctx.includes("ollama")) {
+                        return "file:///home/ferram/.local/share/icons/ollama.svg";
+                    }
+
+                    // Spider-Man
+                    if (ctx.includes("spider-man") || ctx.includes("spiderman") || ctx.includes("spider man") ||
+                        ctx.includes("spider_man") || ctx.includes("hombre araña") || ctx.includes("peter parker") ||
+                        ctx.includes("miles morales") || ctx.includes("spider-verse") || ctx.includes("spiderverse")) {
+                        return "file:///home/ferram/.local/share/icons/spiderman.png";
+                    }
+
+                    // Colgate-Palmolive
+                    if (ctx.includes("colgate") || ctx.includes("colpal")) {
+                        return "file:///home/ferram/.local/share/icons/cp.svg";
+                    }
+
+                    // Troyanos UAQ
+                    if (ctx.includes("troyanos") || ctx.includes("uaq")) {
+                        return "file:///home/ferram/.local/share/icons/troyanos.svg";
+                    }
+
+                    // Kitty Terminal
                     if (lowerApp === "kitty" || desktopEntry === "kitty" ||
                         lowerIcon === "kitty" || /(?:^|\/)kitty\.(?:svg|png)$/.test(lowerIcon)) {
                         return "file:///home/ferram/.local/share/icons/kitty.svg";
@@ -660,44 +1226,174 @@ PanelWindow {
                         return "file:///home/ferram/.local/share/icons/instagram.svg";
                     }
 
+                    // GitHub official SVG icon
+                    if ((lowerApp.includes("github") || ctx.includes("github") || ctx.includes("github.com")) && !ctx.includes("copilot")) {
+                        return "file:///home/ferram/.local/share/icons/github.svg";
+                    }
+
+                    // Git official SVG icon
+                    if (lowerApp.includes("lazygit") || ctx.includes("lazygit") || (lowerApp === "git" || ctx.includes("git commit") || ctx.includes("git push"))) {
+                        return "file:///home/ferram/.local/share/icons/git.svg";
+                    }
+
+                    // Docker official SVG icon
+                    if (lowerApp.includes("docker") || ctx.includes("docker") || ctx.includes("lazydocker") || ctx.includes("podman") || ctx.includes("container")) {
+                        return "file:///home/ferram/.local/share/icons/docker.svg";
+                    }
+
+                    // Node.js official SVG icon
+                    if (ctx.includes("node.js") || ctx.includes("nodejs") || ctx.includes(" npm") || ctx.includes("npm ") || ctx.includes("bun ") || ctx.includes("vite")) {
+                        return "file:///home/ferram/.local/share/icons/node.svg";
+                    }
+
                     // PostgreSQL / pgAdmin official SVG icon
-                    if (lowerApp.includes("postgres") || lowerApp.includes("pgadmin") || lowerSum.includes("postgres") || lowerSum.includes("pgadmin") || card.metaContext.includes("postgres") || card.metaContext.includes("pgadmin")) {
+                    if (lowerApp.includes("postgres") || lowerApp.includes("pgadmin") || ctx.includes("postgres") || ctx.includes("pgadmin") || ctx.includes("psql") || ctx.includes("dbeaver")) {
                         return "file:///home/ferram/.local/share/icons/postgresql.svg";
                     }
 
+                    // Swagger official SVG icon
+                    if (lowerApp.includes("swagger") || ctx.includes("swagger") || ctx.includes("openapi") || ctx.includes("api-docs")) {
+                        return "file:///home/ferram/.local/share/icons/swagger.svg";
+                    }
+
+                    // LeetCode official SVG icon
+                    if (lowerApp.includes("leetcode") || ctx.includes("leetcode")) {
+                        return "file:///home/ferram/.local/share/icons/leetcode.svg";
+                    }
+
+                    // Notion official SVG icon
+                    if (lowerApp.includes("notion") || ctx.includes("notion")) {
+                        return "file:///home/ferram/.local/share/icons/notion.svg";
+                    }
+
                     // LinkedIn official SVG icon
-                    if (lowerApp.includes("linkedin") || lowerSum.includes("linkedin") || card.metaContext.includes("linkedin")) {
+                    if (lowerApp.includes("linkedin") || lowerSum.includes("linkedin") || ctx.includes("linkedin")) {
                         return "file:///home/ferram/.local/share/icons/linkedin.svg";
                     }
 
-                    // Chromium official SVG icon (monochromatic blue)
-                    if (lowerApp.includes("chromium") || lowerIcon.includes("chromium") || card.metaContext.includes("chromium")) {
-                        return "file:///home/ferram/.local/share/icons/chromium.svg";
-                    }
-
-                    // Google Chrome official SVG icon
-                    if (lowerApp.includes("chrome") || lowerIcon.includes("chrome") || card.metaContext.includes("chrome")) {
-                        return "file:///home/ferram/.local/share/icons/chrome.svg";
-                    }
-
-                    // Hyprland / Arch Linux official SVG logo
-                    if (lowerApp.includes("hypr") || lowerApp.includes("arch") || lowerSum.includes("hypr") || lowerSum.includes("arch") || card.metaContext.includes("hypr") || card.metaContext.includes("arch")) {
-                        return "file:///home/ferram/.local/share/icons/arch.svg";
-                    }
-
                     // Spotify official SVG icon
-                    if (lowerApp.includes("spotify") || lowerIcon.includes("spotify") || card.metaContext.includes("spotify")) {
+                    if (lowerApp.includes("spotify") || lowerIcon.includes("spotify") || ctx.includes("spotify")) {
                         return "file:///home/ferram/.local/share/icons/spotify.svg";
                     }
 
+                    // YouTube official SVG icon
+                    if (lowerApp.includes("youtube") || ctx.includes("youtube") || ctx.includes("youtu.be")) {
+                        return "file:///home/ferram/.local/share/icons/youtube.svg";
+                    }
+
+                    // SoundCloud official SVG icon
+                    if (lowerApp.includes("soundcloud") || ctx.includes("soundcloud")) {
+                        return "file:///home/ferram/.local/share/icons/soundcloud.svg";
+                    }
+
+                    // Netflix official SVG icon
+                    if (lowerApp.includes("netflix") || ctx.includes("netflix")) {
+                        return "file:///home/ferram/.local/share/icons/netflix.svg";
+                    }
+
+                    // Disney+ official SVG icon
+                    if (ctx.includes("disney+") || ctx.includes("disneyplus") || ctx.includes("disney plus")) {
+                        return "file:///home/ferram/.local/share/icons/disney.svg";
+                    }
+
+                    // HBO Max official SVG icon
+                    if (ctx.includes("hbo max") || ctx.includes("hbomax") || ctx.includes("max.com") || lowerApp.includes("hbo")) {
+                        return "file:///home/ferram/.local/share/icons/hbo.svg";
+                    }
+
+                    // Prime Video official SVG icon
+                    if (ctx.includes("prime video") || ctx.includes("amazon prime") || ctx.includes("primevideo")) {
+                        return "file:///home/ferram/.local/share/icons/prime.svg";
+                    }
+
+                    // Stremio official SVG icon
+                    if (lowerApp.includes("stremio") || ctx.includes("stremio")) {
+                        return "file:///home/ferram/.local/share/icons/stremio.svg";
+                    }
+
+                    // Reddit official SVG icon
+                    if (lowerApp.includes("reddit") || ctx.includes("reddit")) {
+                        return "file:///home/ferram/.local/share/icons/reddit.svg";
+                    }
+
+                    // Twitter / X official SVG icon
+                    if (lowerApp.includes("twitter") || ctx.includes("twitter") || ctx.includes("x.com") || lowerApp === "x") {
+                        return "file:///home/ferram/.local/share/icons/x.svg";
+                    }
+
+                    // Twitch official SVG icon
+                    if (lowerApp.includes("twitch") || ctx.includes("twitch")) {
+                        return "file:///home/ferram/.local/share/icons/twitch.svg";
+                    }
+
                     // Discord / Vesktop official SVG icon
-                    if (lowerApp.includes("discord") || lowerApp.includes("vesktop") || lowerIcon.includes("discord") || card.metaContext.includes("discord")) {
+                    if (lowerApp.includes("discord") || lowerApp.includes("vesktop") || lowerIcon.includes("discord") || ctx.includes("discord")) {
                         return "file:///home/ferram/.local/share/icons/discord.svg";
                     }
 
                     // Telegram official SVG icon
-                    if (lowerApp.includes("telegram") || lowerIcon.includes("telegram") || card.metaContext.includes("telegram")) {
+                    if (lowerApp.includes("telegram") || lowerIcon.includes("telegram") || ctx.includes("telegram")) {
                         return "file:///home/ferram/.local/share/icons/telegram.svg";
+                    }
+
+                    // Google Classroom official SVG icon
+                    if (lowerApp.includes("classroom") || lowerSum.includes("classroom") || ctx.includes("classroom")) {
+                        return "file:///home/ferram/.local/share/icons/classroom.svg";
+                    }
+
+                    // Google Meet official SVG icon
+                    if (lowerApp.includes("meet") || lowerSum.includes("google meet") || ctx.includes("meet")) {
+                        return "file:///home/ferram/.local/share/icons/meet.svg";
+                    }
+
+                    // Google Docs official SVG icon
+                    if (ctx.includes("google docs") || ctx.includes("docs.google") || ctx.includes("documentos de google")) {
+                        return "file:///home/ferram/.local/share/icons/docs.svg";
+                    }
+
+                    // Google Sheets official SVG icon
+                    if (ctx.includes("google sheets") || ctx.includes("sheets.google") || ctx.includes("hojas de cálculo") || ctx.includes("hoja de cálculo")) {
+                        return "file:///home/ferram/.local/share/icons/sheets.svg";
+                    }
+
+                    // Google Slides official SVG icon
+                    if (ctx.includes("google slides") || ctx.includes("slides.google") || ctx.includes("presentaciones de google")) {
+                        return "file:///home/ferram/.local/share/icons/slides.svg";
+                    }
+
+                    // Google Drive official SVG icon
+                    if (ctx.includes("google drive") || ctx.includes("drive.google") || ctx.includes("mi unidad") || ctx.includes("my drive")) {
+                        return "file:///home/ferram/.local/share/icons/drive.svg";
+                    }
+
+                    // Google Keep official SVG icon
+                    if (ctx.includes("google keep") || ctx.includes("keep.google")) {
+                        return "file:///home/ferram/.local/share/icons/keep.svg";
+                    }
+
+                    // Google Forms official SVG icon
+                    if (ctx.includes("google forms") || ctx.includes("forms.google") || ctx.includes("formularios de google")) {
+                        return "file:///home/ferram/.local/share/icons/forms.svg";
+                    }
+
+                    // Gmail official SVG icon
+                    if (lowerApp.includes("gmail") || ctx.includes("gmail") || ctx.includes("mail.google")) {
+                        return "file:///home/ferram/.local/share/icons/gmail.svg";
+                    }
+
+                    // Chromium official SVG icon (monochromatic blue)
+                    if (lowerApp.includes("chromium") || lowerIcon.includes("chromium") || ctx.includes("chromium")) {
+                        return "file:///home/ferram/.local/share/icons/chromium.svg";
+                    }
+
+                    // Google Chrome official SVG icon
+                    if (lowerApp.includes("chrome") || lowerIcon.includes("chrome") || ctx.includes("chrome")) {
+                        return "file:///home/ferram/.local/share/icons/chrome.svg";
+                    }
+
+                    // Hyprland / Arch Linux official SVG logo
+                    if (lowerApp.includes("hypr") || lowerApp.includes("arch") || lowerSum.includes("hypr") || lowerSum.includes("arch") || ctx.includes("hypr") || ctx.includes("arch")) {
+                        return "file:///home/ferram/.local/share/icons/arch.svg";
                     }
 
                     // Hearing Safety / Headphone Connected vector icon
@@ -712,14 +1408,9 @@ PanelWindow {
                         return "file:///home/ferram/.local/share/icons/calendar-3d.svg";
                     }
 
-                    // Google Classroom official SVG icon
-                    if (lowerApp.includes("classroom") || lowerSum.includes("classroom") || card.metaContext.includes("classroom")) {
-                        return "file:///home/ferram/.local/share/icons/classroom.svg";
-                    }
-
-                    // Google Meet official SVG icon
-                    if (lowerApp.includes("meet") || lowerSum.includes("google meet") || card.metaContext.includes("meet")) {
-                        return "file:///home/ferram/.local/share/icons/meet.svg";
+                    // FileZilla icon
+                    if (lowerApp.includes("filezilla") || ctx.includes("filezilla")) {
+                        return "file:///usr/share/icons/hicolor/scalable/apps/filezilla.svg";
                     }
 
                     // Night Light crisp SVG Moon

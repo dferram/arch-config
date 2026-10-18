@@ -125,7 +125,7 @@ wallpaper {{
 }}
 """
     HYPRPAPER_CONF.write_text(hyprpaper_content)
-    subprocess.run(["hyprctl", "hyprpaper", "wallpaper", f"eDP-1,{image_path.resolve()}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(["systemctl", "--user", "restart", "hyprpaper.service"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # 2. Update Theme.qml keeping Liquid Glass obsidian base intact
     if THEME_QML.exists():
@@ -203,7 +203,14 @@ wallpaper {{
         )
         BASHRC.write_text(b_text)
 
-    # 8. Desktop notification
+    # 8. Update Hyprlock check_color
+    if HYPRLOCK_CONF.exists():
+        hl_text = HYPRLOCK_CONF.read_text()
+        hl_text = re.sub(r"check_color\s*=\s*rgb\([0-9]+,\s*[0-9]+,\s*[0-9]+\)", f"check_color = rgb({accent[0]}, {accent[1]}, {accent[2]})", hl_text)
+        HYPRLOCK_CONF.write_text(hl_text)
+        print("  [OK] Hyprlock check_color synchronized")
+
+    # 9. Desktop notification
     try:
         subprocess.run([
             "notify-send", "-a", "Wallpaper",

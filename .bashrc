@@ -35,7 +35,7 @@ fi
 if command -v fzf &>/dev/null; then
     eval "$(fzf --bash 2>/dev/null)"
     export FZF_DEFAULT_OPTS="--height 45% --layout=reverse --border \
---color=bg+:#18181b,bg:#0a0a0d,spinner:#7fc4db,hl:#7fc4db,fg:#e4e4e7,header:#71717a,info:#7fc4db,pointer:#42a0bf,marker:#42a0bf,fg+:#ffffff,prompt:#42a0bf,hl+:#7fc4db"
+--color=bg+:#18181b,bg:#0a0a0d,spinner:#a0db6a,hl:#a0db6a,fg:#e4e4e7,header:#71717a,info:#a0db6a,pointer:#6fbf27,marker:#6fbf27,fg+:#ffffff,prompt:#6fbf27,hl+:#a0db6a"
 
     # Rich preview with bat on Ctrl+T
     if command -v bat &>/dev/null; then

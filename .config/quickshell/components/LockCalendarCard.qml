@@ -5,17 +5,18 @@ import "../theme"
 // a highlighted "Next up" strip at the bottom surfaces the closest reminder.
 Rectangle {
     id: root
+    Theme { id: theme }
     property date now: new Date()
     property var reminders: []
-    property color accent: "#42a0bf"
+    property color accent: theme.blue
     property bool active: false
-
-    Theme { id: theme }
     radius: 16
     color: theme.popupBg
     border.width: 1
     border.color: theme.border
     clip: true
+    implicitWidth: 280
+    implicitHeight: 330
 
     readonly property int year: now.getFullYear()
     readonly property int month: now.getMonth()
@@ -253,7 +254,7 @@ Rectangle {
                     visible: cellItem.count > 0
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.horizontalCenterOffset: 0
-                    y: parent.height / 2 + cellItem.d / 2 - 8
+                    y: parent.height / 2 + cellItem.d / 2 - 6
                     width: 4; height: 4; radius: 2
                     color: cellItem.isToday ? "#000000" : root.accent
                 }

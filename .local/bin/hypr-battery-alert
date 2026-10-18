@@ -133,12 +133,37 @@ def send_alert(level, current_pct=None):
     play_sound(sound)
 
 
+def set_power_profile(profile: str, notify: bool = True):
+    """Dynamically adjust system power profile on power source changes."""
+    try:
+        subprocess.run(["powerprofilesctl", "set", profile], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        if notify:
+            is_ac = (profile != "power-saver")
+            title = "AC Power Connected" if is_ac else "On Battery Power"
+            body = "Switched to Balanced mode" if is_ac else "Switched to Power Saver mode"
+            icon = "battery-charging-symbolic" if is_ac else "battery-symbolic"
+            env = dict(os.environ)
+            env["LC_ALL"] = "C.UTF-8"
+            env["LANG"] = "en_US.UTF-8"
+            subprocess.run([
+                "notify-send", "-a", "Power",
+                "-i", icon,
+                "-t", "2500",
+                "-h", "string:x-canonical-private-synchronous:power-state",
+                "-h", "string:synchronous:power-state",
+                title, body
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False, env=env)
+    except Exception:
+        pass
+
+
 def daemon_loop():
-    """Main daemon loop monitoring battery percentage."""
+    """Main daemon loop monitoring battery percentage and power profile."""
     print("[hypr-battery-alert] Starting battery alert daemon...", flush=True)
 
     notified_10 = False
     notified_5 = False
+    last_ac_state = None
 
     def handle_sigterm(signum, frame):
         print("\n[hypr-battery-alert] Terminating daemon cleanly.", flush=True)
@@ -150,6 +175,16 @@ def daemon_loop():
     while True:
         try:
             capacity, status, is_charging = get_battery_info()
+
+            # Automatic AC vs Battery power-profile adjustment
+            if last_ac_state is None:
+                last_ac_state = is_charging
+                target_profile = "balanced" if is_charging else "power-saver"
+                set_power_profile(target_profile, notify=False)
+            elif last_ac_state != is_charging:
+                last_ac_state = is_charging
+                target_profile = "balanced" if is_charging else "power-saver"
+                set_power_profile(target_profile, notify=True)
 
             if capacity >= 0:
                 if is_charging:

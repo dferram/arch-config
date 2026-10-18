@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Widgets
 import "../theme"
@@ -20,8 +21,9 @@ Item {
     readonly property color glass: "#d90f0f14"
     readonly property color glassHover: "#e61a1a21"
     readonly property bool revealed: ctx.revealed
-    readonly property color accent: lockMedia.hasTrack ? lockMedia.mediaAccentColor : "#42a0bf"
+    readonly property color accent: lockMedia.hasTrack ? lockMedia.mediaAccentColor : theme.blue
     readonly property string artUrl: lockMedia.hasTrack ? lockMedia.artUrl : ""
+    readonly property bool hasArt: artUrl !== ""
 
     // Smooth, slightly springy curve shared by every reveal transition
     readonly property int revealDuration: 620
@@ -35,7 +37,9 @@ Item {
     // BACKGROUND (revealed only): blurred album art + accent glow on OLED black
     // ==========================================================================
     property bool flipArt: false
-    onArtUrlChanged: flipArt = !flipArt
+    onArtUrlChanged: {
+        if (root.artUrl !== "") flipArt = !flipArt;
+    }
 
     Item {
         id: backdrop
@@ -44,68 +48,75 @@ Item {
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: root.revealDuration; easing.type: Easing.OutCubic } }
 
-        // Blurred wallpaper base (album-art layers sit on top of it)
+        // Blurred wallpaper base (shown only when no media is playing or no artwork)
         Image {
             id: wallImg
             anchors.fill: parent
             source: root.ctx.wallpaperUrl
             fillMode: Image.PreserveAspectCrop
-            sourceSize.width: 384
-            sourceSize.height: 384
+            sourceSize.width: 512
+            sourceSize.height: 512
             asynchronous: true
             visible: false
         }
         MultiEffect {
             anchors.fill: parent
             source: wallImg
-            visible: wallImg.status === Image.Ready
+            visible: opacity > 0.01
             blurEnabled: true
             blur: 1.0
             blurMax: 64
-            saturation: 0.1
+            saturation: 0.15
             brightness: -0.15
-            opacity: 0.55
+            opacity: (!root.hasArt && wallImg.status === Image.Ready) ? 0.55 : 0.0
+            Behavior on opacity { NumberAnimation { duration: 600; easing.type: Easing.InOutQuad } }
         }
 
+        // Blurred album art A (crossfade layer)
         Image {
             id: bgArtA
             anchors.fill: parent
             source: !root.flipArt ? root.artUrl : ""
             fillMode: Image.PreserveAspectCrop
-            sourceSize.width: 256
-            sourceSize.height: 256
+            sourceSize.width: 640
+            sourceSize.height: 640
             asynchronous: true
             visible: false
         }
         MultiEffect {
             anchors.fill: parent
             source: bgArtA
+            visible: opacity > 0.01
             blurEnabled: true
             blur: 1.0
             blurMax: 64
-            saturation: 0.25
-            opacity: !root.flipArt && root.artUrl !== "" && bgArtA.status === Image.Ready ? 0.30 : 0.0
+            saturation: 0.40
+            brightness: -0.10
+            opacity: (!root.flipArt && root.hasArt && bgArtA.status === Image.Ready) ? 0.65 : 0.0
             Behavior on opacity { NumberAnimation { duration: 800; easing.type: Easing.InOutQuad } }
         }
 
+        // Blurred album art B (crossfade layer)
         Image {
             id: bgArtB
             anchors.fill: parent
             source: root.flipArt ? root.artUrl : ""
             fillMode: Image.PreserveAspectCrop
-            sourceSize.width: 256
-            sourceSize.height: 256
+            sourceSize.width: 640
+            sourceSize.height: 640
             asynchronous: true
             visible: false
         }
         MultiEffect {
             anchors.fill: parent
             source: bgArtB
+            visible: opacity > 0.01
             blurEnabled: true
             blur: 1.0
             blurMax: 64
-            saturation: 0.25
-            opacity: root.flipArt && root.artUrl !== "" && bgArtB.status === Image.Ready ? 0.30 : 0.0
+            saturation: 0.40
+            brightness: -0.10
+            opacity: (root.flipArt && root.hasArt && bgArtB.status === Image.Ready) ? 0.65 : 0.0
             Behavior on opacity { NumberAnimation { duration: 800; easing.type: Easing.InOutQuad } }
         }
 
@@ -113,12 +124,11 @@ Item {
         Rectangle {
             anchors.fill: parent
             gradient: Gradient {
-                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.55) }
-                GradientStop { position: 0.55; color: Qt.rgba(0, 0, 0, 0.80) }
-                GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.16) }
+                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.45) }
+                GradientStop { position: 0.55; color: Qt.rgba(0, 0, 0, 0.70) }
+                GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.22) }
             }
         }
-
     }
 
     // Media controls and agent scrolling also keep the panel awake.
@@ -151,7 +161,7 @@ Item {
         height: 820
         x: (root.width - width) / 2
         y: root.revealed ? (root.miniTop + root.miniHeight / 2 - height / 2)
-                         : (root.height / 2 - height / 2 - 12 * root.baseScale)
+                         : (root.height / 2 - height / 2 - (lockMedia.hasTrack ? 36 : 12) * root.baseScale)
         scale: root.revealed ? root.miniScale : root.baseScale
         transformOrigin: Item.Center
 
@@ -187,6 +197,222 @@ Item {
     }
 
     // ==========================================================================
+    // MINI MEDIA PILL (idle clock state only: floating under the monumental flip clock)
+    // ==========================================================================
+    Rectangle {
+        id: miniMediaPill
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Math.max(24, root.height * 0.038)
+        width: Math.min(460, root.width - 48)
+        height: 54
+        radius: 27
+        color: root.glass
+        border.width: 1
+        border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45)
+        clip: true
+
+        opacity: (!root.revealed && lockMedia.hasTrack) ? 1.0 : 0.0
+        visible: opacity > 0.01
+        Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
+
+        // Top specular liquid glass hairline
+        Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 20
+            anchors.rightMargin: 20
+            height: 1
+            color: Qt.rgba(255, 255, 255, 0.20)
+        }
+
+        // Mini track progress line
+        Rectangle {
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            height: 2
+            width: lockMedia.trackLength > 0 ? parent.width * Math.max(0, Math.min(1.0, lockMedia.currentPosition / lockMedia.trackLength)) : 0
+            color: root.accent
+        }
+
+        Row {
+            anchors.fill: parent
+            anchors.leftMargin: 10
+            anchors.rightMargin: 12
+            spacing: 12
+
+            // Album Artwork thumbnail / Platform Icon
+            Item {
+                width: 38
+                height: 38
+                anchors.verticalCenter: parent.verticalCenter
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 10
+                    color: Qt.rgba(255, 255, 255, 0.08)
+                    clip: true
+
+                    Image {
+                        id: miniThumb
+                        anchors.fill: parent
+                        source: root.artUrl
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        visible: status === Image.Ready
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: !miniThumb.visible
+                        text: "󰝚"
+                        font.family: root.iconFont
+                        font.pixelSize: 18
+                        color: root.accent
+                    }
+                }
+            }
+
+            // Track Title & Artist (Clicking reveals the full unlock panel)
+            MouseArea {
+                id: miniTrackMa
+                anchors.verticalCenter: parent.verticalCenter
+                height: parent.height
+                width: parent.width - 38 - 12 - miniCtrlRow.width - 12
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    root.ctx.reveal();
+                    input.forceActiveFocus();
+                }
+
+                Column {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 2
+
+                    Text {
+                        width: parent.width
+                        text: lockMedia.trackTitle || "Media playing"
+                        font.family: theme.fontFamily
+                        font.pixelSize: 13
+                        font.weight: Font.DemiBold
+                        color: theme.text
+                        elide: Text.ElideRight
+                    }
+
+                    Text {
+                        width: parent.width
+                        text: lockMedia.trackArtist || (lockMedia.currentPlatform.toUpperCase())
+                        font.family: theme.fontFamily
+                        font.pixelSize: 11
+                        color: theme.textDim
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+
+            // Mini Playback Controls
+            Row {
+                id: miniCtrlRow
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 8
+
+                // Previous Track
+                Rectangle {
+                    width: 30
+                    height: 30
+                    radius: 15
+                    color: miniPrevMa.containsMouse ? theme.surfaceHover : "transparent"
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰒮"
+                        font.family: root.iconFont
+                        font.pixelSize: 15
+                        color: theme.textSub
+                    }
+
+                    MouseArea {
+                        id: miniPrevMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (lockMedia.activePlayer && lockMedia.activePlayer.canGoPrevious)
+                                lockMedia.activePlayer.previous();
+                            root.ctx.poke();
+                        }
+                    }
+                }
+
+                // Play / Pause Button
+                Rectangle {
+                    width: 34
+                    height: 34
+                    radius: 17
+                    color: root.accent
+                    anchors.verticalCenter: parent.verticalCenter
+                    scale: miniPlayMa.pressed ? 0.90 : (miniPlayMa.containsMouse ? 1.06 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 150 } }
+
+                    Text {
+                        anchors.centerIn: parent
+                        anchors.horizontalCenterOffset: lockMedia.isPlaying ? 0 : 1
+                        text: lockMedia.isPlaying ? "󰏤" : "󰐊"
+                        font.family: root.iconFont
+                        font.pixelSize: 15
+                        color: "#000000"
+                    }
+
+                    MouseArea {
+                        id: miniPlayMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (lockMedia.activePlayer)
+                                lockMedia.activePlayer.togglePlaying();
+                            root.ctx.poke();
+                        }
+                    }
+                }
+
+                // Next Track
+                Rectangle {
+                    width: 30
+                    height: 30
+                    radius: 15
+                    color: miniNextMa.containsMouse ? theme.surfaceHover : "transparent"
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰒭"
+                        font.family: root.iconFont
+                        font.pixelSize: 15
+                        color: theme.textSub
+                    }
+
+                    MouseArea {
+                        id: miniNextMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (lockMedia.activePlayer && lockMedia.activePlayer.canGoNext)
+                                lockMedia.activePlayer.next();
+                            root.ctx.poke();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ==========================================================================
     // CONTROL PANEL
     // ==========================================================================
     Column {
@@ -207,7 +433,7 @@ Item {
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 16
-            readonly property real rowH: Math.max(236, lockMedia.hasTrack ? lockMedia.implicitHeight : 0)
+            readonly property real rowH: Math.max(330, lockMedia.implicitHeight)
 
             Item {
                 width: 350
@@ -226,18 +452,31 @@ Item {
                     color: root.glass
                     border.width: 1
                     border.color: theme.border
-                    Text {
+                    Column {
                         anchors.centerIn: parent
-                        text: "Nothing playing"
-                        color: theme.textDim
-                        font.family: theme.fontFamily
-                        font.pixelSize: 14
+                        spacing: 10
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: "󰝚"
+                            color: theme.textDim
+                            font.family: root.iconFont
+                            font.pixelSize: 32
+                            opacity: 0.4
+                        }
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: "Nothing playing"
+                            color: theme.textDim
+                            font.family: theme.fontFamily
+                            font.pixelSize: 14
+                        }
                     }
                 }
             }
 
 
             LockCalendarCard {
+                id: lockCalendar
                 width: 280
                 height: parent.rowH
                 now: root.ctx.now
@@ -335,7 +574,44 @@ Item {
                     }
                 }
 
+                // Caps Lock indicator badge
+                Rectangle {
+                    id: capsBadge
+                    anchors.right: fpIcon.visible ? fpIcon.left : parent.right
+                    anchors.rightMargin: fpIcon.visible ? 8 : 14
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.ctx.capsLock
+                    width: capsRow.implicitWidth + 10
+                    height: 22
+                    radius: 11
+                    color: Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.20)
+                    border.width: 1
+                    border.color: theme.peach
+
+                    Row {
+                        id: capsRow
+                        anchors.centerIn: parent
+                        spacing: 3
+                        Text {
+                            text: "󰪛"
+                            font.family: root.iconFont
+                            font.pixelSize: 12
+                            color: theme.peach
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        Text {
+                            text: "CAPS"
+                            font.family: theme.fontFamily
+                            font.pixelSize: 9
+                            font.weight: Font.Bold
+                            color: theme.peach
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                }
+
                 Text {
+                    id: fpIcon
                     anchors.right: parent.right
                     anchors.rightMargin: 16
                     anchors.verticalCenter: parent.verticalCenter
@@ -381,6 +657,9 @@ Item {
             else root.ctx.submit();
         }
         Keys.onPressed: event => {
+            if (event.key === Qt.Key_CapsLock) {
+                root.ctx.checkCapsLock();
+            }
             if (event.key === Qt.Key_Escape) {
                 root.ctx.hide();
                 event.accepted = true;

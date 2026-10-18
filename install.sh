@@ -29,11 +29,13 @@ create_symlink() {
 # Install .bashrc and git configs
 create_symlink "$DOTFILES_DIR/.bashrc" "$HOME/.bashrc"
 create_symlink "$DOTFILES_DIR/.gitconfig" "$HOME/.gitconfig"
-create_symlink "$DOTFILES_DIR/.gitconfig-local" "$HOME/.gitconfig-local"
+if [ -f "$DOTFILES_DIR/.gitconfig-local" ]; then
+    create_symlink "$DOTFILES_DIR/.gitconfig-local" "$HOME/.gitconfig-local"
+fi
 
 # Install .config directories
 mkdir -p "$HOME/.config"
-for dir in hypr quickshell mako kitty fastfetch easyeffects; do
+for dir in hypr quickshell mako kitty fastfetch easyeffects cava; do
     if [ -d "$DOTFILES_DIR/.config/$dir" ]; then
         create_symlink "$DOTFILES_DIR/.config/$dir" "$HOME/.config/$dir"
     fi
@@ -61,6 +63,24 @@ if [ -d "$DOTFILES_DIR/.local/bin" ]; then
         [ -f "$script" ] || continue
         script_name="$(basename "$script")"
         create_symlink "$script" "$HOME/.local/bin/$script_name"
+    done
+fi
+
+# Install icons in .local/share/icons
+mkdir -p "$HOME/.local/share/icons"
+if [ -d "$DOTFILES_DIR/.local/share/icons" ]; then
+    for icon in "$DOTFILES_DIR/.local/share/icons"/*; do
+        [ -f "$icon" ] || continue
+        create_symlink "$icon" "$HOME/.local/share/icons/$(basename "$icon")"
+    done
+fi
+# Ensure quickshell standalone icons are also reachable in system icons path
+if [ -d "$DOTFILES_DIR/.config/quickshell/icons" ]; then
+    for icon in "$DOTFILES_DIR/.config/quickshell/icons"/*; do
+        [ -f "$icon" ] || continue
+        icon_name="$(basename "$icon")"
+        target="$HOME/.local/share/icons/$icon_name"
+        [ -e "$target" ] || ln -s "$icon" "$target"
     done
 fi
 

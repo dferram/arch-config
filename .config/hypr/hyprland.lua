@@ -74,6 +74,8 @@ end)
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
 hl.env("GTK_THEME", "Adwaita:dark")
+hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
+
 
 
 -----------------------
@@ -108,7 +110,7 @@ gaps_out = 8,
 border_size = 2,
 
 col = {
-    active_border   = { colors = {'rgba(42a0bfff)', 'rgba(7fc4dbee)', 'rgba(20354eee)'}, angle = 45 },
+    active_border   = { colors = {'rgba(6fbf27ee)', 'rgba(a0db6aee)'}, angle = 45 },
     inactive_border = "rgba(151a2455)",
 },
 

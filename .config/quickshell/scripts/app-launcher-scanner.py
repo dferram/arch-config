@@ -109,17 +109,18 @@ def scan_apps():
     return apps
 
 def launch_app(desktop_file, exec_cmd, terminal=False):
-    # Try gtk-launch first if desktop file is valid
-    if desktop_file:
+    desktop_id = os.path.basename(desktop_file) if desktop_file else ""
+
+    # 1. Try launching through gtk-launch directly
+    if desktop_id:
         try:
-            desktop_id = os.path.basename(desktop_file)
             res = subprocess.run(["gtk-launch", desktop_id], capture_output=True)
             if res.returncode == 0:
                 return True
         except Exception:
             pass
 
-    # Fallback to direct exec
+    # 2. Fallback to direct exec
     if not exec_cmd:
         return False
 

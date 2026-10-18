@@ -1,10 +1,12 @@
 import QtQuick
+import "../theme"
 
 // Classic split flap: the old top half folds down, revealing the new bottom half.
 Item {
     id: card
+    Theme { id: theme }
     property string value: ""
-    property color accent: "#42a0bf"
+    property color accent: theme.blue
     property bool outlined: false
     property string currentValue: ""
     property string outgoingValue: ""

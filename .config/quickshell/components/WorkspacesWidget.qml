@@ -585,10 +585,19 @@ Item {
         root.workspaceInfo = newInfo;
     }
 
-    function refreshClients() {
-        if (!clientsProc.running) {
-            clientsProc.running = true;
+    Timer {
+        id: debounceTimer
+        interval: 150
+        repeat: false
+        onTriggered: {
+            if (!clientsProc.running) {
+                clientsProc.running = true;
+            }
         }
+    }
+
+    function refreshClients() {
+        debounceTimer.restart();
     }
 
     Process {
@@ -625,7 +634,7 @@ Item {
 
     // Periodic safety check
     Timer {
-        interval: 1500
+        interval: 5000
         running: true
         repeat: true
         onTriggered: root.refreshClients()

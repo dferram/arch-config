@@ -29,13 +29,13 @@ QtObject {
     readonly property string fontFamily: "sans-serif"
 
     // Refined Accent Palette (Dynamic Wallpaper Accents)
-    readonly property color blue: "#42a0bf"       // Primary Dynamic Accent
-    readonly property color blueLight: "#7fc4db"  // Highlights & Glow
-    readonly property color blueDeep: "#205e72"   // Deep State
-    readonly property color blueMuted: "#74a5b5"  // Soft Accent
-    readonly property color cyan: "#7fc4db"       // Secondary Glow
+    readonly property color blue: "#6fbf27"       // Primary Dynamic Accent
+    readonly property color blueLight: "#a0db6a"  // Highlights & Glow
+    readonly property color blueDeep: "#3e720e"   // Deep State
+    readonly property color blueMuted: "#8cb566"  // Soft Accent
+    readonly property color cyan: "#a0db6a"       // Secondary Glow
     readonly property color frost: "#f1f5f9"      // Crystalline White
-    readonly property color indigo: "#205e72"     // Sub-accent
+    readonly property color indigo: "#3e720e"     // Sub-accent
     readonly property color sky: blueLight
     readonly property color mauve: blue
 

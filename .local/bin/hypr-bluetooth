@@ -91,8 +91,12 @@ def connect_device(mac, name):
         return False
 
 def disconnect_device(mac, name):
-    run_cmd(["bluetoothctl", "disconnect", mac], timeout=5)
-    notify("Bluetooth", f"Disconnected from {name}", 2000)
+    out = run_cmd(["bluetoothctl", "disconnect", mac], timeout=5)
+    if "Successful disconnected" in out or "Connected: no" in run_cmd(["bluetoothctl", "info", mac]):
+        notify("Bluetooth", f"Disconnected from {name}", 2000)
+        return True
+    notify("Bluetooth Error", f"Could not disconnect from {name}", 3000)
+    return False
 
 def toggle_power():
     status = get_status()
@@ -103,6 +107,31 @@ def toggle_power():
         run_cmd(["rfkill", "unblock", "bluetooth"])
         run_cmd(["bluetoothctl", "power", "on"])
         notify("Bluetooth", "Bluetooth adapter turned on", 1500)
+    return ("Powered: yes" in run_cmd(["bluetoothctl", "show"])) != status["powered"]
+
+def scan_devices():
+    run_cmd(["bluetoothctl", "--timeout", "5", "scan", "on"], timeout=7)
+    paired = {line.split()[1] for line in run_cmd(["bluetoothctl", "devices", "Paired"]).splitlines()
+              if line.startswith("Device ") and len(line.split()) >= 2}
+    devices = []
+    for line in run_cmd(["bluetoothctl", "devices"]).splitlines():
+        parts = line.split(" ", 2)
+        if len(parts) != 3 or parts[0] != "Device":
+            continue
+        _, mac, name = parts
+        if mac in paired or name.replace(":", "-").lower() == mac.replace(":", "-").lower():
+            continue
+        devices.append(dict(mac=mac, name=name, connected=False, battery=-1, type="generic", discovered=True))
+    return devices
+
+
+def pair_device(mac, name):
+    out = run_cmd(["bluetoothctl", "pair", mac], timeout=30)
+    if "Pairing successful" not in out and "Paired: yes" not in run_cmd(["bluetoothctl", "info", mac]):
+        return False
+    run_cmd(["bluetoothctl", "trust", mac])
+    return connect_device(mac, name)
+
 
 def scan_and_pair_rofi():
     notify("Bluetooth Scanning", "Searching for nearby devices (5 seconds)...", 3000)
@@ -216,13 +245,19 @@ if __name__ == "__main__":
         elif cmd == "connect" and len(sys.argv) > 2:
             mac = sys.argv[2]
             name = sys.argv[3] if len(sys.argv) > 3 else mac
-            connect_device(mac, name)
+            sys.exit(0 if connect_device(mac, name) else 1)
         elif cmd == "disconnect" and len(sys.argv) > 2:
             mac = sys.argv[2]
             name = sys.argv[3] if len(sys.argv) > 3 else mac
-            disconnect_device(mac, name)
+            sys.exit(0 if disconnect_device(mac, name) else 1)
         elif cmd == "toggle":
-            toggle_power()
+            sys.exit(0 if toggle_power() else 1)
+        elif cmd == "scan-json":
+            print(json.dumps(scan_devices()))
+        elif cmd == "pair" and len(sys.argv) > 2:
+            mac = sys.argv[2]
+            name = sys.argv[3] if len(sys.argv) > 3 else mac
+            sys.exit(0 if pair_device(mac, name) else 1)
         elif cmd == "scan":
             scan_and_pair_rofi()
         elif cmd == "menu":

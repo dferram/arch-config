@@ -50,6 +50,7 @@ Scope {
             authFailed = false;
             statusText = "";
             failCount = 0;
+            checkCapsLock();
             refreshAgents();
             refreshReminders();
             refreshWallpaper();
@@ -61,6 +62,7 @@ Scope {
             fprintProc.running = false;
         }
     }
+    onRevealedChanged: if (revealed) checkCapsLock()
 
     // Return to the clean OLED clock after 20 s without interaction
     Timer {
@@ -135,6 +137,42 @@ Scope {
         id: fprintRetry
         interval: 1200
         onTriggered: if (ctx.locked && ctx.fingerprintAvailable) fprintProc.running = true
+    }
+
+    // --------------------------------------------------------------------------
+    // Caps Lock state
+    // --------------------------------------------------------------------------
+    property bool capsLock: false
+    function checkCapsLock() {
+        if (!capsProc.running) capsProc.running = true;
+    }
+    function toggleCapsLockTentative() {
+        ctx.capsLock = !ctx.capsLock;
+        capsDelayTimer.restart();
+    }
+    Timer {
+        id: capsDelayTimer
+        interval: 100
+        onTriggered: ctx.checkCapsLock()
+    }
+    Timer {
+        id: capsPollTimer
+        interval: 400
+        repeat: true
+        running: ctx.locked && ctx.revealed
+        onTriggered: ctx.checkCapsLock()
+    }
+    Process {
+        id: capsProc
+        command: ["sh", "-c", "cat /sys/class/leds/*capslock/brightness 2>/dev/null | grep -q 1 && echo 1 || echo 0"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                ctx.capsLock = (text.trim() === "1");
+            }
+        }
+        onExited: (code, status) => {
+            capsProc.running = false;
+        }
     }
 
     // --------------------------------------------------------------------------

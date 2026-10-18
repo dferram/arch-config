@@ -281,11 +281,16 @@ Item {
     // Extract album artwork URL (handles trackArtUrl and mpris:artUrl)
     property string artUrl: {
         if (!activePlayer) return "";
-        let u = activePlayer.trackArtUrl || "";
+        let u = "";
+        try {
+            if (activePlayer.trackArtUrl) u = activePlayer.trackArtUrl.toString();
+        } catch(e) {}
         if (!u && activePlayer.metadata && activePlayer.metadata["mpris:artUrl"]) {
-            u = activePlayer.metadata["mpris:artUrl"];
+            try {
+                u = activePlayer.metadata["mpris:artUrl"].toString();
+            } catch(e) {}
         }
-        return u;
+        return (u || "").trim();
     }
 
     property string displayLabel: {

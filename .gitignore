@@ -23,6 +23,12 @@ Thumbs.db
 bin/agy*
 *.old
 *.bin
+__pycache__/
+*.py[cod]
+*$py.class
+*.lock
+*.lock.*
+*.rmlock*
 
 # Secrets or private keys
 .ssh/
