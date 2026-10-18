@@ -199,66 +199,113 @@ Item {
     // ==========================================================================
     // MINI MEDIA PILL (idle clock state only: floating under the monumental flip clock)
     // ==========================================================================
+    // MINI MEDIA PILL (idle flip-clock mode) — Apple Liquid Glass capsule
+    // ==========================================================================
     Rectangle {
         id: miniMediaPill
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Math.max(24, root.height * 0.038)
+        anchors.bottomMargin: Math.max(28, root.height * 0.045)
         width: Math.min(460, root.width - 48)
-        height: 54
-        radius: 27
-        color: root.glass
+        height: 60
+        radius: 30
+        color: "#e60d0e14"
         border.width: 1
-        border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45)
-        clip: true
+        border.color: Qt.rgba(255, 255, 255, 0.16)
 
         opacity: (!root.revealed && lockMedia.hasTrack) ? 1.0 : 0.0
         visible: opacity > 0.01
         Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
 
-        // Top specular liquid glass hairline
+        // Liquid glass ambient refraction tint (accent color glow)
         Rectangle {
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: 20
-            anchors.rightMargin: 20
-            height: 1
-            color: Qt.rgba(255, 255, 255, 0.20)
+            anchors.fill: parent
+            radius: parent.radius
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) }
+                GradientStop { position: 0.50; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.05) }
+                GradientStop { position: 1.0; color: "transparent" }
+            }
         }
 
-        // Mini track progress line
+        // Top specular hairline (light reflection across curved glass edge)
         Rectangle {
+            anchors.top: parent.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width - 60
+            height: 1
+            color: Qt.rgba(255, 255, 255, 0.28)
+        }
+
+        // Inset Progress Bar (cleanly inset inside straight pill section so it never overflows)
+        Item {
+            id: miniProgressTrack
             anchors.bottom: parent.bottom
-            anchors.left: parent.left
-            height: 2
-            width: lockMedia.trackLength > 0 ? parent.width * Math.max(0, Math.min(1.0, lockMedia.currentPosition / lockMedia.trackLength)) : 0
-            color: root.accent
+            anchors.bottomMargin: 7
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width - 68
+            height: 3
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 1.5
+                color: Qt.rgba(255, 255, 255, 0.12)
+            }
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                radius: 1.5
+                width: lockMedia.trackLength > 0
+                    ? parent.width * Math.max(0, Math.min(1.0, lockMedia.currentPosition / lockMedia.trackLength))
+                    : 0
+                color: root.accent
+
+                Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+            }
         }
 
         Row {
             anchors.fill: parent
-            anchors.leftMargin: 10
-            anchors.rightMargin: 12
+            anchors.leftMargin: 12
+            anchors.rightMargin: 14
+            anchors.verticalCenterOffset: -3
             spacing: 12
 
-            // Album Artwork thumbnail / Platform Icon
+            // Circular Album Artwork thumbnail / Platform Icon
             Item {
-                width: 38
-                height: 38
+                id: miniThumbContainer
+                width: 40
+                height: 40
                 anchors.verticalCenter: parent.verticalCenter
 
-                Rectangle {
+                // Perfect circle mask via OpacityMask
+                Item {
+                    id: miniThumbMasked
                     anchors.fill: parent
-                    radius: 10
-                    color: Qt.rgba(255, 255, 255, 0.08)
-                    clip: true
+                    layer.enabled: true
+                    layer.effect: OpacityMask {
+                        maskSource: Rectangle {
+                            width: miniThumbContainer.width
+                            height: miniThumbContainer.height
+                            radius: miniThumbContainer.width / 2
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: Qt.rgba(255, 255, 255, 0.08)
+                    }
 
                     Image {
                         id: miniThumb
                         anchors.fill: parent
                         source: root.artUrl
                         fillMode: Image.PreserveAspectCrop
+                        sourceSize.width: 80
+                        sourceSize.height: 80
                         asynchronous: true
                         visible: status === Image.Ready
                     }
@@ -272,6 +319,15 @@ Item {
                         color: root.accent
                     }
                 }
+
+                // Specular circular ring around cover
+                Rectangle {
+                    anchors.fill: parent
+                    radius: width / 2
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Qt.rgba(255, 255, 255, 0.24)
+                }
             }
 
             // Track Title & Artist (Clicking reveals the full unlock panel)
@@ -279,7 +335,7 @@ Item {
                 id: miniTrackMa
                 anchors.verticalCenter: parent.verticalCenter
                 height: parent.height
-                width: parent.width - 38 - 12 - miniCtrlRow.width - 12
+                width: parent.width - miniThumbContainer.width - 12 - miniCtrlRow.width - 12
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     root.ctx.reveal();
@@ -317,14 +373,14 @@ Item {
             Row {
                 id: miniCtrlRow
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 8
+                spacing: 6
 
                 // Previous Track
                 Rectangle {
                     width: 30
                     height: 30
                     radius: 15
-                    color: miniPrevMa.containsMouse ? theme.surfaceHover : "transparent"
+                    color: miniPrevMa.containsMouse ? Qt.rgba(255, 255, 255, 0.12) : "transparent"
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {
@@ -385,7 +441,7 @@ Item {
                     width: 30
                     height: 30
                     radius: 15
-                    color: miniNextMa.containsMouse ? theme.surfaceHover : "transparent"
+                    color: miniNextMa.containsMouse ? Qt.rgba(255, 255, 255, 0.12) : "transparent"
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {
@@ -574,39 +630,26 @@ Item {
                     }
                 }
 
-                // Caps Lock indicator badge
+                // Caps Lock indicator badge (clean icon-only)
                 Rectangle {
                     id: capsBadge
                     anchors.right: fpIcon.visible ? fpIcon.left : parent.right
                     anchors.rightMargin: fpIcon.visible ? 8 : 14
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.ctx.capsLock
-                    width: capsRow.implicitWidth + 10
-                    height: 22
-                    radius: 11
-                    color: Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.20)
+                    width: 26
+                    height: 26
+                    radius: 13
+                    color: Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.22)
                     border.width: 1
                     border.color: theme.peach
 
-                    Row {
-                        id: capsRow
+                    Text {
                         anchors.centerIn: parent
-                        spacing: 3
-                        Text {
-                            text: "󰪛"
-                            font.family: root.iconFont
-                            font.pixelSize: 12
-                            color: theme.peach
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        Text {
-                            text: "CAPS"
-                            font.family: theme.fontFamily
-                            font.pixelSize: 9
-                            font.weight: Font.Bold
-                            color: theme.peach
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
+                        text: "󰪛"
+                        font.family: root.iconFont
+                        font.pixelSize: 14
+                        color: theme.peach
                     }
                 }
 
@@ -658,7 +701,9 @@ Item {
         }
         Keys.onPressed: event => {
             if (event.key === Qt.Key_CapsLock) {
-                root.ctx.checkCapsLock();
+                root.ctx.toggleCapsLockTentative();
+                root.ctx.poke();
+                return;
             }
             if (event.key === Qt.Key_Escape) {
                 root.ctx.hide();
