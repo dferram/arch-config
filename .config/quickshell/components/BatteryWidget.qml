@@ -20,6 +20,21 @@ Item {
     // Internal reactive states
     property int fallbackPercent: 100
     property string fallbackStatus: "Discharging"
+    property int cycleCount: 0
+    property real energyNow: 0.0
+    property real energyFull: 0.0
+    property real energyDesign: 0.0
+    property real voltageNow: 0.0
+    property real powerNow: 0.0
+    property real healthPct: 0.0
+    property string tech: "Li-ion"
+    property string modelName: ""
+    property string manufacturer: ""
+    property string thresholds: ""
+    property string calcTimeStr: ""
+    property bool showPercentageInBar: false
+    property string currentProfile: "balanced"
+
     property real currentPercent: {
         if (UPower.displayDevice && UPower.displayDevice.ready && UPower.displayDevice.percentage > 0) {
             return Math.round(UPower.displayDevice.percentage * 100);
@@ -35,20 +50,33 @@ Item {
         return fallbackStatus.toLowerCase().indexOf("charging") !== -1;
     }
 
-    // Instant sysfs read on startup
+    // Comprehensive battery telemetry read
     Process {
         id: sysfsProc
-        command: ["sh", "-c", "cat /sys/class/power_supply/BAT0/capacity /sys/class/power_supply/BAT0/status 2>/dev/null || echo -e '0\\nUnknown'"]
+        command: ["/home/ferram/Personal/dotfiles/.config/quickshell/scripts/battery-details.py"]
         running: true
         stdout: StdioCollector {
             onTextChanged: {
-                let lines = text.trim().split("\n");
-                if (lines.length >= 1 && parseInt(lines[0]) > 0) {
-                    root.fallbackPercent = parseInt(lines[0]);
-                }
-                if (lines.length >= 2) {
-                    root.fallbackStatus = lines[1].trim();
-                }
+                let txt = text.trim();
+                if (!txt) return;
+                try {
+                    let d = JSON.parse(txt);
+                    if (d.capacity !== undefined && d.capacity > 0) root.fallbackPercent = d.capacity;
+                    if (d.status) root.fallbackStatus = d.status;
+                    if (d.cycle_count !== undefined) root.cycleCount = d.cycle_count;
+                    if (d.energy_now_wh !== undefined) root.energyNow = d.energy_now_wh;
+                    if (d.energy_full_wh !== undefined) root.energyFull = d.energy_full_wh;
+                    if (d.energy_design_wh !== undefined) root.energyDesign = d.energy_design_wh;
+                    if (d.power_now_w !== undefined) root.powerNow = d.power_now_w;
+                    if (d.voltage_now_v !== undefined) root.voltageNow = d.voltage_now_v;
+                    if (d.health_pct !== undefined) root.healthPct = d.health_pct;
+                    if (d.technology) root.tech = d.technology;
+                    if (d.model) root.modelName = d.model;
+                    if (d.manufacturer) root.manufacturer = d.manufacturer;
+                    if (d.thresholds) root.thresholds = d.thresholds;
+                    if (d.time_str) root.calcTimeStr = d.time_str;
+                    if (d.power_profile) root.currentProfile = d.power_profile;
+                } catch(e) {}
             }
         }
     }
@@ -61,9 +89,14 @@ Item {
         onTriggered: sysfsProc.running = true
     }
 
-    Process { id: setSaverCmd; command: ["powerprofilesctl", "set", "power-saver"] }
-    Process { id: setBalCmd; command: ["powerprofilesctl", "set", "balanced"] }
-    Process { id: setPerfCmd; command: ["powerprofilesctl", "set", "performance"] }
+    Process {
+        id: setProfileProc
+        function setProfile(name) {
+            root.currentProfile = name;
+            command = ["powerprofilesctl", "set", name];
+            running = true;
+        }
+    }
 
     // Format time helper (seconds -> "Xh Ym")
     function formatSeconds(secs) {
@@ -96,11 +129,12 @@ Item {
         return root.fallbackStatus;
     }
 
-    // Dynamic status color (Blue when normal/charging, peach when <= 10%, red when <= 5%)
+    // Dynamic status color: reflects active power profile (Saver: green, Balanced: blue, Performance: peach)
     property color batteryColor: {
-        if (isCharging) return theme.blue;
-        if (currentPercent <= 5) return theme.red;
-        if (currentPercent <= 10) return theme.peach;
+        if (currentPercent <= 5 && !isCharging) return theme.red;
+        if (currentPercent <= 10 && !isCharging) return theme.peach;
+        if (root.currentProfile === "power-saver") return theme.green;
+        if (root.currentProfile === "performance") return theme.peach;
         return theme.blue;
     }
 
@@ -125,12 +159,16 @@ Item {
         id: pill
         iconSource: root.iconDataUri
         text: root.currentPercent + "%"
+        showText: root.showPercentageInBar || root.activePopupId === "battery"
         accentColor: root.batteryColor
         active: root.activePopupId === "battery"
         pulsingIcon: root.isCharging
 
         onClicked: {
             root.togglePopup("battery");
+        }
+        onRightClicked: {
+            root.showPercentageInBar = !root.showPercentageInBar;
         }
     }
 
@@ -144,7 +182,7 @@ Item {
         anchor.margins.top: 8
 
         visible: root.activePopupId === "battery"
-        implicitWidth: 260
+        implicitWidth: 290
         implicitHeight: cardLayout.implicitHeight + 38
         color: "transparent"
 
@@ -244,12 +282,14 @@ Item {
                         anchors.margins: 8
                         spacing: 6
 
+                        // Time Remaining
                         Row {
                             width: parent.width
                             Text { text: "Time Remaining:"; color: theme.textSub; font.pixelSize: 11; font.family: theme.fontFamily }
                             Item { Layout.fillWidth: true; width: parent.width - 200 }
                             Text {
                                 text: {
+                                    if (root.calcTimeStr !== "") return root.calcTimeStr;
                                     if (root.isCharging) {
                                         return UPower.displayDevice ? root.formatSeconds(UPower.displayDevice.timeToFull) : "Calculating...";
                                     } else {
@@ -263,12 +303,13 @@ Item {
                             }
                         }
 
+                        // Power Rate
                         Row {
                             width: parent.width
                             Text { text: "Power Rate:"; color: theme.textSub; font.pixelSize: 11; font.family: theme.fontFamily }
                             Item { Layout.fillWidth: true; width: parent.width - 200 }
                             Text {
-                                text: (UPower.displayDevice && UPower.displayDevice.changeRate > 0) ? (UPower.displayDevice.changeRate.toFixed(1) + " W") : "Adaptive"
+                                text: root.powerNow > 0 ? (root.powerNow + " W") : ((UPower.displayDevice && UPower.displayDevice.changeRate > 0) ? (UPower.displayDevice.changeRate.toFixed(1) + " W") : "Adaptive")
                                 color: theme.text
                                 font.pixelSize: 11
                                 font.family: theme.fontFamily
@@ -276,26 +317,88 @@ Item {
                             }
                         }
 
+                        // Health & Capacity
                         Row {
                             width: parent.width
-                            Text { text: "Health:"; color: theme.textSub; font.pixelSize: 11; font.family: theme.fontFamily }
+                            Text { text: "Health & Capacity:"; color: theme.textSub; font.pixelSize: 11; font.family: theme.fontFamily }
                             Item { Layout.fillWidth: true; width: parent.width - 200 }
                             Text {
-                                text: (UPower.displayDevice && UPower.displayDevice.healthSupported) ? (Math.round(UPower.displayDevice.healthPercentage) + "%") : "Normal"
+                                text: root.healthPct > 0 ? (root.healthPct + "% (" + root.energyFull + " / " + root.energyDesign + " Wh)") : ((UPower.displayDevice && UPower.displayDevice.healthSupported) ? (Math.round(UPower.displayDevice.healthPercentage) + "%") : "Normal")
                                 color: theme.blueLight
                                 font.pixelSize: 11
                                 font.family: theme.fontFamily
                                 font.weight: Font.Medium
                             }
                         }
+
+                        // Charge Cycles
+                        Row {
+                            width: parent.width
+                            visible: root.cycleCount > 0
+                            Text { text: "Charge Cycles:"; color: theme.textSub; font.pixelSize: 11; font.family: theme.fontFamily }
+                            Item { Layout.fillWidth: true; width: parent.width - 200 }
+                            Text {
+                                text: root.cycleCount + " cycles"
+                                color: theme.text
+                                font.pixelSize: 11
+                                font.family: theme.fontFamily
+                                font.weight: Font.Medium
+                            }
+                        }
+
+                        // Voltage
+                        Row {
+                            width: parent.width
+                            visible: root.voltageNow > 0
+                            Text { text: "Voltage:"; color: theme.textSub; font.pixelSize: 11; font.family: theme.fontFamily }
+                            Item { Layout.fillWidth: true; width: parent.width - 200 }
+                            Text {
+                                text: root.voltageNow + " V"
+                                color: theme.text
+                                font.pixelSize: 11
+                                font.family: theme.fontFamily
+                                font.weight: Font.Medium
+                            }
+                        }
+
+                        // Thresholds
+                        Row {
+                            width: parent.width
+                            visible: root.thresholds !== ""
+                            Text { text: "Charge Thresholds:"; color: theme.textSub; font.pixelSize: 11; font.family: theme.fontFamily }
+                            Item { Layout.fillWidth: true; width: parent.width - 200 }
+                            Text {
+                                text: root.thresholds + " (Protected)"
+                                color: theme.green
+                                font.pixelSize: 11
+                                font.family: theme.fontFamily
+                                font.weight: Font.Medium
+                            }
+                        }
+
+                        // Hardware / Model
+                        Row {
+                            width: parent.width
+                            visible: root.modelName !== ""
+                            Text { text: "Hardware:"; color: theme.textSub; font.pixelSize: 11; font.family: theme.fontFamily }
+                            Item { Layout.fillWidth: true; width: parent.width - 200 }
+                            Text {
+                                text: (root.manufacturer !== "" ? (root.manufacturer + " ") : "") + root.modelName + " (" + root.tech + ")"
+                                color: theme.textDim
+                                font.pixelSize: 10
+                                font.family: theme.fontFamily
+                                font.weight: Font.Normal
+                                elide: Text.ElideLeft
+                            }
+                        }
                     }
                 }
 
-                // Power Profiles quick switch (only if supported)
+                // Power Profiles quick switch
                 Column {
                     width: parent.width
                     spacing: 6
-                    visible: PowerProfiles.hasPerformanceProfile
+                    visible: true
 
                     Text {
                         text: "Power Profile"
@@ -314,7 +417,7 @@ Item {
                             width: (parent.width - 12) / 3
                             height: 24
                             radius: 4
-                            property bool isCurrent: PowerProfiles.profile === PowerProfile.PowerSaver
+                            property bool isCurrent: root.currentProfile === "power-saver"
                             color: isCurrent ? theme.surfaceActive : (saverMouse.containsMouse ? theme.surfaceHover : theme.surface)
                             border.color: isCurrent ? theme.green : theme.borderSubtle
                             border.width: 1
@@ -338,8 +441,7 @@ Item {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    setSaverCmd.running = true;
-                                    PowerProfiles.profile = PowerProfile.PowerSaver;
+                                    setProfileProc.setProfile("power-saver");
                                 }
                             }
                         }
@@ -349,7 +451,7 @@ Item {
                             width: (parent.width - 12) / 3
                             height: 24
                             radius: 4
-                            property bool isCurrent: PowerProfiles.profile === PowerProfile.Balanced
+                            property bool isCurrent: root.currentProfile === "balanced"
                             color: isCurrent ? theme.surfaceActive : (balMouse.containsMouse ? theme.surfaceHover : theme.surface)
                             border.color: isCurrent ? theme.blue : theme.borderSubtle
                             border.width: 1
@@ -373,8 +475,7 @@ Item {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    setBalCmd.running = true;
-                                    PowerProfiles.profile = PowerProfile.Balanced;
+                                    setProfileProc.setProfile("balanced");
                                 }
                             }
                         }
@@ -384,7 +485,7 @@ Item {
                             width: (parent.width - 12) / 3
                             height: 24
                             radius: 4
-                            property bool isCurrent: PowerProfiles.profile === PowerProfile.Performance
+                            property bool isCurrent: root.currentProfile === "performance"
                             color: isCurrent ? theme.surfaceActive : (perfMouse.containsMouse ? theme.surfaceHover : theme.surface)
                             border.color: isCurrent ? theme.peach : theme.borderSubtle
                             border.width: 1
@@ -408,8 +509,7 @@ Item {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    setPerfCmd.running = true;
-                                    PowerProfiles.profile = PowerProfile.Performance;
+                                    setProfileProc.setProfile("performance");
                                 }
                             }
                         }

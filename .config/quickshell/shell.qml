@@ -195,6 +195,12 @@ ShellRoot {
                             onTogglePopup: (id) => barWindow.togglePopup(id)
                         }
 
+                        StorageWidget {
+                            parentWindow: barWindow
+                            activePopupId: barWindow.currentPopup
+                            onTogglePopup: (id) => barWindow.togglePopup(id)
+                        }
+
                         BluetoothWidget {
                             parentWindow: barWindow
                             activePopupId: barWindow.currentPopup

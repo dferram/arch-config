@@ -21,13 +21,20 @@ SPEAKER_SINK = f"{CARD_NAME.replace('alsa_card.', 'alsa_output.')}.HiFi__Speaker
 
 last_notify_time = 0
 
+import os
+
 def run_cmd(args):
     try:
-        subprocess.run(args, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        env = os.environ.copy()
+        if "WAYLAND_DISPLAY" not in env:
+            env["WAYLAND_DISPLAY"] = "wayland-1"
+        if "XDG_RUNTIME_DIR" not in env:
+            env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
+        subprocess.run(args, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
     except Exception:
         pass
 
-def notify_headphones_connected():
+def notify_headphones_connected(vol_str="100%"):
     global last_notify_time
     now = time.time()
     if now - last_notify_time < 3.0:
@@ -35,13 +42,13 @@ def notify_headphones_connected():
     last_notify_time = now
 
     run_cmd([
-        "notify-send", "-a", "Hearing Protection",
+        "notify-send", "-a", "Headphones",
         "-i", "file:///home/ferram/.local/share/icons/headphones.svg",
         "-t", "2500",
         "-h", "string:x-canonical-private-synchronous:headphones_connected",
         "-h", "string:synchronous:headphones_connected",
         "Headphones Connected",
-        "Volume set to 40%"
+        f"Audio routed • Volume {vol_str}"
     ])
 
 def is_headphone_plugged():
@@ -67,17 +74,34 @@ def switch_to_headphones():
     run_cmd(["amixer", "-c", CARD, "sset", "Headphone", "unmute"])
     run_cmd(["amixer", "-c", CARD, "sset", "Speaker", "mute"])
 
-    # Disable hardware DRC to eliminate compression distortion/saturation on headphones
-    run_cmd(["amixer", "-c", CARD, "sset", "Post Mixer Analog Playback DRC switch", "off"])
-    # Switch EasyEffects to clean audiophile profile (removes speaker loudness, bass distortion & limiter)
-    run_cmd(["easyeffects", "-l", "Perfect EQ"])
+    # Use boosted loudness & clarity profile
+    run_cmd(["easyeffects", "-l", "Huawei MateBook - Max Loudness & Clarity"])
 
-    # Automatically set volume to 40% (safe level to protect ears)
+    # Set volume to 80% on wired headphones
     time.sleep(0.15)
-    run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "40"])
-    notify_headphones_connected()
+    run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "80"])
+    notify_headphones_connected("80%")
+
+def get_external_headphone_sink():
+    try:
+        out = subprocess.check_output(["pactl", "list", "sinks", "short"], stderr=subprocess.DEVNULL).decode()
+        for sline in out.strip().split("\n"):
+            parts = sline.split()
+            if len(parts) >= 2:
+                sname = parts[1]
+                if ("bluez" in sname.lower() or "usb" in sname.lower()) and "speaker" not in sname.lower():
+                    return sname
+    except Exception:
+        pass
+    return None
 
 def switch_to_speaker():
+    ext = get_external_headphone_sink()
+    if ext:
+        print(f"[headphone-jack-autoswitch] Wired jack unplugged, but external {ext} active -> Keeping {ext}", flush=True)
+        run_cmd(["pactl", "set-default-sink", ext])
+        return
+
     print("[headphone-jack-autoswitch] Headphones unplugged -> Switching to Speakers", flush=True)
     run_cmd(["amixer", "-c", CARD, "sset", "Auto-Mute Mode", "Enabled"])
     run_cmd(["pactl", "set-card-profile", CARD_NAME, SPEAKER_PROFILE])
@@ -119,7 +143,8 @@ def monitor_bluetooth_and_usb():
                                     active_sinks.add(sname)
                                     if sname not in known_external_sinks:
                                         known_external_sinks.add(sname)
-                                        print(f"[headphone-jack-autoswitch] Detected new external headphone sink: {sname} -> Setting volume to 40%", flush=True)
+                                        print(f"[headphone-jack-autoswitch] Detected new external headphone sink: {sname} -> Routing sound and setting volume to 40%", flush=True)
+                                        run_cmd(["pactl", "set-default-sink", sname])
                                         run_cmd(["easyeffects", "-l", "Perfect EQ"])
                                         time.sleep(0.25)
                                         run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "40"])

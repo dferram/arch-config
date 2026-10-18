@@ -43,7 +43,7 @@ PanelWindow {
         searchInput.text = "";
         selectedIndex = 0;
         filterList("");
-        if (allApps.length === 0 && !scanProc.running) {
+        if (!scanProc.running) {
             scanProc.running = true;
         }
         openTimer.restart();
