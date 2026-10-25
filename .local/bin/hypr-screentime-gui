@@ -1,0 +1,829 @@
+#!/usr/bin/env python3
+"""
+hypr-screentime-gui: Modern, Obsidian-frosted dashboard for screen time analytics.
+Uses PyGObject (GTK3) + WebKit2 for hardware-accelerated rendering.
+Features dedicated graphs for each metric, pure English labels, zero emojis.
+"""
+
+import sys
+import os
+import json
+import sqlite3
+from pathlib import Path
+from datetime import datetime, date, timedelta
+
+import gi
+gi.require_version('Gtk', '3.0')
+gi.require_version('WebKit2', '4.1')
+from gi.repository import Gtk, WebKit2, Gdk
+
+HOME = Path.home()
+DATA_DIR = HOME / ".local" / "share" / "hypr-screentime"
+CONFIG_DIR = HOME / ".config" / "hypr-screentime"
+DB_FILE = DATA_DIR / "screentime.db"
+RULES_FILE = CONFIG_DIR / "rules.json"
+
+
+def format_duration(seconds: int) -> str:
+    if seconds < 60:
+        return f"{seconds}s"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes}m"
+    hours = minutes // 60
+    rem_min = minutes % 60
+    if rem_min == 0:
+        return f"{hours}h"
+    return f"{hours}h {rem_min:02d}m"
+
+
+def get_data(period="today"):
+    if not DB_FILE.exists():
+        return {"total_seconds": 0, "categories": {}, "top_apps": [], "top_windows": []}
+
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+
+    today_str = date.today().isoformat()
+    if period == "today":
+        date_clause = "date = ?"
+        params = (today_str,)
+    else:
+        week_ago = (date.today() - timedelta(days=6)).isoformat()
+        date_clause = "date >= ?"
+        params = (week_ago,)
+
+    c.execute(f"SELECT SUM(duration) FROM sessions WHERE {date_clause}", params)
+    total_sec = c.fetchone()[0] or 0
+
+    c.execute(f"""
+        SELECT category, SUM(duration) as dur
+        FROM sessions
+        WHERE {date_clause}
+        GROUP BY category
+        ORDER BY dur DESC
+    """, params)
+    cat_rows = c.fetchall()
+
+    cat_meta = {
+        "Work & Dev": {"color": "#30d158", "icon": "󰌢"},
+        "Leisure & Slacking": {"color": "#ff453a", "icon": "󰊗"},
+        "Terminal": {"color": "#6fbf27", "icon": "󰆍"},
+        "Communication": {"color": "#bf5af2", "icon": "󰭹"},
+        "Media & Audio": {"color": "#ff9f0a", "icon": "󰎈"},
+        "Other": {"color": "#71717a", "icon": "󰘓"}
+    }
+    if RULES_FILE.exists():
+        try:
+            with open(RULES_FILE, "r", encoding="utf-8") as f:
+                r_json = json.load(f)
+                for cat in r_json.get("categories", []):
+                    cat_meta[cat["name"]] = {"color": cat.get("color", "#a1a1aa"), "icon": cat.get("icon", "󰘓")}
+        except Exception:
+            pass
+
+    categories = []
+    for cat_name, dur in cat_rows:
+        pct = round((dur / total_sec * 100), 1) if total_sec > 0 else 0
+        meta = cat_meta.get(cat_name, {"color": "#a1a1aa", "icon": "󰘓"})
+        categories.append({
+            "name": cat_name,
+            "seconds": dur,
+            "formatted": format_duration(dur),
+            "percentage": pct,
+            "color": meta["color"],
+            "icon": meta["icon"]
+        })
+
+    c.execute(f"""
+        SELECT app_class, category, SUM(duration) as dur
+        FROM sessions
+        WHERE {date_clause} AND app_class != ''
+        GROUP BY app_class
+        ORDER BY dur DESC
+        LIMIT 8
+    """, params)
+    top_apps = []
+    for app, cat_name, dur in c.fetchall():
+        pct = round((dur / total_sec * 100), 1) if total_sec > 0 else 0
+        meta = cat_meta.get(cat_name, {"color": "#a1a1aa", "icon": "󰘓"})
+        top_apps.append({
+            "class": app,
+            "category": cat_name,
+            "seconds": dur,
+            "formatted": format_duration(dur),
+            "percentage": pct,
+            "color": meta["color"]
+        })
+
+    c.execute(f"""
+        SELECT app_class, window_title, category, SUM(duration) as dur
+        FROM sessions
+        WHERE {date_clause} AND app_class != ''
+        GROUP BY app_class, window_title
+        ORDER BY dur DESC
+        LIMIT 30
+    """, params)
+    top_windows = []
+    for app, title, cat_name, dur in c.fetchall():
+        pct = round((dur / total_sec * 100), 1) if total_sec > 0 else 0
+        meta = cat_meta.get(cat_name, {"color": "#a1a1aa", "icon": "󰘓"})
+        top_windows.append({
+            "class": app,
+            "title": title if title else "(No Title)",
+            "category": cat_name,
+            "seconds": dur,
+            "formatted": format_duration(dur),
+            "percentage": pct,
+            "color": meta["color"]
+        })
+
+    conn.close()
+
+    work_dur = sum(c["seconds"] for c in categories if c["name"] in ("Work & Dev", "Terminal", "Trabajo"))
+    slacking_dur = sum(c["seconds"] for c in categories if c["name"] in ("Leisure & Slacking", "Hacerse Wey"))
+    focus_sum = work_dur + slacking_dur
+    prod_score = round((work_dur / focus_sum * 100)) if focus_sum > 0 else 100
+
+    work_pct = round((work_dur / total_sec * 100), 1) if total_sec > 0 else 0
+    slacking_pct = round((slacking_dur / total_sec * 100), 1) if total_sec > 0 else 0
+
+    return {
+        "period": period,
+        "date_label": "Today (" + today_str + ")" if period == "today" else "Last 7 Days",
+        "total_seconds": total_sec,
+        "total_formatted": format_duration(total_sec),
+        "work_formatted": format_duration(work_dur),
+        "work_seconds": work_dur,
+        "work_pct": work_pct,
+        "slacking_formatted": format_duration(slacking_dur),
+        "slacking_seconds": slacking_dur,
+        "slacking_pct": slacking_pct,
+        "productivity_score": prod_score,
+        "categories": categories,
+        "top_apps": top_apps,
+        "top_windows": top_windows
+    }
+
+
+def generate_html(data):
+    data_json = json.dumps(data)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Screen Time Analytics</title>
+  <style>
+    * {{
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }}
+    body {{
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #09090d;
+      color: #ffffff;
+      padding: 24px;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }}
+    ::-webkit-scrollbar {{
+      width: 6px;
+    }}
+    ::-webkit-scrollbar-track {{
+      background: transparent;
+    }}
+    ::-webkit-scrollbar-thumb {{
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+    }}
+    /* Header */
+    .header {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }}
+    .title-group {{
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }}
+    .title-icon {{
+      font-size: 24px;
+      background: rgba(111, 191, 39, 0.15);
+      color: #6fbf27;
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(111, 191, 39, 0.3);
+      font-family: "JetBrainsMono Nerd Font", monospace;
+    }}
+    h1 {{
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }}
+    .subtitle {{
+      font-size: 13px;
+      color: #a1a1aa;
+      margin-top: 2px;
+    }}
+    /* Tabs */
+    .tab-group {{
+      display: flex;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      gap: 4px;
+    }}
+    .tab-btn {{
+      background: transparent;
+      border: none;
+      color: #a1a1aa;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }}
+    .tab-btn.active {{
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }}
+    .tab-btn:hover:not(.active) {{
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+    }}
+
+    /* Stat Cards with Graphs */
+    .metrics-row {{
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }}
+    .card {{
+      background: rgba(18, 18, 24, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 18px;
+      backdrop-filter: blur(20px);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }}
+    .card:hover {{
+      border-color: rgba(255, 255, 255, 0.2);
+    }}
+    .card-label {{
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #a1a1aa;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: "JetBrainsMono Nerd Font", sans-serif;
+    }}
+    .card-val {{
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }}
+    .card-bar-bg {{
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.08);
+      margin-top: 12px;
+      overflow: hidden;
+    }}
+    .card-bar-fill {{
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }}
+    .card-sub {{
+      font-size: 12px;
+      color: #71717a;
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+    }}
+    .val-work {{ color: #30d158; }}
+    .val-slack {{ color: #ff453a; }}
+    .val-prod {{ color: #6fbf27; }}
+
+    /* Layout Sections */
+    .dashboard-grid {{
+      display: grid;
+      grid-template-columns: 1.15fr 0.95fr;
+      gap: 18px;
+      margin-bottom: 24px;
+    }}
+
+    .section-title {{
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }}
+
+    /* Donut Chart & Visual Breakdown */
+    .donut-container {{
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      padding: 10px 0;
+    }}
+    .donut-svg {{
+      width: 145px;
+      height: 145px;
+      transform: rotate(-90deg);
+      border-radius: 50%;
+    }}
+    .category-bars-list {{
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }}
+    .cat-bar-item {{
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }}
+    .cat-bar-header {{
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+    }}
+    .cat-bar-left {{
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      color: #e2e8f0;
+      font-family: "JetBrainsMono Nerd Font", sans-serif;
+    }}
+    .cat-bar-right {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }}
+    .cat-bar-dur {{
+      font-weight: 600;
+      color: #ffffff;
+    }}
+    .cat-bar-pct {{
+      color: #71717a;
+      font-size: 11px;
+    }}
+    .cat-bar-track {{
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2.5px;
+      overflow: hidden;
+    }}
+    .cat-bar-inner {{
+      height: 100%;
+      border-radius: 2.5px;
+    }}
+
+    /* Top Applications Graph List */
+    .app-list {{
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }}
+    .app-item {{
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }}
+    .app-top {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }}
+    .app-class {{
+      font-weight: 600;
+      font-size: 13px;
+    }}
+    .app-cat {{
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #a1a1aa;
+    }}
+    .app-track {{
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }}
+    .app-fill {{
+      height: 100%;
+      border-radius: 2px;
+    }}
+
+    /* Window Titles Table */
+    .table-container {{
+      max-height: 280px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }}
+    th {{
+      text-align: left;
+      color: #71717a;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      position: sticky;
+      top: 0;
+      background: #0f0f14;
+    }}
+    td {{
+      padding: 9px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #e2e8f0;
+    }}
+    tr:hover td {{
+      background: rgba(255, 255, 255, 0.03);
+    }}
+    .col-title {{
+      max-width: 340px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: monospace;
+    }}
+    .pill {{
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }}
+
+    /* Footer */
+    .footer {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }}
+    .btn {{
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      padding: 8px 16px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      font-family: "JetBrainsMono Nerd Font", sans-serif;
+    }}
+    .btn:hover {{
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.25);
+    }}
+    .btn-green {{
+      background: rgba(111, 191, 39, 0.2);
+      border-color: rgba(111, 191, 39, 0.4);
+      color: #a0db6a;
+    }}
+    .btn-green:hover {{
+      background: rgba(111, 191, 39, 0.35);
+      border-color: #6fbf27;
+      color: #ffffff;
+    }}
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="title-group">
+      <div class="title-icon">󱑎</div>
+      <div>
+        <h1>Screen Time Analytics</h1>
+        <div class="subtitle">Zero-Overhead Event-Driven Telemetry • 0% CPU</div>
+      </div>
+    </div>
+    <div class="tab-group">
+      <button class="tab-btn {'active' if data['period'] == 'today' else ''}" onclick="switchPeriod('today')">Today</button>
+      <button class="tab-btn {'active' if data['period'] == 'week' else ''}" onclick="switchPeriod('week')">Last 7 Days</button>
+    </div>
+  </div>
+
+  <!-- Metric Cards with Individual Progress Graphs -->
+  <div class="metrics-row">
+    <div class="card">
+      <div class="card-label">󱑎 Total Active Time</div>
+      <div class="card-val">{data['total_formatted']}</div>
+      <div class="card-bar-bg">
+        <div class="card-bar-fill" style="width: 100%; background: #0a84ff;"></div>
+      </div>
+      <div class="card-sub">
+        <span>Period</span>
+        <span>{data['date_label']}</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">󰌢 Work & Development</div>
+      <div class="card-val val-work">{data['work_formatted']}</div>
+      <div class="card-bar-bg">
+        <div class="card-bar-fill" style="width: {data['work_pct']}%; background: #30d158;"></div>
+      </div>
+      <div class="card-sub">
+        <span>Share of Day</span>
+        <span class="val-work">{data['work_pct']}%</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">󰊗 Leisure & Slacking</div>
+      <div class="card-val val-slack">{data['slacking_formatted']}</div>
+      <div class="card-bar-bg">
+        <div class="card-bar-fill" style="width: {data['slacking_pct']}%; background: #ff453a;"></div>
+      </div>
+      <div class="card-sub">
+        <span>Share of Day</span>
+        <span class="val-slack">{data['slacking_pct']}%</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">󰄬 Productivity Score</div>
+      <div class="card-val val-prod">{data['productivity_score']}%</div>
+      <div class="card-bar-bg">
+        <div class="card-bar-fill" style="width: {data['productivity_score']}%; background: #6fbf27;"></div>
+      </div>
+      <div class="card-sub">
+        <span>Focus Index</span>
+        <span class="val-prod">{'Optimal' if data['productivity_score'] >= 75 else ('Moderate' if data['productivity_score'] >= 50 else 'Low Focus')}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-grid">
+    <!-- Category Distribution (Donut + Progress Bars) -->
+    <div class="card">
+      <div class="section-title">
+        <span>Category Distribution</span>
+        <span style="font-size: 11px; color: #71717a; font-weight: normal;">Proportional Share</span>
+      </div>
+      <div class="donut-container">
+        <svg class="donut-svg" viewBox="0 0 42 42" id="donutSvg"></svg>
+        <div class="category-bars-list" id="categoryBars"></div>
+      </div>
+    </div>
+
+    <!-- Top Applications with Graph Bars -->
+    <div class="card">
+      <div class="section-title">
+        <span>Top Applications</span>
+        <span style="font-size: 11px; color: #71717a; font-weight: normal;">By Duration</span>
+      </div>
+      <div class="app-list" id="appList"></div>
+    </div>
+  </div>
+
+  <!-- Detailed Window Breakdown -->
+  <div class="card">
+    <div class="section-title">
+      <span>Active Windows & Command Sessions</span>
+      <span style="font-size: 11px; color: #71717a; font-weight: normal;">Tab Titles & Commands</span>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Application</th>
+            <th>Title / Session Details</th>
+            <th>Category</th>
+            <th>Duration</th>
+            <th>Share</th>
+          </tr>
+        </thead>
+        <tbody id="windowsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div style="font-size: 12px; color: #71717a; font-family: 'JetBrainsMono Nerd Font', monospace;">
+      󰄬 Hyprland Socket2 Listener • <span style="color: #30d158;">Active (0% CPU)</span>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn btn-green" onclick="refreshData()">󰑐 Refresh</button>
+      <button class="btn" onclick="openRules()">󰒓 Edit Rules</button>
+    </div>
+  </div>
+
+  <script>
+    const serverData = {data_json};
+
+    function renderDonutAndBars(categories, totalSec) {{
+      const svg = document.getElementById("donutSvg");
+      const bars = document.getElementById("categoryBars");
+      svg.innerHTML = "";
+      bars.innerHTML = "";
+
+      if (!categories || categories.length === 0 || totalSec === 0) {{
+        svg.innerHTML = '<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#22222a" stroke-width="5"></circle>';
+        bars.innerHTML = '<div style="color: #71717a; font-size: 13px;">No session data recorded yet for this period.</div>';
+        return;
+      }}
+
+      let currentOffset = 0;
+      categories.forEach(cat => {{
+        const pct = cat.percentage;
+        const strokeDash = `${{pct}} ${{100 - pct}}`;
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", "21");
+        circle.setAttribute("cy", "21");
+        circle.setAttribute("r", "15.91549430918954");
+        circle.setAttribute("fill", "transparent");
+        circle.setAttribute("stroke", cat.color);
+        circle.setAttribute("stroke-width", "5.5");
+        circle.setAttribute("stroke-dasharray", strokeDash);
+        circle.setAttribute("stroke-dashoffset", -currentOffset);
+        svg.appendChild(circle);
+        currentOffset += pct;
+
+        // Progress bar for each category
+        const item = document.createElement("div");
+        item.className = "cat-bar-item";
+        item.innerHTML = `
+          <div class="cat-bar-header">
+            <div class="cat-bar-left">
+              <span>${{cat.icon}}</span>
+              <span>${{cat.name}}</span>
+            </div>
+            <div class="cat-bar-right">
+              <span class="cat-bar-dur">${{cat.formatted}}</span>
+              <span class="cat-bar-pct">${{cat.percentage}}%</span>
+            </div>
+          </div>
+          <div class="cat-bar-track">
+            <div class="cat-bar-inner" style="width: ${{cat.percentage}}%; background: ${{cat.color}};"></div>
+          </div>
+        `;
+        bars.appendChild(item);
+      }});
+    }}
+
+    function renderApps(apps) {{
+      const appList = document.getElementById("appList");
+      appList.innerHTML = "";
+
+      if (!apps || apps.length === 0) {{
+        appList.innerHTML = '<div style="color: #71717a; font-size: 13px;">No applications tracked yet.</div>';
+        return;
+      }}
+
+      apps.forEach(app => {{
+        const item = document.createElement("div");
+        item.className = "app-item";
+        item.innerHTML = `
+          <div class="app-top">
+            <div class="app-class">${{app.class}}</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="app-cat">${{app.category}}</span>
+              <span style="font-weight: 600; font-size: 13px; color: ${{app.color}};">${{app.formatted}}</span>
+            </div>
+          </div>
+          <div class="app-track">
+            <div class="app-fill" style="width: ${{app.percentage}}%; background: ${{app.color}};"></div>
+          </div>
+        `;
+        appList.appendChild(item);
+      }});
+    }}
+
+    function renderWindows(windows) {{
+      const tbody = document.getElementById("windowsTableBody");
+      tbody.innerHTML = "";
+
+      if (!windows || windows.length === 0) {{
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #71717a; padding: 20px;">No window events logged yet.</td></tr>';
+        return;
+      }}
+
+      windows.forEach(w => {{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td style="font-weight: 600;">${{w.class}}</td>
+          <td class="col-title" title="${{w.title.replace(/"/g, '&quot;')}}">${{w.title}}</td>
+          <td><span class="pill" style="background: ${{w.color}}22; color: ${{w.color}};">${{w.category}}</span></td>
+          <td style="font-weight: 600;">${{w.formatted}}</td>
+          <td style="color: #71717a;">${{w.percentage}}%</td>
+        `;
+        tbody.appendChild(tr);
+      }});
+    }}
+
+    function switchPeriod(p) {{
+      window.location.href = "screentime://period/" + p;
+    }}
+
+    function refreshData() {{
+      window.location.href = "screentime://refresh";
+    }}
+
+    function openRules() {{
+      window.location.href = "screentime://open-rules";
+    }}
+
+    renderDonutAndBars(serverData.categories, serverData.total_seconds);
+    renderApps(serverData.top_apps);
+    renderWindows(serverData.top_windows);
+  </script>
+</body>
+</html>
+"""
+
+
+class ScreenTimeWindow(Gtk.Window):
+    def __init__(self, period="today"):
+        super().__init__(title="Screen Time Analytics")
+        self.set_default_size(980, 680)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        self.set_role("hypr-screentime-gui")
+
+        self.period = period
+        self.webview = WebKit2.WebView()
+
+        bg_color = Gdk.RGBA(0.04, 0.04, 0.06, 0.98)
+        self.webview.set_background_color(bg_color)
+
+        self.webview.connect("decide-policy", self.on_decide_policy)
+        self.add(self.webview)
+
+        self.load_dashboard()
+
+    def load_dashboard(self):
+        data = get_data(self.period)
+        html = generate_html(data)
+        self.webview.load_html(html, "http://localhost")
+
+    def on_decide_policy(self, webview, decision, decision_type):
+        if decision_type == WebKit2.PolicyDecisionType.NAVIGATION_ACTION:
+            nav_action = decision.get_navigation_action()
+            uri = nav_action.get_request().get_uri()
+
+            if uri.startswith("screentime://"):
+                decision.ignore()
+                cmd = uri[len("screentime://"):]
+                if cmd.startswith("period/"):
+                    self.period = cmd.split("/")[1]
+                    self.load_dashboard()
+                elif cmd == "refresh":
+                    self.load_dashboard()
+                elif cmd == "open-rules":
+                    import subprocess
+                    subprocess.Popen(["xdg-open", str(RULES_FILE)])
+                return True
+        return False
+
+
+def main():
+    period = "today"
+    if len(sys.argv) > 1 and sys.argv[1] in ("week", "today"):
+        period = sys.argv[1]
+
+    win = ScreenTimeWindow(period)
+    win.connect("destroy", Gtk.main_quit)
+    win.show_all()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

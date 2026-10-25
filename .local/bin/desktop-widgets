@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+"""
+desktop-widgets:
+Command-line controller for Quickshell Apple Sonoma Desktop Widgets.
+Manage grid layout, customize mode, add/remove/move widgets, and configure albums.
+"""
+
+import sys
+import os
+import json
+import subprocess
+from pathlib import Path
+
+HOME = Path.home()
+HELPER = HOME / "Personal" / "dotfiles" / ".config" / "quickshell" / "scripts" / "desktop-widgets-helper.py"
+DATA_DIR = HOME / ".local" / "share" / "desktop-widgets"
+GRID_FILE = DATA_DIR / "grid_positions.json"
+PHOTOS_FILE = DATA_DIR / "photos_config.json"
+
+AVAILABLE_WIDGETS = {
+    "clock":     {"type": "clock",     "defaultSpan": (1, 1), "desc": "Analog Ceramic Clock"},
+    "battery":   {"type": "battery",   "defaultSpan": (1, 1), "desc": "MateBook 14 Battery Radial Gauge"},
+    "calendar":  {"type": "calendar",  "defaultSpan": (1, 1), "desc": "Monthly Calendar with Today Badge"},
+    "reminders": {"type": "reminders", "defaultSpan": (1, 1), "desc": "Upcoming Reminders Checklist"},
+    "weather":   {"type": "weather",   "defaultSpan": (1, 1), "desc": "Live Weather, Temp & Forecast"},
+    "resources": {"type": "resources", "defaultSpan": (1, 1), "desc": "Live CPU, RAM & Temp Monitor"},
+    "media":     {"type": "media",     "defaultSpan": (2, 1), "desc": "Now Playing Media Player with Artwork & Controls"},
+    "notes":     {"type": "notes",     "defaultSpan": (2, 1), "desc": "Quick Notes with Autosave"},
+    "photo1":    {"type": "photo1",    "defaultSpan": (2, 2), "desc": "Photos Showcase (Frame 1)"},
+    "photo2":    {"type": "photo2",    "defaultSpan": (2, 2), "desc": "Photos Showcase (Frame 2)"},
+    "photo3":    {"type": "photo3",    "defaultSpan": (2, 2), "desc": "Photos Showcase (Frame 3)"},
+    "photo4":    {"type": "photo4",    "defaultSpan": (2, 2), "desc": "Photos Showcase (Frame 4)"},
+    "photo5":    {"type": "photo5",    "defaultSpan": (2, 2), "desc": "Photos Showcase (Frame 5)"}
+}
+
+def call_helper(args):
+    cmd = ["python3", str(HELPER)] + args
+    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    return res.stdout.strip()
+
+def call_ipc(func, *args):
+    cmd = ["quickshell", "ipc", "call", "widgets", func] + list(args)
+    try:
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=3)
+        return res.stdout.strip()
+    except Exception as e:
+        return ""
+
+def cmd_customize():
+    call_ipc("toggleGrid")
+    st = call_ipc("isGridVisible")
+    print(f"Grid Customize Mode: {'ENABLED' if st == 'true' else 'DISABLED'}")
+    if st == "true":
+        print("  Widgets can now be repositioned and the coordinate guide is visible.")
+
+def cmd_toggle():
+    call_ipc("toggle")
+    st = call_ipc("isVisible")
+    print(f"Desktop Widgets Visibility: {'ON' if st == 'true' else 'OFF'}")
+
+def cmd_list():
+    raw = call_helper(["grid-get"])
+    try:
+        grid = json.loads(raw)
+    except Exception:
+        grid = {}
+
+    print("═════════════════════════════════════════════════════════════════════")
+    print("  APPLE SONOMA DESKTOP WIDGETS (Grid 6x4)")
+    print("═════════════════════════════════════════════════════════════════════")
+    print(f" {'KEY':<12} {'TYPE':<12} {'POS (Col,Row)':<15} {'SPAN (W x H)':<12} {'STATUS'}")
+    print("─────────────────────────────────────────────────────────────────────")
+    for key, info in sorted(grid.items(), key=lambda x: (x[1].get('row', 0), x[1].get('col', 0))):
+        c = info.get("col", 0)
+        r = info.get("row", 0)
+        cw = info.get("colSpan", 1)
+        rw = info.get("rowSpan", 1)
+        t = info.get("type", key)
+        print(f" {key:<12} {t:<12} ({c}, {r}){'':<9} {cw} x {rw}{'':<6} Active")
+    print("─────────────────────────────────────────────────────────────────────")
+    print("Available widget types to add: " + ", ".join(AVAILABLE_WIDGETS.keys()))
+    print("Run: desktop-widgets --help for command options.")
+
+def cmd_add(args):
+    if len(args) < 1:
+        print("Usage: desktop-widgets add <widget_key> [col] [row] [colSpan] [rowSpan]")
+        print("Available widgets: " + ", ".join(AVAILABLE_WIDGETS.keys()))
+        return
+    key = args[0].lower()
+    w_type = key
+    def_span = AVAILABLE_WIDGETS.get(key, {}).get("defaultSpan", (1, 1))
+    col = int(args[1]) if len(args) > 1 else 0
+    row = int(args[2]) if len(args) > 2 else 0
+    cspan = int(args[3]) if len(args) > 3 else def_span[0]
+    rspan = int(args[4]) if len(args) > 4 else def_span[1]
+
+    call_helper(["grid-add", key, w_type, str(col), str(row), str(cspan), str(rspan)])
+    call_ipc("toggleGrid")
+    call_ipc("toggleGrid")
+    print(f"Added widget '{key}' at grid position ({col}, {row}) with span ({cspan}x{rspan}).")
+
+def cmd_remove(args):
+    if len(args) < 1:
+        print("Usage: desktop-widgets remove <widget_key>")
+        return
+    key = args[0].lower()
+    call_helper(["grid-remove", key])
+    print(f"Removed widget '{key}' from desktop grid.")
+
+def cmd_move(args):
+    if len(args) < 3:
+        print("Usage: desktop-widgets move <widget_key> <col> <row>")
+        return
+    key = args[0].lower()
+    col = int(args[1])
+    row = int(args[2])
+    raw = call_helper(["grid-move", key, str(col), str(row)])
+    try:
+        d = json.loads(raw)
+        if d.get("status") == "error":
+            print(f"Error: {d.get('message', 'Cannot move widget')}")
+            return
+    except Exception:
+        pass
+    print(f"Moved widget '{key}' to grid position ({col}, {row}).")
+
+def cmd_resize(args):
+    if len(args) < 3:
+        print("Usage: desktop-widgets resize <widget_key> <colSpan> <rowSpan>")
+        return
+    key = args[0].lower()
+    cspan = int(args[1])
+    rspan = int(args[2])
+    raw = call_helper(["grid-resize", key, str(cspan), str(rspan)])
+    try:
+        d = json.loads(raw)
+        if d.get("status") == "error":
+            print(f"Error: {d.get('message', 'Cannot resize widget')}")
+            return
+    except Exception:
+        pass
+    print(f"Resized widget '{key}' to span ({cspan} x {rspan}).")
+
+def cmd_reset():
+    call_helper(["grid-reset"])
+    print("Desktop widgets grid layout reset to default Apple Sonoma arrangement.")
+
+def cmd_set_albums(args):
+    if len(args) < 2:
+        print("Usage: desktop-widgets set-albums <widget_id: 1|2|3> <folder_path1> [folder_path2...]")
+        return
+    wid = args[0]
+    folders = args[1:]
+    call_helper(["photos-set-albums", wid] + folders)
+    print(f"Set {len(folders)} album(s) for Photo Widget {wid}.")
+
+def cmd_recursive(args):
+    wid = args[0] if len(args) > 0 else "1"
+    raw = call_helper(["photos-toggle-recursive", wid])
+    try:
+        d = json.loads(raw)
+        st = "INCLUDE SUBFOLDERS (Recursive)" if d.get("recursive") else "MAIN FOLDER ONLY"
+        print(f"Photo Widget {wid} Subfolders: {st} ({d.get('total', 0)} total photos)")
+    except Exception:
+        print(f"Toggled recursive mode for Photo Widget {wid}.")
+
+def cmd_shuffle(args):
+    wid = args[0] if len(args) > 0 else "1"
+    raw = call_helper(["photos-toggle-shuffle", wid])
+    try:
+        d = json.loads(raw)
+        st = "SHUFFLE (Random)" if d.get("shuffle") else "SEQUENTIAL"
+        print(f"Photo Widget {wid} Playback Mode: {st}")
+    except Exception:
+        print(f"Toggled shuffle mode for Photo Widget {wid}.")
+
+def cmd_fit(args):
+    if len(args) < 2:
+        print("Usage: desktop-widgets fit <widget_id: 1|2|3> <crop|fit>")
+        return
+    wid = args[0]
+    mode = args[1].lower()
+    call_helper(["photos-set-fit", wid, mode])
+    print(f"Photo Widget {wid} Fit Mode: {mode}")
+
+def cmd_interval(args):
+    if len(args) < 2:
+        print("Usage: desktop-widgets interval <widget_id: 1|2|3> <seconds: 15|30|60|300|0>")
+        return
+    wid = args[0]
+    sec = args[1]
+    call_helper(["photos-set-interval", wid, sec])
+    print(f"Photo Widget {wid} Interval: {sec}s")
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print("""desktop-widgets: Manage Apple Sonoma Desktop Widgets
+
+Usage:
+  desktop-widgets customize              Toggle visual grid customize mode
+  desktop-widgets list                   Show active widgets and coordinates
+  desktop-widgets add <key> [c] [r] [w] [h]   Add a widget to the desktop
+  desktop-widgets remove <key>           Remove a widget from the desktop
+  desktop-widgets move <key> <col> <row> Move a widget to (col, row)
+  desktop-widgets resize <key> <w> <h>   Change size of widget
+  desktop-widgets reset                  Reset to golden Apple layout
+  desktop-widgets toggle                 Toggle widgets on/off
+  desktop-widgets set-albums <id> <dirs> Set multiple albums for photo widget
+  desktop-widgets recursive <id>         Toggle recursive subfolders on/off
+  desktop-widgets shuffle <id>           Toggle random shuffle vs sequence
+  desktop-widgets fit <id> <crop|fit>    Set image fit mode (crop=fill, fit=aspect)
+  desktop-widgets interval <id> <secs>   Set rotation interval (15, 30, 60, 300, 0)
+
+Widgets:
+  clock, battery, calendar, reminders, notes, photo1, photo2, photo3
+""")
+        return
+
+    cmd = sys.argv[1].lower()
+    sub_args = sys.argv[2:]
+
+    if cmd in ("customize", "toggle-grid", "grid"):
+        cmd_customize()
+    elif cmd in ("list", "ls"):
+        cmd_list()
+    elif cmd == "add":
+        cmd_add(sub_args)
+    elif cmd in ("remove", "rm", "delete"):
+        cmd_remove(sub_args)
+    elif cmd in ("move", "mv"):
+        cmd_move(sub_args)
+    elif cmd == "resize":
+        cmd_resize(sub_args)
+    elif cmd == "reset":
+        cmd_reset()
+    elif cmd == "toggle":
+        cmd_toggle()
+    elif cmd in ("set-albums", "albums"):
+        cmd_set_albums(sub_args)
+    elif cmd in ("recursive", "subfolders"):
+        cmd_recursive(sub_args)
+    elif cmd in ("shuffle", "random"):
+        cmd_shuffle(sub_args)
+    elif cmd in ("fit", "aspect"):
+        cmd_fit(sub_args)
+    elif cmd in ("interval", "timer"):
+        cmd_interval(sub_args)
+    else:
+        print(f"Unknown command: {cmd}. Run 'desktop-widgets --help' for usage.")
+
+if __name__ == "__main__":
+    main()

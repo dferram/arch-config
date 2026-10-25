@@ -110,7 +110,7 @@ gaps_out = 8,
 border_size = 2,
 
 col = {
-    active_border   = { colors = {'rgba(6fbf27ee)', 'rgba(a0db6aee)'}, angle = 45 },
+    active_border   = { colors = {'rgba(bf8142ee)', 'rgba(dbad7fee)'}, angle = 45 },
     inactive_border = "rgba(151a2455)",
 },
 
@@ -143,8 +143,8 @@ shadow = {
 
 blur = {
     enabled   = true,
-    size      = 9,
-    passes    = 4,
+    size      = 8,
+    passes    = 2,
     vibrancy  = 0.35,
     noise     = 0.02,
 },
@@ -278,6 +278,7 @@ local mainMod = "SUPER" -- Sets "Windows" key as main modifier
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
 hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(terminal))
 hl.bind(mainMod .. " + W",        hl.dsp.exec_cmd("chromium"))
+hl.bind(mainMod .. " + SHIFT + W", hl.dsp.exec_cmd("/home/ferram/.local/bin/desktop-widgets customize"))
 hl.bind(mainMod .. " + ALT + W",  hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-wallpaper random"))
 hl.bind(mainMod .. " + CTRL + W", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-wallpaper menu"))
 hl.bind(mainMod .. " + G", hl.dsp.exec_cmd('/usr/bin/chromium "--profile-directory=Profile 1" --app-id=mjoklplbddabcmpepnokjaffbmgbkkgg'))
@@ -302,7 +303,9 @@ hl.bind(mainMod .. " + CTRL + minus",       hl.dsp.exec_cmd("/home/ferram/.local
 hl.bind(mainMod .. " + CTRL + KP_Subtract", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-pip shrink"), { repeating = true })
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))    -- dwindle only
 hl.bind(mainMod .. " + H", hl.dsp.exec_cmd("kitty --class cheatsheet-popup -e /home/ferram/.local/bin/cmds --popup"))
+hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-screentime-gui"))
 hl.bind(mainMod .. " + B", hl.dsp.exec_cmd("kitty --class btop-popup -e btop"))
+hl.bind(mainMod .. " + SHIFT + B", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-bar toggle"))
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
 
 -- Move focus with mainMod + arrow keys
@@ -536,6 +539,33 @@ hl.window_rule({
 
     move  = "20 monitor_h-120",
     float = true,
+})
+
+-- Zenity file picker floating windowrule
+hl.window_rule({
+    name   = "float-zenity-picker",
+    match  = { class = "zenity" },
+    float  = true,
+    center = true,
+    size   = "820 540",
+})
+
+-- Screen Time GUI floating windowrule
+hl.window_rule({
+    name   = "float-screentime-gui",
+    match  = { class = "hypr-screentime-gui" },
+    float  = true,
+    center = true,
+    size   = "980 680",
+})
+
+-- XDG Desktop Portal file picker dialog floating windowrule
+hl.window_rule({
+    name   = "float-portal-gtk",
+    match  = { class = "xdg-desktop-portal-gtk" },
+    float  = true,
+    center = true,
+    size   = "860 580",
 })
 
 -- Blueman manager floating windowrule

@@ -601,7 +601,7 @@ Item {
     // Periodic timer to continuously track position in real-time
     Timer {
         id: progressTimer
-        interval: 200
+        interval: 500
         running: root.isPlaying && root.trackTitle !== "" && !root.isDraggingSeek
         repeat: true
         onTriggered: root.syncPosition()

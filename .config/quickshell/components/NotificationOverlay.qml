@@ -294,6 +294,7 @@ PanelWindow {
                     let lowerSum = (summary || "").toLowerCase();
                     let lowerBody = (bodyText || "").toLowerCase();
                     let appIconName = (modelData && modelData.appIcon) ? modelData.appIcon.toLowerCase() : "";
+                    let lowerIcon = appIconName;
                     let ctx = (card.metaContext || "").toLowerCase();
 
                     // Night Light / Sunset Mode (Warm Amber / Gold)
@@ -310,13 +311,33 @@ PanelWindow {
                         };
                     }
 
-                    // Battery alert (Red LED beam)
-                    if (lowerApp.includes("bater") || lowerApp.includes("battery") || lowerSum.includes("bater") || lowerSum.includes("battery")) {
+                    // Power / AC Charging
+                    if ((lowerApp.includes("power") || lowerApp.includes("bater") || lowerApp.includes("battery")) &&
+                        (lowerSum.includes("ac power") || lowerSum.includes("charging") || lowerSum.includes("cargando") || lowerIcon.includes("charging"))) {
                         return {
-                            primary: "#ff3b30",    // Apple Coral Red
-                            secondary: "#e22b31",  // Deep Carmine
-                            accent: "#ff787d",     // Red glow
-                            label: "BATTERY",
+                            primary: "#30d158",    // Apple Emerald
+                            secondary: "#28b84d",  // Deep Emerald
+                            accent: "#34d399",     // Mint Glow
+                            label: "POWER",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
+
+                    // Battery alert (Red LED beam for low/critical, amber for status)
+                    if (lowerApp.includes("bater") || lowerApp.includes("battery") ||
+                        lowerSum.includes("bater") || lowerSum.includes("battery") ||
+                        lowerIcon.includes("battery") ||
+                        (lowerApp.includes("power") && (lowerSum.includes("battery") || lowerSum.includes("power saver")))) {
+                        let isCritical = lowerSum.includes("critical") || lowerSum.includes("crític") ||
+                                         lowerSum.includes("5%") || lowerIcon.includes("empty") || card.urgency === 2;
+                        let isLow = lowerSum.includes("low") || lowerSum.includes("baja") ||
+                                    lowerSum.includes("10%") || lowerSum.includes("15%") || lowerIcon.includes("caution");
+                        return {
+                            primary: isCritical ? "#ff3b30" : (isLow ? "#ff9f0a" : "#ff9f0a"),
+                            secondary: isCritical ? "#e22b31" : "#ea580c",
+                            accent: isCritical ? "#ff787d" : "#fb923c",
+                            label: isCritical ? "CRITICAL BATTERY" : (isLow ? "LOW BATTERY" : "BATTERY"),
                             isAntigravity: false,
                             isNightLight: false
                         };
@@ -1428,9 +1449,20 @@ PanelWindow {
                         return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><polygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/><path d='M15.54 8.46a5 5 0 0 1 0 7.07'/><path d='M19.07 4.93a10 10 0 0 1 0 14.14'/></svg>";
                     }
 
-                    // Battery icon
-                    if (lowerApp.includes("bater") || lowerApp.includes("battery") || lowerIcon.includes("battery")) {
-                        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23ff3b30' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><line x1='12' y1='8' x2='12' y2='12'/><line x1='12' y1='16' x2='12.01' y2='16'/></svg>";
+                    // Battery & Power official vector SVG icons
+                    if (lowerApp.includes("bater") || lowerApp.includes("battery") ||
+                        lowerSum.includes("bater") || lowerSum.includes("battery") ||
+                        lowerIcon.includes("battery") ||
+                        (lowerApp.includes("power") && (lowerSum.includes("power") || lowerSum.includes("battery")))) {
+                        if (lowerIcon.includes("charging") || lowerSum.includes("charging") || lowerSum.includes("ac power") || lowerSum.includes("conectad")) {
+                            return "file:///home/ferram/.local/share/icons/battery-charging.svg";
+                        }
+                        if (lowerIcon.includes("caution") || lowerIcon.includes("empty") || lowerIcon.includes("warning") ||
+                            lowerSum.includes("critical") || lowerSum.includes("crític") || lowerSum.includes("low") ||
+                            lowerSum.includes("baja") || lowerSum.includes("warning") || card.urgency === 2) {
+                            return "file:///home/ferram/.local/share/icons/battery-warning.svg";
+                        }
+                        return "file:///home/ferram/.local/share/icons/battery.svg";
                     }
 
                     if (modelData && modelData.image && modelData.image !== "") {

@@ -1498,7 +1498,7 @@ Item {
 
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
-                                            text: root.selectedHoliday ? "Haz clic en \"+ New Event\" para programar una tarea" : "Click \"+ New Event\" to schedule a task"
+                                            text: "Click \"+ New Event\" to schedule a task"
                                             color: theme.textDim
                                             font.family: theme.fontFamily
                                             font.pixelSize: 10

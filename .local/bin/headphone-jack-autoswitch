@@ -40,7 +40,7 @@ def run_cmd(args):
     except Exception:
         pass
 
-def notify_headphones_connected(vol_str="100%"):
+def notify_headphones_connected(vol_str="15%"):
     global last_notify_time
     now = time.time()
     if now - last_notify_time < 3.0:
@@ -83,10 +83,10 @@ def switch_to_headphones():
     # Use boosted loudness & clarity profile
     run_cmd(["easyeffects", "-l", "Huawei MateBook - Max Loudness & Clarity"])
 
-    # Set volume to 80% on wired headphones
+    # Set volume to 15% on wired headphones
     time.sleep(0.15)
-    run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "80"])
-    notify_headphones_connected("80%")
+    run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "15"])
+    notify_headphones_connected("15%")
 
 def get_external_headphone_sink():
     try:
@@ -154,7 +154,7 @@ def monitor_bluetooth_and_usb():
                                         run_cmd(["easyeffects", "-l", "Perfect EQ"])
                                         time.sleep(0.25)
                                         run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "40"])
-                                        notify_headphones_connected()
+                                        notify_headphones_connected("40%")
                         # Prune disconnected devices
                         known_external_sinks.intersection_update(active_sinks)
                     except Exception:

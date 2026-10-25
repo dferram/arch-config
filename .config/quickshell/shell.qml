@@ -41,6 +41,78 @@ ShellRoot {
     // Spotlight / Raycast-style Liquid Obsidian App Launcher (Super+R)
     AppLauncher {}
 
+    // Dynamic Top Bar visibility state and IPC controller
+    property bool barVisible: true
+    property bool widgetsVisible: true
+    property bool showGridGuide: false
+
+    IpcHandler {
+        target: "bar"
+        function toggle(): void {
+            shell.barVisible = !shell.barVisible;
+        }
+        function open(): void {
+            shell.barVisible = true;
+        }
+        function close(): void {
+            shell.barVisible = false;
+        }
+        function setVisible(v: bool): void {
+            shell.barVisible = v;
+        }
+        function isVisible(): bool {
+            return shell.barVisible;
+        }
+    }
+
+    // Dynamic Desktop Widgets IPC controller
+    IpcHandler {
+        target: "widgets"
+        function toggle(): void {
+            shell.widgetsVisible = !shell.widgetsVisible;
+        }
+        function open(): void {
+            shell.widgetsVisible = true;
+        }
+        function close(): void {
+            shell.widgetsVisible = false;
+        }
+        function setVisible(v: bool): void {
+            shell.widgetsVisible = v;
+        }
+        function isVisible(): bool {
+            return shell.widgetsVisible;
+        }
+        function toggleGrid(): void {
+            shell.showGridGuide = !shell.showGridGuide;
+        }
+        function setGrid(v: bool): void {
+            shell.showGridGuide = v;
+        }
+        function isGridVisible(): bool {
+            return shell.showGridGuide;
+        }
+        function reloadGrid(): void {
+            shell.showGridGuide = shell.showGridGuide; // tickle
+            shell.gridReloadTick = shell.gridReloadTick + 1;
+        }
+    }
+
+    property int gridReloadTick: 0
+
+    // Apple Sonoma Desktop Widgets Overlay (Workspace 1 on laptop, Workspace 6 on external display)
+    Variants {
+        model: Quickshell.screens
+
+        delegate: Component {
+            DesktopWidgetsOverlay {
+                modelData: modelData
+                enabled: shell.widgetsVisible
+                showGridGuide: shell.showGridGuide
+            }
+        }
+    }
+
     Variants {
         model: Quickshell.screens
 
@@ -49,6 +121,12 @@ ShellRoot {
                 id: barWindow
                 required property var modelData
                 screen: modelData
+
+                visible: shell.barVisible
+
+                onVisibleChanged: {
+                    if (!visible) currentPopup = "";
+                }
 
                 // Layer shell anchors
                 anchors {
@@ -188,7 +266,6 @@ ShellRoot {
                         anchors.centerIn: parent
                         spacing: 14
 
-                        
                         SysResourceWidget {
                             parentWindow: barWindow
                             activePopupId: barWindow.currentPopup

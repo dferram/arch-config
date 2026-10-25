@@ -21,6 +21,9 @@ Item {
     property real ramUsed: 0.0
     property real ramTotal: 0.0
     property int tempC: 0
+    property int fanRpm: 0
+    property real freqGhz: 0.0
+    property bool thermaldActive: false
     property string cpuName: "Ultra 5"
     property string cpuFull: "Ultra 5 125H"
 
@@ -40,6 +43,9 @@ Item {
                     root.ramUsed = d.ram_used || 0;
                     root.ramTotal = d.ram_total || 0;
                     root.tempC = d.temp || 0;
+                    if (d.fan !== undefined) root.fanRpm = d.fan;
+                    if (d.freq !== undefined) root.freqGhz = d.freq;
+                    if (d.thermald !== undefined) root.thermaldActive = d.thermald;
                     if (d.cpu_name) root.cpuName = d.cpu_name;
                     if (d.cpu_full) root.cpuFull = d.cpu_full;
                 } catch(e) {}
@@ -159,7 +165,7 @@ Item {
                             font.weight: Font.Bold
                         }
                         Text {
-                            text: (root.tempC > 0 ? root.tempC + "°C • " : "") + (root.ramTotal > 0 ? root.ramTotal + " GB RAM" : "Hardware Status")
+                            text: (root.tempC > 0 ? root.tempC + "°C • " : "") + (root.freqGhz > 0 ? root.freqGhz.toFixed(1) + " GHz • " : "") + (root.fanRpm > 0 ? (root.fanRpm / 1000).toFixed(1) + "k RPM • " : "") + (root.thermaldActive ? "thermald ✓" : "")
                             color: theme.textSub
                             font.pixelSize: 10
                         }

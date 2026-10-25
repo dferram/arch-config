@@ -2,7 +2,9 @@ import QtQuick
 import QtQuick.Effects
 import Qt5Compat.GraphicalEffects
 import Quickshell
+import Quickshell.Io
 import Quickshell.Widgets
+import Quickshell.Services.UPower
 import "../theme"
 
 // ==============================================================================
@@ -24,6 +26,35 @@ Item {
     readonly property color accent: lockMedia.hasTrack ? lockMedia.mediaAccentColor : theme.blue
     readonly property string artUrl: lockMedia.hasTrack ? lockMedia.artUrl : ""
     readonly property bool hasArt: artUrl !== ""
+
+    function getPastelWaveColor(col) {
+        if (!col) return Qt.rgba(0.85, 0.82, 0.95, 0.95);
+        let r = col.r, g = col.g, b = col.b;
+        let max = Math.max(r, g, b);
+        let min = Math.min(r, g, b);
+        let d = max - min;
+        let h = 0;
+        if (d > 0.001) {
+            if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+            else if (max === g) h = ((b - r) / d + 2) / 6;
+            else h = ((r - g) / d + 4) / 6;
+        }
+        // Material You Tone 80/85 mapping: soft, luminous, aesthetic pastel
+        let s = 0.38;
+        let v = 0.94;
+        let i = Math.floor(h * 6);
+        let f = h * 6 - i;
+        let p = v * (1 - s);
+        let q = v * (1 - f * s);
+        let t = v * (1 - (1 - f) * s);
+        let mod = i % 6;
+        let ro = [v, q, p, p, t, v][mod];
+        let go = [t, v, v, q, p, p][mod];
+        let bo = [p, p, t, v, v, q][mod];
+        return Qt.rgba(ro, go, bo, 0.96);
+    }
+    property color waveColor: getPastelWaveColor(root.accent)
+    Behavior on waveColor { ColorAnimation { duration: 600; easing.type: Easing.InOutQuad } }
 
     // Smooth, slightly springy curve shared by every reveal transition
     readonly property int revealDuration: 620
@@ -161,7 +192,7 @@ Item {
         height: 820
         x: (root.width - width) / 2
         y: root.revealed ? (root.miniTop + root.miniHeight / 2 - height / 2)
-                         : (root.height / 2 - height / 2 - (lockMedia.hasTrack ? 36 : 12) * root.baseScale)
+                         : (root.height / 2 - height / 2 - (lockMedia.hasTrack ? 16 : 8) * root.baseScale)
         scale: root.revealed ? root.miniScale : root.baseScale
         transformOrigin: Item.Center
 
@@ -197,88 +228,652 @@ Item {
     }
 
     // ==========================================================================
+    // TOP-RIGHT SYSTEM STATUS PILL (CPU, Wi-Fi, Battery)
+    // Only visible when revealed (hidden in clean clock view)
+    // ==========================================================================
+    Rectangle {
+        id: topStatusPill
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: Math.max(18, Math.round(root.height * 0.024))
+        anchors.rightMargin: Math.max(20, Math.round(root.width * 0.020))
+        height: 34
+        width: statusRow.implicitWidth + 24
+        radius: 17
+        clip: true
+        color: statusPillMa.containsMouse ? root.glassHover : theme.popupBg
+        border.width: 1
+        border.color: statusPillMa.containsMouse ? theme.borderGlow : theme.border
+        z: 30
+
+        opacity: root.revealed ? 1.0 : 0.0
+        visible: opacity > 0.01
+        Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+
+        transform: Translate {
+            y: root.revealed ? 0 : -10
+            Behavior on y { NumberAnimation { duration: root.revealDuration; easing.type: Easing.OutExpo } }
+        }
+
+        scale: statusPillMa.pressed ? 0.96 : (statusPillMa.containsMouse ? 1.02 : 1.0)
+        Behavior on scale { NumberAnimation { duration: 120 } }
+        Behavior on color { ColorAnimation { duration: 150 } }
+        Behavior on border.color { ColorAnimation { duration: 150 } }
+
+        // Telemetry properties
+        property int cpuPct: 0
+        property bool wifiConnected: false
+        property string wifiSsid: "Disconnected"
+        property int wifiSignal: 0
+        property int batteryFallbackPercent: 100
+        property string batteryFallbackStatus: "Discharging"
+
+        property int batteryPct: {
+            if (UPower.displayDevice && UPower.displayDevice.ready && UPower.displayDevice.percentage > 0) {
+                return Math.round(UPower.displayDevice.percentage * 100);
+            }
+            return batteryFallbackPercent;
+        }
+
+        property bool isCharging: {
+            if (UPower.displayDevice && UPower.displayDevice.ready) {
+                let s = UPower.displayDevice.state;
+                return s === 1 || s === 4 || s === 5 || (!UPower.onBattery && batteryPct < 100);
+            }
+            return batteryFallbackStatus.toLowerCase().indexOf("charging") !== -1;
+        }
+
+        property color cpuColor: {
+            if (cpuPct > 80) return theme.red;
+            if (cpuPct > 55) return theme.peach;
+            return theme.cyan;
+        }
+
+        property color wifiColor: wifiConnected ? theme.blue : theme.textMuted
+
+        property color batteryColor: {
+            if (batteryPct <= 15 && !isCharging) return theme.red;
+            if (isCharging) return theme.green;
+            return theme.blue;
+        }
+
+        // SVG Icons
+        property string cpuIconUri: {
+            let col = theme.urlColor(cpuColor);
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>" +
+                   "<rect x='4' y='4' width='16' height='16' rx='2.5'/>" +
+                   "<rect x='9' y='9' width='6' height='6' rx='1' fill='" + col + "' stroke='none'/>" +
+                   "<path d='M9 1v3 M15 1v3 M9 20v3 M15 20v3 M20 9h3 M20 15h3 M1 9h3 M1 15h3'/>" +
+                   "</svg>";
+        }
+
+        property string wifiIconUri: {
+            let col = theme.urlColor(wifiColor);
+            if (!wifiConnected) {
+                return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>" +
+                       "<line x1='2' y1='2' x2='22' y2='22'/>" +
+                       "<path d='M12 20h.01'/>" +
+                       "<path d='M8.5 16.4a5 5 0 0 1 7 0'/>" +
+                       "<path d='M4.9 12.8a10 10 0 0 1 3.2 -2.1'/>" +
+                       "<path d='M14.5 11.5a10 10 0 0 1 4.6 1.3'/>" +
+                       "<path d='M1.5 8.5a15 15 0 0 1 4.2 -2.6'/>" +
+                       "<path d='M10.7 5a15 15 0 0 1 11.8 3.5'/>" +
+                       "</svg>";
+            }
+            let outerOp = wifiSignal >= 70 ? "1" : "0.25";
+            let midOp = wifiSignal >= 35 ? "1" : "0.25";
+            let dotOp = "1";
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
+                   "<path d='M1.5 8.5a15 15 0 0 1 21 0' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='" + outerOp + "'/>" +
+                   "<path d='M5 12.5a10 10 0 0 1 14 0' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='" + midOp + "'/>" +
+                   "<path d='M8.5 16.5a5 5 0 0 1 7 0' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='" + dotOp + "'/>" +
+                   "<circle cx='12' cy='20' r='1.3' fill='" + col + "' fill-opacity='" + dotOp + "'/>" +
+                   "</svg>";
+        }
+
+        property string batteryIconUri: {
+            let col = theme.urlColor(batteryColor);
+            let fillW = Math.max(1.8, Math.min(12.0, (batteryPct / 100.0) * 12.0));
+            let nub = "<path d='M19 10.2 h1.2 c0.6 0 1.0 0.4 1.0 1.0 v1.6 c0 0.6 -0.4 1.0 -1.0 1.0 H19' fill='" + col + "'/>";
+            if (isCharging) {
+                return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
+                       "<rect x='2.5' y='6.5' width='16' height='11' rx='2.5' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>" + nub +
+                       "<path d='M11.5 7 L8 12 h3.5 L9.5 17 L14 11.5 h-3 z' fill='" + col + "'/></svg>";
+            } else {
+                return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
+                       "<rect x='2.5' y='6.5' width='16' height='11' rx='2.5' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>" + nub +
+                       "<rect x='4.5' y='8.5' width='12' height='7' rx='1.2' fill='" + col + "' fill-opacity='0.16'/>" +
+                       "<rect x='4.5' y='8.5' width='" + fillW + "' height='7' rx='1.2' fill='" + col + "'/></svg>";
+            }
+        }
+
+        // Processes & Timers
+        Process {
+            id: cpuTelemetryProc
+            command: ["/home/ferram/.local/bin/hypr-resources"]
+            running: true
+            stdout: StdioCollector {
+                onTextChanged: {
+                    let txt = text.trim();
+                    if (!txt) return;
+                    try {
+                        let d = JSON.parse(txt);
+                        topStatusPill.cpuPct = d.cpu || 0;
+                    } catch(e) {}
+                }
+            }
+        }
+
+        Process {
+            id: wifiTelemetryProc
+            command: ["python3", Quickshell.shellPath("scripts/wifi-details.py")]
+            running: true
+            stdout: StdioCollector {
+                onTextChanged: {
+                    let txt = text.trim();
+                    if (!txt) return;
+                    try {
+                        let d = JSON.parse(txt);
+                        topStatusPill.wifiConnected = d.connected || false;
+                        topStatusPill.wifiSsid = d.ssid || "Disconnected";
+                        topStatusPill.wifiSignal = d.signal || 0;
+                    } catch(e) {}
+                }
+            }
+        }
+
+        Process {
+            id: batteryFallbackProc
+            command: ["python3", Quickshell.shellPath("scripts/battery-details.py")]
+            running: true
+            stdout: StdioCollector {
+                onTextChanged: {
+                    let txt = text.trim();
+                    if (!txt) return;
+                    try {
+                        let d = JSON.parse(txt);
+                        if (d.capacity !== undefined && d.capacity > 0)
+                            topStatusPill.batteryFallbackPercent = d.capacity;
+                        if (d.status)
+                            topStatusPill.batteryFallbackStatus = d.status;
+                    } catch(e) {}
+                }
+            }
+        }
+
+        Connections {
+            target: root
+            function onRevealedChanged() {
+                if (root.revealed) {
+                    if (!cpuTelemetryProc.running) cpuTelemetryProc.running = true;
+                    if (!wifiTelemetryProc.running) wifiTelemetryProc.running = true;
+                    if (!batteryFallbackProc.running) batteryFallbackProc.running = true;
+                }
+            }
+        }
+
+        Timer {
+            interval: 3000
+            running: root.revealed
+            repeat: true
+            onTriggered: {
+                if (!cpuTelemetryProc.running) cpuTelemetryProc.running = true;
+            }
+        }
+
+        Timer {
+            interval: 6000
+            running: root.revealed
+            repeat: true
+            onTriggered: {
+                if (!wifiTelemetryProc.running) wifiTelemetryProc.running = true;
+                if (!batteryFallbackProc.running) batteryFallbackProc.running = true;
+            }
+        }
+
+        // Top specular hairline (Apple liquid glass hallmark)
+        Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 12
+            anchors.rightMargin: 12
+            height: 1
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "transparent" }
+                GradientStop { position: 0.25; color: Qt.rgba(255, 255, 255, 0.22) }
+                GradientStop { position: 0.75; color: Qt.rgba(255, 255, 255, 0.22) }
+                GradientStop { position: 1.0; color: "transparent" }
+            }
+        }
+
+        // Content Row
+        Row {
+            id: statusRow
+            anchors.centerIn: parent
+            spacing: 12
+
+            // 1. CPU
+            Row {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+
+                Image {
+                    width: 15
+                    height: 15
+                    anchors.verticalCenter: parent.verticalCenter
+                    source: topStatusPill.cpuIconUri
+                    fillMode: Image.PreserveAspectFit
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: topStatusPill.cpuPct + "%"
+                    color: theme.text
+                    font.family: theme.fontFamily
+                    font.pixelSize: 11
+                    font.weight: Font.DemiBold
+                }
+            }
+
+            // Separator 1
+            Rectangle {
+                width: 1
+                height: 12
+                anchors.verticalCenter: parent.verticalCenter
+                color: theme.borderSubtle
+            }
+
+            // 2. Wi-Fi
+            Row {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+
+                Image {
+                    width: 15
+                    height: 15
+                    anchors.verticalCenter: parent.verticalCenter
+                    source: topStatusPill.wifiIconUri
+                    fillMode: Image.PreserveAspectFit
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: topStatusPill.wifiConnected ? topStatusPill.wifiSsid : "Sin Wi-Fi"
+                    color: topStatusPill.wifiConnected ? theme.text : theme.textMuted
+                    font.family: theme.fontFamily
+                    font.pixelSize: 11
+                    font.weight: Font.DemiBold
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    width: Math.min(implicitWidth, 110)
+                }
+            }
+
+            // Separator 2
+            Rectangle {
+                width: 1
+                height: 12
+                anchors.verticalCenter: parent.verticalCenter
+                color: theme.borderSubtle
+            }
+
+            // 3. Battery
+            Row {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+
+                Image {
+                    width: 15
+                    height: 15
+                    anchors.verticalCenter: parent.verticalCenter
+                    source: topStatusPill.batteryIconUri
+                    fillMode: Image.PreserveAspectFit
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: topStatusPill.batteryPct + "%"
+                    color: theme.text
+                    font.family: theme.fontFamily
+                    font.pixelSize: 11
+                    font.weight: Font.DemiBold
+                }
+            }
+        }
+
+        MouseArea {
+            id: statusPillMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            preventStealing: true
+            onClicked: root.ctx.poke()
+        }
+    }
+
+    // ==========================================================================
+    // POWER ACTIONS — Restart & Shutdown (Bottom right corner, revealed only, icon-only)
+    // ==========================================================================
+    Process {
+        id: powerProc
+    }
+
+    Row {
+        id: powerActionsRow
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        anchors.bottomMargin: Math.max(18, Math.round(root.height * 0.024))
+        anchors.rightMargin: Math.max(20, Math.round(root.width * 0.020))
+        spacing: 10
+        z: 30
+
+        opacity: root.revealed ? 1.0 : 0.0
+        visible: opacity > 0.01
+        Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+
+        transform: Translate {
+            y: root.revealed ? 0 : 10
+            Behavior on y { NumberAnimation { duration: root.revealDuration; easing.type: Easing.OutExpo } }
+        }
+
+        // Restart button (Icon-only, dark liquid glass)
+        Rectangle {
+            id: rebootBtn
+            width: 38
+            height: 38
+            radius: 19
+            clip: true
+            color: rebootConfirmTimer.running
+                ? Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.22)
+                : (rebootMa.containsMouse ? root.glassHover : theme.popupBg)
+            border.width: 1
+            border.color: rebootConfirmTimer.running
+                ? theme.peach
+                : (rebootMa.containsMouse ? theme.borderGlow : theme.border)
+
+            scale: rebootMa.pressed ? 0.92 : (rebootMa.containsMouse ? 1.05 : 1.0)
+            Behavior on scale { NumberAnimation { duration: 120 } }
+            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on border.color { ColorAnimation { duration: 150 } }
+
+            // Specular top hairline
+            Rectangle {
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.leftMargin: 8
+                anchors.rightMargin: 8
+                height: 1
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: "transparent" }
+                    GradientStop { position: 0.3; color: Qt.rgba(255, 255, 255, 0.25) }
+                    GradientStop { position: 0.7; color: Qt.rgba(255, 255, 255, 0.25) }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
+            }
+
+            Timer {
+                id: rebootConfirmTimer
+                interval: 3000
+                onTriggered: {}
+            }
+
+            Image {
+                anchors.centerIn: parent
+                width: 17
+                height: 17
+                source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + theme.urlColor(rebootConfirmTimer.running ? theme.peach : theme.blue) + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><polyline points='23 4 23 10 17 10'/><path d='M20.49 15a9 9 0 1 1-2.12-9.36L23 10'/></svg>"
+                fillMode: Image.PreserveAspectFit
+            }
+
+            MouseArea {
+                id: rebootMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                preventStealing: true
+
+                onClicked: {
+                    root.ctx.poke();
+                    if (rebootConfirmTimer.running) {
+                        powerProc.command = ["systemctl", "reboot"];
+                        powerProc.running = true;
+                    } else {
+                        rebootConfirmTimer.restart();
+                        shutdownConfirmTimer.stop();
+                    }
+                }
+            }
+        }
+
+        // Shutdown button (Icon-only, dark liquid glass)
+        Rectangle {
+            id: shutdownBtn
+            width: 38
+            height: 38
+            radius: 19
+            clip: true
+            color: shutdownConfirmTimer.running
+                ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.22)
+                : (shutdownMa.containsMouse ? root.glassHover : theme.popupBg)
+            border.width: 1
+            border.color: shutdownConfirmTimer.running
+                ? theme.red
+                : (shutdownMa.containsMouse ? theme.borderGlow : theme.border)
+
+            scale: shutdownMa.pressed ? 0.92 : (shutdownMa.containsMouse ? 1.05 : 1.0)
+            Behavior on scale { NumberAnimation { duration: 120 } }
+            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on border.color { ColorAnimation { duration: 150 } }
+
+            // Specular top hairline
+            Rectangle {
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.leftMargin: 8
+                anchors.rightMargin: 8
+                height: 1
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: "transparent" }
+                    GradientStop { position: 0.3; color: Qt.rgba(255, 255, 255, 0.25) }
+                    GradientStop { position: 0.7; color: Qt.rgba(255, 255, 255, 0.25) }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
+            }
+
+            Timer {
+                id: shutdownConfirmTimer
+                interval: 3000
+                onTriggered: {}
+            }
+
+            Image {
+                anchors.centerIn: parent
+                width: 17
+                height: 17
+                source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + theme.urlColor(shutdownConfirmTimer.running ? theme.red : theme.red) + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M18.36 6.64a9 9 0 1 1-12.73 0'/><line x1='12' y1='2' x2='12' y2='12'/></svg>"
+                fillMode: Image.PreserveAspectFit
+            }
+
+            MouseArea {
+                id: shutdownMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                preventStealing: true
+
+                onClicked: {
+                    root.ctx.poke();
+                    if (shutdownConfirmTimer.running) {
+                        powerProc.command = ["systemctl", "poweroff"];
+                        powerProc.running = true;
+                    } else {
+                        shutdownConfirmTimer.restart();
+                        rebootConfirmTimer.stop();
+                    }
+                }
+            }
+        }
+    }
+
+    // ==========================================================================
     // MINI MEDIA PILL (idle clock state only: floating under the monumental flip clock)
     // ==========================================================================
-    // MINI MEDIA PILL (idle flip-clock mode) — Apple Liquid Glass capsule
+    // ==========================================================================
+    // MINI MEDIA PILL (idle flip-clock mode) — Subtle Frosted Glass capsule
     // ==========================================================================
     Rectangle {
         id: miniMediaPill
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Math.max(28, root.height * 0.045)
-        width: Math.min(460, root.width - 48)
-        height: 60
-        radius: 30
-        color: "#e60d0e14"
+        anchors.bottomMargin: Math.max(16, Math.round(root.height * 0.022))
+        width: Math.min(360, root.width - 40)
+        height: 50
+        radius: 25
+        color: theme.popupBg
         border.width: 1
-        border.color: Qt.rgba(255, 255, 255, 0.16)
+        border.color: theme.border
 
         opacity: (!root.revealed && lockMedia.hasTrack) ? 1.0 : 0.0
         visible: opacity > 0.01
         Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
 
-        // Liquid glass ambient refraction tint (accent color glow)
+        // 1. Subtle album artwork background (dimmed / tenue, Android style)
+        Item {
+            anchors.fill: parent
+            layer.enabled: true
+            layer.effect: OpacityMask {
+                maskSource: Rectangle {
+                    width: miniMediaPill.width
+                    height: miniMediaPill.height
+                    radius: miniMediaPill.radius
+                }
+            }
+
+            Image {
+                anchors.fill: parent
+                source: root.artUrl
+                fillMode: Image.PreserveAspectCrop
+                sourceSize.width: 360
+                sourceSize.height: 120
+                asynchronous: true
+                visible: root.hasArt && status === Image.Ready
+                opacity: 0.16
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: Qt.rgba(10, 11, 16, 0.55)
+                }
+            }
+        }
+
+        // 2. Liquid glass ambient refraction tint (soft subtle accent glow)
         Rectangle {
             anchors.fill: parent
             radius: parent.radius
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) }
-                GradientStop { position: 0.50; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.05) }
+                GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10) }
+                GradientStop { position: 0.40; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.02) }
                 GradientStop { position: 1.0; color: "transparent" }
             }
         }
 
-        // Top specular hairline (light reflection across curved glass edge)
+        // 3. Top specular hairline (light reflection across curved glass edge)
         Rectangle {
             anchors.top: parent.top
             anchors.horizontalCenter: parent.horizontalCenter
-            width: parent.width - 60
+            width: parent.width - 48
             height: 1
-            color: Qt.rgba(255, 255, 255, 0.28)
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "transparent" }
+                GradientStop { position: 0.25; color: Qt.rgba(255, 255, 255, 0.22) }
+                GradientStop { position: 0.75; color: Qt.rgba(255, 255, 255, 0.22) }
+                GradientStop { position: 1.0; color: "transparent" }
+            }
         }
 
-        // Inset Progress Bar (cleanly inset inside straight pill section so it never overflows)
+        // 4. Inset Progress Bar (matching top bar MediaWidget, cleanly inset within the pill)
         Item {
             id: miniProgressTrack
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 7
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: parent.width - 68
+            anchors.bottomMargin: 4
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 26
+            anchors.rightMargin: 26
             height: 3
+            visible: lockMedia.trackLength > 0
 
+            // Unplayed track trough
             Rectangle {
+                id: miniProgressTrough
                 anchors.fill: parent
                 radius: 1.5
-                color: Qt.rgba(255, 255, 255, 0.12)
+                color: Qt.rgba(255, 255, 255, 0.16)
             }
 
+            // Played track fill (matching top bar MediaWidget styling and mediaAccentColor)
             Rectangle {
+                id: miniProgressFill
                 anchors.left: parent.left
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 radius: 1.5
-                width: lockMedia.trackLength > 0
-                    ? parent.width * Math.max(0, Math.min(1.0, lockMedia.currentPosition / lockMedia.trackLength))
-                    : 0
+                width: {
+                    if (lockMedia.trackLength <= 0) return 0;
+                    let cur = lockMedia.currentPosition;
+                    let pct = Math.max(0, Math.min(1.0, cur / lockMedia.trackLength));
+                    return Math.round(parent.width * pct);
+                }
                 color: root.accent
 
-                Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+                Behavior on width {
+                    NumberAnimation { duration: 500; easing.type: Easing.OutCubic }
+                }
+            }
+
+            // Click & drag to seek
+            MouseArea {
+                id: seekMa
+                anchors.fill: parent
+                anchors.topMargin: -8
+                anchors.bottomMargin: -6
+                cursorShape: Qt.PointingHandCursor
+                hoverEnabled: true
+                preventStealing: true
+
+                function handleSeek(mouseX) {
+                    let r = Math.max(0, Math.min(1.0, mouseX / miniProgressTrack.width));
+                    lockMedia.seekToRatio(r);
+                    root.ctx.poke();
+                }
+
+                onClicked: mouse => handleSeek(mouse.x)
+                onPositionChanged: mouse => {
+                    if (pressed) handleSeek(mouse.x);
+                }
             }
         }
 
         Row {
             anchors.fill: parent
-            anchors.leftMargin: 12
-            anchors.rightMargin: 14
-            anchors.verticalCenterOffset: -3
-            spacing: 12
+            anchors.leftMargin: 10
+            anchors.rightMargin: 12
+            anchors.verticalCenterOffset: -4
+            spacing: 10
 
             // Circular Album Artwork thumbnail / Platform Icon
             Item {
                 id: miniThumbContainer
-                width: 40
-                height: 40
+                width: 30
+                height: 30
                 anchors.verticalCenter: parent.verticalCenter
 
                 // Perfect circle mask via OpacityMask
@@ -296,7 +891,7 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        color: Qt.rgba(255, 255, 255, 0.08)
+                        color: Qt.rgba(255, 255, 255, 0.06)
                     }
 
                     Image {
@@ -304,8 +899,8 @@ Item {
                         anchors.fill: parent
                         source: root.artUrl
                         fillMode: Image.PreserveAspectCrop
-                        sourceSize.width: 80
-                        sourceSize.height: 80
+                        sourceSize.width: 64
+                        sourceSize.height: 64
                         asynchronous: true
                         visible: status === Image.Ready
                     }
@@ -315,7 +910,7 @@ Item {
                         visible: !miniThumb.visible
                         text: "󰝚"
                         font.family: root.iconFont
-                        font.pixelSize: 18
+                        font.pixelSize: 15
                         color: root.accent
                     }
                 }
@@ -326,7 +921,7 @@ Item {
                     radius: width / 2
                     color: "transparent"
                     border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.24)
+                    border.color: Qt.rgba(255, 255, 255, 0.14)
                 }
             }
 
@@ -335,7 +930,7 @@ Item {
                 id: miniTrackMa
                 anchors.verticalCenter: parent.verticalCenter
                 height: parent.height
-                width: parent.width - miniThumbContainer.width - 12 - miniCtrlRow.width - 12
+                width: Math.max(60, miniMediaPill.width - miniThumbContainer.width - miniCtrlRow.width - 48)
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     root.ctx.reveal();
@@ -346,15 +941,15 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 2
+                    spacing: 1
 
                     Text {
                         width: parent.width
                         text: lockMedia.trackTitle || "Media playing"
                         font.family: theme.fontFamily
-                        font.pixelSize: 13
+                        font.pixelSize: 11
                         font.weight: Font.DemiBold
-                        color: theme.text
+                        color: Qt.rgba(255, 255, 255, 0.88)
                         elide: Text.ElideRight
                     }
 
@@ -362,8 +957,8 @@ Item {
                         width: parent.width
                         text: lockMedia.trackArtist || (lockMedia.currentPlatform.toUpperCase())
                         font.family: theme.fontFamily
-                        font.pixelSize: 11
-                        color: theme.textDim
+                        font.pixelSize: 10
+                        color: Qt.rgba(root.waveColor.r, root.waveColor.g, root.waveColor.b, 0.75)
                         elide: Text.ElideRight
                     }
                 }
@@ -373,22 +968,22 @@ Item {
             Row {
                 id: miniCtrlRow
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
+                spacing: 4
 
                 // Previous Track
                 Rectangle {
-                    width: 30
-                    height: 30
-                    radius: 15
-                    color: miniPrevMa.containsMouse ? Qt.rgba(255, 255, 255, 0.12) : "transparent"
+                    width: 26
+                    height: 26
+                    radius: 13
+                    color: miniPrevMa.containsMouse ? Qt.rgba(255, 255, 255, 0.08) : "transparent"
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {
                         anchors.centerIn: parent
                         text: "󰒮"
                         font.family: root.iconFont
-                        font.pixelSize: 15
-                        color: theme.textSub
+                        font.pixelSize: 13
+                        color: miniPrevMa.containsMouse ? "#ffffff" : Qt.rgba(255, 255, 255, 0.70)
                     }
 
                     MouseArea {
@@ -404,23 +999,27 @@ Item {
                     }
                 }
 
-                // Play / Pause Button
+                // Play / Pause Button (Subtle glass pill, soft white icon — Android inspired)
                 Rectangle {
-                    width: 34
-                    height: 34
-                    radius: 17
-                    color: root.accent
+                    width: 28
+                    height: 28
+                    radius: 14
+                    color: miniPlayMa.containsMouse ? Qt.rgba(255, 255, 255, 0.15) : Qt.rgba(255, 255, 255, 0.08)
+                    border.width: 1
+                    border.color: miniPlayMa.containsMouse ? root.waveColor : Qt.rgba(255, 255, 255, 0.10)
                     anchors.verticalCenter: parent.verticalCenter
-                    scale: miniPlayMa.pressed ? 0.90 : (miniPlayMa.containsMouse ? 1.06 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: 150 } }
+                    scale: miniPlayMa.pressed ? 0.92 : (miniPlayMa.containsMouse ? 1.04 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 120 } }
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on border.color { ColorAnimation { duration: 120 } }
 
                     Text {
                         anchors.centerIn: parent
                         anchors.horizontalCenterOffset: lockMedia.isPlaying ? 0 : 1
                         text: lockMedia.isPlaying ? "󰏤" : "󰐊"
                         font.family: root.iconFont
-                        font.pixelSize: 15
-                        color: "#000000"
+                        font.pixelSize: 13
+                        color: "#ffffff"
                     }
 
                     MouseArea {
@@ -438,18 +1037,18 @@ Item {
 
                 // Next Track
                 Rectangle {
-                    width: 30
-                    height: 30
-                    radius: 15
-                    color: miniNextMa.containsMouse ? Qt.rgba(255, 255, 255, 0.12) : "transparent"
+                    width: 26
+                    height: 26
+                    radius: 13
+                    color: miniNextMa.containsMouse ? Qt.rgba(255, 255, 255, 0.08) : "transparent"
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {
                         anchors.centerIn: parent
                         text: "󰒭"
                         font.family: root.iconFont
-                        font.pixelSize: 15
-                        color: theme.textSub
+                        font.pixelSize: 13
+                        color: miniNextMa.containsMouse ? "#ffffff" : Qt.rgba(255, 255, 255, 0.70)
                     }
 
                     MouseArea {

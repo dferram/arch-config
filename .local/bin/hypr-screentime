@@ -1,0 +1,597 @@
+#!/usr/bin/env python3
+"""
+hypr-screentime: Ultra-lightweight, event-driven screen time & media tracker for Hyprland.
+Consumes ~0% CPU by listening directly to Hyprland's UNIX socket2.
+Tracks active windows and background media playback (Spotify, YouTube, etc.) cleanly.
+"""
+
+import sys
+import os
+import time
+import json
+import sqlite3
+import re
+import socket
+import select
+import subprocess
+from pathlib import Path
+from datetime import datetime, date
+
+HOME = Path.home()
+CONFIG_DIR = HOME / ".config" / "hypr-screentime"
+DATA_DIR = HOME / ".local" / "share" / "hypr-screentime"
+RULES_FILE = CONFIG_DIR / "rules.json"
+DB_FILE = DATA_DIR / "screentime.db"
+STATS_FILE = DATA_DIR / "stats.json"
+
+CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+APP_NAME_MAP = {
+    "devin-desktop": "Devin",
+    "com.stremio.Stremio": "Stremio",
+    "stremio": "Stremio",
+    "code-oss": "VS Code",
+    "codium": "VSCodium",
+    "cursor": "Cursor",
+    "kitty": "Kitty Terminal",
+    "alacritty": "Alacritty",
+    "foot": "Foot",
+    "wezterm": "WezTerm",
+    "chromium": "Chromium",
+    "google-chrome": "Google Chrome",
+    "firefox": "Firefox",
+    "zen": "Zen Browser",
+    "spotify": "Spotify",
+    "mpv": "MPV",
+    "vlc": "VLC",
+    "org.gnome.Nautilus": "Archivos",
+    "org.kde.dolphin": "Dolphin",
+    "dolphin": "Dolphin",
+    "slack": "Slack",
+    "discord": "Discord",
+    "telegram-desktop": "Telegram",
+    "whatsapp-for-linux": "WhatsApp",
+    "obsidian": "Obsidian",
+    "antigravity": "Antigravity",
+    "Antigravity IDE": "Antigravity IDE",
+    "Antigravity": "Antigravity"
+}
+
+IGNORE_CLASSES = {
+    "hyprland-dialog",
+    "hypr-screentime-gui",
+    "xdg-desktop-portal-gtk",
+    "xdg-desktop-portal-hyprland",
+    "zenity",
+    "polkit-gnome-authentication-agent-1",
+    "org.kde.polkit-kde-authentication-agent-1"
+}
+
+
+def normalize_title(title: str) -> str:
+    if not title:
+        return ""
+    # Strip leading notification badges like (1), (99+), [3], etc.
+    t = re.sub(r'^\s*[\(\[]\d+\+?[\)\]]\s*', '', title).strip()
+    return t
+
+
+def clean_display_title(title: str) -> str:
+    if not title:
+        return ""
+    t = normalize_title(title)
+    # Strip browser trailing suffixes
+    t = re.sub(r'\s*[-—]\s*(?:Chromium|Google Chrome|Mozilla Firefox|Zen Browser)$', '', t).strip()
+    return t
+
+
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            start_time INTEGER NOT NULL,
+            end_time INTEGER NOT NULL,
+            duration INTEGER NOT NULL,
+            app_class TEXT NOT NULL,
+            window_title TEXT NOT NULL,
+            category TEXT NOT NULL,
+            date TEXT NOT NULL
+        )
+    """)
+    c.execute("CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_sessions_category ON sessions(category)")
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS background_media (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            start_time INTEGER NOT NULL,
+            end_time INTEGER NOT NULL,
+            duration INTEGER NOT NULL,
+            player TEXT NOT NULL,
+            title TEXT NOT NULL,
+            artist TEXT NOT NULL,
+            date TEXT NOT NULL
+        )
+    """)
+    c.execute("CREATE INDEX IF NOT EXISTS idx_bg_media_date ON background_media(date)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_bg_media_player ON background_media(player)")
+    conn.commit()
+    return conn
+
+
+def load_rules():
+    if not RULES_FILE.exists():
+        return {
+            "idle_timeout_seconds": 180,
+            "categories": [],
+            "default_category": {"name": "Otras aplicaciones", "color": "#71717a"}
+        }
+    try:
+        with open(RULES_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[!] Error loading rules: {e}", file=sys.stderr)
+        return {"idle_timeout_seconds": 180, "categories": [], "default_category": {"name": "Otras aplicaciones", "color": "#71717a"}}
+
+
+def classify(app_class: str, title: str, rules_config: dict):
+    if not app_class and not title:
+        return "Idle", "#71717a"
+
+    clean_t = clean_display_title(title)
+
+    categories = rules_config.get("categories", [])
+    for cat in categories:
+        name = cat.get("name", "Otras aplicaciones")
+        color = cat.get("color", "#a1a1aa")
+        rules = cat.get("rules", [])
+
+        for rule in rules:
+            class_pat = rule.get("class")
+            title_pat = rule.get("title")
+
+            match_class = True
+            match_title = True
+
+            if class_pat:
+                match_class = bool(re.search(class_pat, app_class or ""))
+            if title_pat:
+                match_title = bool(re.search(title_pat, clean_t or title or ""))
+
+            if match_class and match_title:
+                return name, color
+
+    default_cat = rules_config.get("default_category", {"name": "Otras aplicaciones", "color": "#71717a"})
+    return default_cat.get("name", "Otras aplicaciones"), default_cat.get("color", "#71717a")
+
+
+def get_active_media_players():
+    """Queries active media players playing in foreground or background via playerctl."""
+    try:
+        res = subprocess.run(
+            ["playerctl", "-a", "metadata", "--format", "{{playerName}}\t{{status}}\t{{title}}\t{{artist}}"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=0.5
+        )
+        if res.returncode != 0 or not res.stdout.strip():
+            return []
+        playing = []
+        for line in res.stdout.strip().split("\n"):
+            parts = line.split("\t")
+            if len(parts) >= 2:
+                p_name = parts[0].strip()
+                status = parts[1].strip()
+                title = parts[2].strip() if len(parts) > 2 else ""
+                artist = parts[3].strip() if len(parts) > 3 else ""
+                if status == "Playing" and (title or artist):
+                    clean_player = p_name.split(".")[0].capitalize()
+                    if clean_player.lower() == "chromium":
+                        clean_player = "Chromium (YouTube / Web)"
+                    playing.append({
+                        "player": clean_player,
+                        "raw_player": p_name,
+                        "title": clean_display_title(title),
+                        "artist": artist,
+                        "status": status
+                    })
+        return playing
+    except Exception:
+        return []
+
+
+def is_screen_locked() -> bool:
+    try:
+        res = subprocess.run(["qs", "ipc", "call", "lock", "isLocked"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=0.4)
+        if res.returncode == 0 and "true" in res.stdout.strip().lower():
+            return True
+    except Exception:
+        pass
+
+    try:
+        res = subprocess.run(["pidof", "hyprlock"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=0.2)
+        if res.returncode == 0:
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
+def get_hypr_active_window():
+    try:
+        res = subprocess.run(["hyprctl", "activewindow", "-j"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=0.5)
+        if res.returncode == 0 and res.stdout.strip():
+            data = json.loads(res.stdout)
+            return data.get("class", ""), data.get("title", "")
+    except Exception:
+        pass
+    return "", ""
+
+
+def format_duration(seconds: int) -> str:
+    if seconds < 60:
+        return f"{seconds}s"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes}m"
+    hours = minutes // 60
+    rem_min = minutes % 60
+    if rem_min == 0:
+        return f"{hours}h"
+    return f"{hours}h {rem_min:02d}m"
+
+
+def generate_stats_snapshot(conn, current_class="", current_title="", current_cat="Otras aplicaciones", current_elapsed=0):
+    today_str = date.today().isoformat()
+    c = conn.cursor()
+
+    c.execute("""
+        SELECT category, SUM(duration)
+        FROM sessions
+        WHERE date = ?
+        GROUP BY category
+    """, (today_str,))
+    cat_rows = c.fetchall()
+
+    cat_map = {}
+    for cat_name, dur in cat_rows:
+        cat_map[cat_name] = dur or 0
+
+    if current_cat and current_elapsed > 0:
+        cat_map[current_cat] = cat_map.get(current_cat, 0) + current_elapsed
+
+    total_seconds = sum(cat_map.values())
+
+    rules = load_rules()
+    meta = {}
+    for cat in rules.get("categories", []):
+        meta[cat["name"]] = {"color": cat.get("color", "#a1a1aa")}
+    def_cat = rules.get("default_category", {"name": "Otras aplicaciones", "color": "#71717a"})
+    meta[def_cat["name"]] = {"color": def_cat.get("color", "#71717a")}
+
+    categories_dict = {}
+    for name, dur in cat_map.items():
+        pct = round((dur / total_seconds * 100), 1) if total_seconds > 0 else 0
+        c_meta = meta.get(name, {"color": "#a1a1aa"})
+        categories_dict[name] = {
+            "name": name,
+            "seconds": dur,
+            "formatted": format_duration(dur),
+            "percentage": pct,
+            "color": c_meta["color"]
+        }
+
+    # Top applications (excluding system dialogs)
+    placeholders = ",".join("?" for _ in IGNORE_CLASSES)
+    c.execute(f"""
+        SELECT app_class, SUM(duration) as total_dur
+        FROM sessions
+        WHERE date = ? AND app_class != '' AND app_class NOT IN ({placeholders})
+        GROUP BY app_class
+        ORDER BY total_dur DESC
+        LIMIT 8
+    """, (today_str, *IGNORE_CLASSES))
+    top_rows = c.fetchall()
+
+    top_apps = []
+    for app, dur in top_rows:
+        c.execute("""
+            SELECT category, SUM(duration) as cat_dur
+            FROM sessions
+            WHERE date = ? AND app_class = ?
+            GROUP BY category
+            ORDER BY cat_dur DESC
+            LIMIT 1
+        """, (today_str, app))
+        dom_cat = c.fetchone()
+        cat_name = dom_cat[0] if dom_cat else "Otras aplicaciones"
+
+        c.execute("""
+            SELECT window_title, SUM(duration) as win_dur
+            FROM sessions
+            WHERE date = ? AND app_class = ? AND window_title != ''
+            GROUP BY window_title
+            ORDER BY win_dur DESC
+            LIMIT 3
+        """, (today_str, app))
+        activities = [clean_display_title(r[0]) for r in c.fetchall() if clean_display_title(r[0])]
+
+        top_apps.append({
+            "class": app,
+            "display_name": APP_NAME_MAP.get(app, app.capitalize()),
+            "category": cat_name,
+            "seconds": dur,
+            "formatted": format_duration(dur),
+            "percentage": round((dur / total_seconds * 100), 1) if total_seconds > 0 else 0,
+            "color": meta.get(cat_name, {}).get("color", "#a1a1aa"),
+            "activities": activities
+        })
+
+    # Background media tracking stats
+    c.execute("SELECT SUM(duration) FROM background_media WHERE date = ?", (today_str,))
+    bg_row = c.fetchone()
+    bg_total = (bg_row[0] or 0) if bg_row else 0
+
+    c.execute("""
+        SELECT player, title, artist, SUM(duration) as total_dur
+        FROM background_media
+        WHERE date = ?
+        GROUP BY player, title
+        ORDER BY total_dur DESC
+        LIMIT 6
+    """, (today_str,))
+    bg_tracks = []
+    for p_name, t_title, t_artist, dur in c.fetchall():
+        bg_tracks.append({
+            "player": p_name,
+            "title": t_title,
+            "artist": t_artist,
+            "seconds": dur,
+            "formatted": format_duration(dur)
+        })
+
+    active_players = get_active_media_players()
+    current_media = active_players[0] if active_players else None
+
+    # Work vs leisure calculation
+    work_sec = cat_map.get("Trabajo y Desarrollo", 0) + cat_map.get("Work & Dev", 0) + cat_map.get("Terminal", 0)
+    leisure_sec = cat_map.get("Entretenimiento", 0) + cat_map.get("Leisure & Slacking", 0)
+    tracked_focus = work_sec + leisure_sec
+    prod_score = round((work_sec / tracked_focus * 100)) if tracked_focus > 0 else 100
+
+    snapshot = {
+        "date": today_str,
+        "total_seconds": total_seconds,
+        "formatted_total": format_duration(total_seconds),
+        "productivity_score": prod_score,
+        "work_seconds": work_sec,
+        "work_formatted": format_duration(work_sec),
+        "slacking_seconds": leisure_sec,
+        "slacking_formatted": format_duration(leisure_sec),
+        "entertainment_seconds": leisure_sec,
+        "entertainment_formatted": format_duration(leisure_sec),
+        "background_media": {
+            "total_seconds": bg_total,
+            "formatted_total": format_duration(bg_total),
+            "current": current_media,
+            "tracks": bg_tracks
+        },
+        "current_window": {
+            "class": current_class,
+            "title": clean_display_title(current_title),
+            "category": current_cat,
+            "elapsed": current_elapsed,
+            "formatted_elapsed": format_duration(current_elapsed)
+        },
+        "categories": categories_dict,
+        "top_apps": top_apps,
+        "updated_at": int(time.time())
+    }
+
+    tmp_path = STATS_FILE.with_suffix(".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(snapshot, f, indent=2, ensure_ascii=False)
+    tmp_path.replace(STATS_FILE)
+    return snapshot
+
+
+def run_daemon():
+    print("[*] Starting hypr-screentime daemon...")
+    conn = init_db()
+    rules = load_rules()
+    idle_cap = rules.get("idle_timeout_seconds", 180)
+
+    his = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
+    xdg = os.environ.get("XDG_RUNTIME_DIR")
+    if not his or not xdg:
+        print("[!] HYPRLAND_INSTANCE_SIGNATURE or XDG_RUNTIME_DIR missing.", file=sys.stderr)
+        sys.exit(1)
+
+    sock_path = f"{xdg}/hypr/{his}/.socket2.sock"
+    if not os.path.exists(sock_path):
+        print(f"[!] Hyprland socket not found at {sock_path}", file=sys.stderr)
+        sys.exit(1)
+
+    cur_class, cur_title = get_hypr_active_window()
+    cur_title = normalize_title(cur_title)
+    cur_cat, _ = classify(cur_class, cur_title, rules)
+    last_switch_time = int(time.time())
+    last_stats_update = 0
+    last_media_tick = int(time.time())
+
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.connect(sock_path)
+    s.setblocking(False)
+
+    generate_stats_snapshot(conn, cur_class, cur_title, cur_cat, 0)
+    buffer = ""
+
+    while True:
+        try:
+            r, _, _ = select.select([s], [], [], 5.0)
+            now = int(time.time())
+
+            # Track background media playback
+            active_players = get_active_media_players()
+            if active_players:
+                p = active_players[0]
+                media_elapsed = now - last_media_tick
+                if media_elapsed >= 4:
+                    today_str = date.today().isoformat()
+                    c = conn.cursor()
+                    c.execute("""
+                        INSERT INTO background_media (start_time, end_time, duration, player, title, artist, date)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (last_media_tick, now, media_elapsed, p["player"], p["title"], p["artist"], today_str))
+                    conn.commit()
+                    last_media_tick = now
+            else:
+                last_media_tick = now
+
+            if is_screen_locked():
+                last_switch_time = now
+                time.sleep(1)
+                continue
+
+            event_occurred = False
+            new_class = cur_class
+            new_title = cur_title
+
+            if r:
+                try:
+                    chunk = s.recv(4096).decode("utf-8", errors="ignore")
+                    if not chunk:
+                        time.sleep(2)
+                        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                        s.connect(sock_path)
+                        s.setblocking(False)
+                        continue
+                    buffer += chunk
+                except Exception:
+                    pass
+
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    if line.startswith("activewindow>>"):
+                        payload = line[len("activewindow>>"):]
+                        if "," in payload:
+                            w_class, w_title = payload.split(",", 1)
+                        else:
+                            w_class, w_title = payload, ""
+                        new_class = w_class.strip()
+                        new_title = normalize_title(w_title.strip())
+                        event_occurred = True
+
+            elapsed = now - last_switch_time
+
+            if event_occurred and (new_class != cur_class or new_title != cur_title):
+                capped_duration = min(elapsed, idle_cap)
+                if capped_duration >= 1 and cur_class:
+                    today_str = date.today().isoformat()
+                    c = conn.cursor()
+                    c.execute("""
+                        INSERT INTO sessions (start_time, end_time, duration, app_class, window_title, category, date)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (now - capped_duration, now, capped_duration, cur_class, cur_title, cur_cat, today_str))
+                    conn.commit()
+
+                cur_class = new_class
+                cur_title = new_title
+                cur_cat, _ = classify(cur_class, cur_title, rules)
+                last_switch_time = now
+                generate_stats_snapshot(conn, cur_class, cur_title, cur_cat, 0)
+                last_stats_update = now
+
+            elif elapsed >= 60:
+                today_str = date.today().isoformat()
+                c = conn.cursor()
+                c.execute("""
+                    INSERT INTO sessions (start_time, end_time, duration, app_class, window_title, category, date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (last_switch_time, now, elapsed, cur_class, cur_title, cur_cat, today_str))
+                conn.commit()
+                last_switch_time = now
+                generate_stats_snapshot(conn, cur_class, cur_title, cur_cat, 0)
+                last_stats_update = now
+
+            elif now - last_stats_update >= 5:
+                generate_stats_snapshot(conn, cur_class, cur_title, cur_cat, elapsed)
+                last_stats_update = now
+
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            time.sleep(1)
+
+
+def show_stats_cli(as_json=False):
+    conn = init_db()
+    if STATS_FILE.exists():
+        try:
+            with open(STATS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if as_json:
+                print(json.dumps(data, indent=2, ensure_ascii=False))
+                return
+        except Exception:
+            data = generate_stats_snapshot(conn)
+    else:
+        data = generate_stats_snapshot(conn)
+
+    if as_json:
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return
+
+    print("┌─────────────────────────────────────────────────────────────┐")
+    print(f"│  TIEMPO EN PANTALLA  •  {data.get('date')}                           │")
+    print("├─────────────────────────────────────────────────────────────┤")
+    print(f"│  Tiempo Activo:     {data.get('formatted_total', '0s'):<12}                           │")
+    print(f"│  Productividad:     {data.get('productivity_score', 0)}%                                    │")
+    print(f"│    Trabajo:         {data.get('work_formatted', '0s'):<12}                           │")
+    print(f"│    Entretenimiento: {data.get('entertainment_formatted', '0s'):<12}                           │")
+    bg = data.get("background_media", {})
+    if bg.get("total_seconds", 0) > 0:
+        print(f"│    Música / Fondo:  {bg.get('formatted_total', '0s'):<12}                           │")
+    print("├─────────────────────────────────────────────────────────────┤")
+    print("│  Distribución por Categorías:                               │")
+    for cat_name, cat_data in data.get("categories", {}).items():
+        bar_len = int(cat_data.get("percentage", 0) / 4)
+        bar = "█" * bar_len + "░" * (25 - bar_len)
+        print(f"│    • {cat_name:<20} {cat_data.get('formatted'):<8} {bar} {cat_data.get('percentage'):>4}% │")
+    print("├─────────────────────────────────────────────────────────────┤")
+    print("│  Aplicaciones Principales:                                  │")
+    for app in data.get("top_apps", []):
+        d_name = app.get('display_name', app.get('class'))
+        print(f"│    • {d_name:<20} {app.get('formatted'):<8} ({app.get('category')})│")
+    print("└─────────────────────────────────────────────────────────────┘")
+
+
+def main():
+    if len(sys.argv) > 1:
+        cmd = sys.argv[1]
+        if cmd == "stats":
+            as_json = "--json" in sys.argv or "-j" in sys.argv
+            show_stats_cli(as_json)
+            return
+        elif cmd == "gui":
+            gui_bin = HOME / ".local" / "bin" / "hypr-screentime-gui"
+            if gui_bin.exists():
+                os.execv(str(gui_bin), [str(gui_bin)])
+            else:
+                print(f"[!] GUI binary not found at {gui_bin}", file=sys.stderr)
+            return
+        elif cmd in ("--help", "-h"):
+            print("Usage: hypr-screentime [daemon | stats [--json] | gui]")
+            return
+
+    run_daemon()
+
+
+if __name__ == "__main__":
+    main()

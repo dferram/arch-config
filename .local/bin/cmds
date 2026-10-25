@@ -9,8 +9,9 @@ import unicodedata
 
 # Keep desktop entries aligned with .config/hypr/hyprland.lua and Kitty/.bashrc.
 SECTIONS = [
-    ('APPLICATIONS · HYPRLAND', [
-        ('Super + H', 'Open this command reference'),
+    ('󰣇  APPLICATIONS · HYPRLAND', [
+        ('Super + H', 'Open this command reference palette'),
+        ('Super + T', 'Screen Time Analytics graphical dashboard (GTK WebKit2)'),
         ('Super + Q', 'Kitty terminal'),
         ('Super + R', 'Quickshell Spotlight application launcher'),
         ('Super + W', 'Chromium'),
@@ -19,213 +20,264 @@ SECTIONS = [
         ('Super + E', 'Dolphin file manager'),
         ('Super + S', 'Spotify'),
         ('Super + B', 'Btop resource monitor'),
+        ('Super + Shift + B', 'Toggle Quickshell top bar & desktop widgets visibility'),
+        ('Super + Shift + W', 'Customize desktop widgets (interactive visual grid editor)'),
         ('Super + L', 'Lock session (Quickshell OLED flip clock / Hyprlock)'),
     ]),
-    ('WINDOWS · HYPRLAND', [
-        ('Super + C', 'Close the active window'),
+    ('󱑎  SCREEN TIME & PRODUCTIVITY · TELEMETRY', [
+        ('Super + T', 'Open Screen Time Analytics graphical dashboard'),
+        ('hypr-screentime stats', 'View real-time CLI summary of screen time & productivity score'),
+        ('hypr-screentime stats -j', 'Export screen time telemetry snapshot in JSON format'),
+        ('hypr-screentime gui', 'Launch the standalone interactive Screen Time dashboard'),
+        ('systemctl --user status hypr-screentime', 'Check status of background event-driven socket daemon'),
+        ('~/.config/hypr-screentime/rules.json', 'Edit classification rules (Work & Dev vs Leisure / Slacking)'),
+    ]),
+    ('󰖲  WINDOWS & TILING · HYPRLAND', [
+        ('Super + C', 'Close active window'),
         ('Super + Space / Shift + V', 'Toggle floating mode (both shortcuts use Super)'),
         ('Super + F', 'Toggle fullscreen'),
         ('Super + P', 'Toggle pseudotiling: preserve window size in the layout'),
-        ('Super + J', 'Toggle split orientation (dwindle)'),
+        ('Super + J', 'Toggle split orientation (dwindle layout)'),
         ('Super + arrows', 'Move focus between windows'),
-        ('Super + Tab', 'Next window'),
-        ('Super + Shift + Tab', 'Previous window'),
-        ('Super + Shift + arrows', 'Move the window within the tiled layout'),
-        ('Super + Alt + arrows', 'Resize the window; keep PiP within the screen'),
-        ('Super + left drag', 'Drag to move the window'),
-        ('Super + right drag', 'Drag to resize the window'),
+        ('Super + Tab', 'Focus next window'),
+        ('Super + Shift + Tab', 'Focus previous window'),
+        ('Super + Shift + arrows', 'Move window within tiled layout'),
+        ('Super + Alt + arrows', 'Resize window; keeps PiP within screen bounds'),
+        ('Super + left drag', 'Drag to move floating/tiled window'),
+        ('Super + right drag', 'Drag to resize window'),
     ]),
-    ('WORKSPACES & PICTURE-IN-PICTURE · HYPRLAND', [
+    ('󱂬  WORKSPACES & PICTURE-IN-PICTURE · HYPRLAND', [
         ('Super + 1..9 / 0', 'Switch to workspace 1..9 / 10'),
-        ('Super + Shift + 1..9 / 0', 'Send the window to workspace 1..9 / 10'),
-        ('Super + wheel down / up', 'Next / previous existing workspace'),
-        ('Super + grave (` / º)', 'Show or hide the special workspace magic'),
-        ('Super + Shift + grave', 'Send the window to the special workspace magic'),
+        ('Super + Shift + 1..9 / 0', 'Send window to workspace 1..9 / 10'),
+        ('Super + wheel down / up', 'Switch to next / previous existing workspace'),
+        ('Super + grave (` / º)', 'Toggle special scratchpad workspace (magic)'),
+        ('Super + Shift + grave', 'Send window to special workspace magic'),
         ('Super + Y / Super + Shift + P', 'Toggle Picture-in-Picture (PiP)'),
-        ('Super + Ctrl + = / +', 'Grow PiP; also works with numpad +'),
-        ('Super + Ctrl + -', 'Shrink PiP; also works with numpad -'),
+        ('Super + Ctrl + = / +', 'Grow PiP window; also works with numpad +'),
+        ('Super + Ctrl + -', 'Shrink PiP window; also works with numpad -'),
     ]),
-    ('SCREENSHOTS, WALLPAPERS & FOCUS · HYPRLAND', [
-        ('Print / F11 / Super + F11', 'Capture an area: save and copy to the clipboard'),
-        ('Shift + Print / Shift + F11', 'Capture all screens: save and copy'),
-        ('Ctrl + Print / Ctrl + F11', 'Select an area and edit with Swappy'),
-        ('Super + Print', 'Select an area and edit with Swappy'),
-        ('Super + V', 'Open clipboard history'),
-        ('Super + Alt + W', 'Switch to a random wallpaper'),
-        ('Super + Ctrl + W', 'Open the wallpaper picker'),
-        ('Super + F10 / Super + Pause', 'Toggle warm night light'),
-        ('Super + D / Super + F9', 'Toggle Do Not Disturb (DND)'),
+    ('󰹑  SCREENSHOTS, WALLPAPERS & FOCUS · HYPRLAND', [
+        ('Print / F11 / Super + F11', 'Capture rectangular area: save & copy to clipboard'),
+        ('Shift + Print / Shift + F11', 'Capture entire screen: save & copy to clipboard'),
+        ('Ctrl + Print / Ctrl + F11', 'Select area and open in Swappy annotation editor'),
+        ('Super + Print', 'Select area and open in Swappy annotation editor'),
+        ('Super + V', 'Open clipboard history menu'),
+        ('Super + Alt + W', 'Cycle to a random wallpaper from collection'),
+        ('Super + Ctrl + W', 'Open interactive wallpaper selection menu'),
+        ('Super + F10 / Super + Pause', 'Toggle warm night light filter'),
+        ('Super + D / Super + F9', 'Toggle Do Not Disturb (DND notifications silence)'),
     ]),
-    ('AUDIO, MUSIC & BRIGHTNESS · HYPRLAND', [
-        ('Super + = / Super + -', 'Raise / lower volume'),
-        ('Super + M', 'Mute / unmute audio'),
-        ('Super + Shift + = / -', 'Raise / lower brightness (both use Super + Shift)'),
-        ('Volume / mute keys', 'Raise, lower or mute audio'),
-        ('Microphone key', 'Mute / unmute the microphone'),
-        ('Brightness keys', 'Raise / lower screen brightness'),
-        ('Play / Pause key', 'Play / pause music'),
-        ('Next / Prev key', 'Next / previous track'),
+    ('󰎈  AUDIO, MUSIC & BRIGHTNESS · HYPRLAND', [
+        ('Super + = / Super + -', 'Raise / lower speaker volume'),
+        ('Super + M', 'Mute / unmute audio output'),
+        ('Super + Shift + = / -', 'Raise / lower display brightness'),
+        ('Volume / mute keys', 'Raise, lower or mute audio volume'),
+        ('Microphone key', 'Mute / unmute input microphone'),
+        ('Brightness keys', 'Raise / lower laptop screen brightness'),
+        ('Play / Pause key', 'Play or pause currently playing media'),
+        ('Next / Prev key', 'Skip to next / previous media track'),
+        ('cava', 'Launch terminal audio visualizer spectrum'),
+        ('bt / bluetuith', 'Open interactive Bluetooth TUI manager'),
     ]),
-    ('KITTY · TABS & PANES', [
-        ('Ctrl + Shift + T', 'New tab in the current directory'),
-        ('Ctrl + Shift + Enter', 'New pane in the current directory'),
-        ('Ctrl + Shift + W', 'Close the pane'),
-        ('Ctrl + Shift + ] / [', 'Next / previous tab'),
-        ('Ctrl + Shift + arrows', 'Move focus between panes'),
-        ('Ctrl + Shift + K / J', 'Scroll one line up / down'),
-        ('Ctrl + Shift + U / D', 'Scroll one page up / down'),
-        ('Ctrl + Shift + Home / End', 'Go to the start / end of terminal scrollback'),
-        ('Ctrl + Shift + E', 'Show hints to open links'),
+    ('󰆍  KITTY · TABS & PANES', [
+        ('Ctrl + Shift + T', 'New tab in current working directory'),
+        ('Ctrl + Shift + Enter', 'New split pane in current directory'),
+        ('Ctrl + Shift + W', 'Close current terminal pane'),
+        ('Ctrl + Shift + ] / [', 'Switch to next / previous tab'),
+        ('Ctrl + Shift + arrows', 'Move keyboard focus between panes'),
+        ('Ctrl + Shift + K / J', 'Scroll terminal output one line up / down'),
+        ('Ctrl + Shift + U / D', 'Scroll terminal output one page up / down'),
+        ('Ctrl + Shift + Home / End', 'Jump to start / end of terminal scrollback'),
+        ('Ctrl + Shift + E', 'Show hints to open visible links in browser'),
         ('Ctrl + Shift + P, then F', 'Copy a visible file path using hints'),
         ('Ctrl + Shift + P, then L', 'Copy a visible line using hints'),
         ('Ctrl + Shift + P, then W', 'Copy a visible word using hints'),
-        ('Ctrl + Shift + P, then H', 'Copy a hash or identifier using hints'),
+        ('Ctrl + Shift + P, then H', 'Copy a Git hash or ID using hints'),
     ]),
-    ('BASH · FILES & NAVIGATION', [
-        ('z <directory>', 'Jump to a frequent directory with Zoxide'),
-        ('p', 'Find and enter a project with FZF'),
-        ('.. / ... / .... / .....', 'Go up 1 / 2 / 3 / 4 directories'),
-        ('ls / ll / tree', 'List files / details and hidden files / two-level tree'),
-        ('Ctrl + R', 'Search command history with FZF'),
-        ('Ctrl + T', 'Find files with FZF and a preview'),
-        ('v [file]', 'Open in the terminal editor; omit the path to use FZF'),
-        ('vc [file]', 'Open in Antigravity IDE; omit the path to use FZF'),
-        ('rgf [text]', 'Search file contents and open the editor at the match'),
-        ('mkcd <directory>', 'Create a directory and enter it'),
-        ('extract <file>', 'Extract an archive with bsdtar'),
-        ('clip / paste', 'Copy input / print clipboard contents'),
-        ('reload', 'Reload the Bash configuration'),
+    ('󰉋  BASH · FILES & NAVIGATION', [
+        ('z <directory>', 'Jump to frequent directory with Zoxide'),
+        ('p', 'Find and enter a project directory with FZF'),
+        ('.. / ... / .... / .....', 'Navigate up 1 / 2 / 3 / 4 parent directories'),
+        ('ls / ll / tree', 'List files / details and hidden files / two-level directory tree'),
+        ('Ctrl + R', 'Search shell command history interactively with FZF'),
+        ('Ctrl + T', 'Find files with FZF and live preview window'),
+        ('v [file]', 'Open file in terminal editor (Neovim); omit path for FZF'),
+        ('vc [file]', 'Open file in Antigravity IDE; omit path for FZF'),
+        ('rgf [text]', 'Ripgrep search contents and open editor at exact line'),
+        ('mkcd <directory>', 'Create directory and enter it in one command'),
+        ('extract <file>', 'Auto-detect and extract archive with bsdtar'),
+        ('clip / paste', 'Copy standard input / print clipboard contents'),
+        ('reload', 'Reload Bash environment and alias definitions'),
+        ('bar [args] / hypr-bar', 'Toggle, show or hide Quickshell top bar & desktop widgets'),
+        ('desktop-widgets [args]', 'Manage desktop widgets from CLI (add, remove, layout, photos)'),
         ('cmds <query>', 'Filter this guide by command, description or section'),
     ]),
-    ('DEVELOPMENT · WEB & CONTAINERS', [
-        ('loc [port]', 'Open localhost in Chromium; default port 3000'),
-        ('web [URL or query]', 'Open a URL or search Google in Chromium'),
-        ('ports', 'List listening TCP ports and their processes'),
-        ('killport <port> / kp <port>', 'Terminate the process using a port'),
-        ('docker ps / docker ps -a', 'List running / all containers'),
-        ('ld', 'Open Lazydocker: containers and logs'),
-        ('d', 'Analyze disk usage with Dust'),
-        ('gh', 'GitHub CLI: repositories, pull requests and issues'),
-        ('bun / pnpm', 'JavaScript runtime and package tools'),
-        ('uv', 'Manage Python packages and environments'),
-        ('http <URL>', 'Query an API with HTTPie'),
+    ('󰘚  DESKTOP WIDGETS · QUICKSHELL', [
+        ('Super + Shift + W', 'Open visual widget editor (Add gallery, drag & drop, resize, reset)'),
+        ('widgets-edit / widgets-done', 'Toggle desktop interactive widget grid edit mode'),
+        ('widgets-on / widgets-off', 'Show / hide desktop widgets layer overlay'),
+        ('desktop-widgets add <widget> [c] [r] [w] [h]', 'Add widget: screentime, clock, battery, calendar, reminders, notes, photo1..5'),
+        ('desktop-widgets list', 'List all active widgets, coordinates, dimensions and status'),
+        ('desktop-widgets remove <key>', 'Remove a widget from desktop grid'),
+        ('desktop-widgets move <key> <col> <row>', 'Move widget to specific (col, row) grid cell'),
+        ('desktop-widgets resize <key> <w> <h>', 'Resize widget span (e.g. 1 1, 2 1, 2 2)'),
+        ('desktop-widgets reset', 'Reset widgets grid to default layout'),
+        ('desktop-widgets toggle', 'Toggle desktop widgets visibility on / off'),
+        ('desktop-widgets recursive <id>', 'Toggle recursive photo scanning for photo card (ON/OFF)'),
+        ('desktop-widgets shuffle <id>', 'Toggle random shuffle vs sequential photo playback'),
+        ('desktop-widgets fit <id> <crop|fit>', 'Set photo fit mode: fill card (crop) or entire image (fit)'),
+        ('desktop-widgets interval <id> <secs>', 'Set photo rotation interval (15, 30, 60, 300, 0=pause)'),
     ]),
-    ('SYSTEM · DIAGNOSTICS & MAINTENANCE', [
-        ('lr / laptop-report', 'View battery, temperatures and laptop status'),
-        ('top / htop / btop', 'Interactive Btop monitor for CPU, RAM and processes'),
-        ('fkill', 'Select processes with FZF and terminate them'),
-        ('sudo powertop', 'Analyze power consumption'),
-        ('intel_gpu_top', 'Monitor Intel GPU load'),
-        ('sudo ufw status', 'Check firewall status'),
-        ('sudo timeshift --create', 'Create a system snapshot'),
-        ('pw_top', 'Monitor PipeWire audio with the local command'),
-        ('systemctl --user restart pipewire', 'Restart the PipeWire audio service'),
-        ('bt', 'Open the local Bluetooth manager'),
-        ('ia-usage', 'View the local AI usage and quota dashboard'),
+    ('󰅩  DEVELOPMENT · TOOLS & CONTAINERS', [
+        ('loc [port]', 'Open localhost URL in Chromium (default port 3000)'),
+        ('web [URL or query]', 'Open URL or search Google in Chromium'),
+        ('ports', 'List all listening TCP ports and associated processes'),
+        ('killport <port> / kp <port>', 'Terminate process holding a specific network port'),
+        ('docker ps / docker ps -a', 'List running / all Docker containers'),
+        ('ld', 'Launch Lazydocker TUI (containers, images and streaming logs)'),
+        ('d', 'Analyze disk space usage visually with Dust'),
+        ('gh', 'GitHub CLI: manage repositories, PRs, releases and issues'),
+        ('bun / pnpm', 'Fast JavaScript runtime and package managers'),
+        ('uv', 'Ultra-fast Python package and virtual environment manager'),
+        ('http <URL>', 'Execute HTTP requests with formatted HTTPie output'),
     ]),
-    ('CHROMIUM & VIMIUM · IN THE BROWSER', [
-        ('f', 'Vimium: show link hints'),
-        ('j / k', 'Vimium: scroll down / up'),
-        ('J / K', 'Vimium: previous / next tab'),
-        ('o', 'Vimium: search history and bookmarks'),
-        ('x / X', 'Vimium: close tab / restore the last closed tab'),
-        ('H / L', 'Vimium: go back / forward in history'),
-        ('Ctrl + L', 'Focus the address bar'),
-        ('Ctrl + T / Ctrl + W', 'Open / close a tab'),
-        ('Ctrl + Shift + T', 'Restore the last closed tab'),
-        ('Ctrl + Tab', 'Switch to the next tab'),
+    ('󰒓  SYSTEM · DIAGNOSTICS & HARDWARE', [
+        ('lr / laptop-report', 'View battery health, thermals, fans and power draw report'),
+        ('top / htop / btop', 'Launch Btop system monitor for CPU, RAM, disks and processes'),
+        ('fkill', 'Fuzzy search running processes with FZF and kill selected PID'),
+        ('sudo powertop', 'Analyze detailed battery power consumption & tune tunables'),
+        ('intel_gpu_top', 'Monitor Intel Iris/Arc GPU load and video engines'),
+        ('sudo ufw status', 'Check incoming/outgoing firewall status rules'),
+        ('sudo timeshift --create', 'Create system backup snapshot with Timeshift'),
+        ('pw_top', 'Monitor PipeWire real-time audio streams and DSP graphs'),
+        ('systemctl --user restart pipewire', 'Restart PipeWire and WirePlumber audio services'),
+        ('bt / bluetuith', 'Open interactive Bluetooth device pairing manager'),
+        ('ia-usage', 'View AI model usage telemetry and token quota dashboard'),
+    ]),
+    ('󰖟  CHROMIUM & VIMIUM · BROWSER NAVIGATION', [
+        ('f', 'Vimium: show clickable link hints on web page'),
+        ('j / k', 'Vimium: scroll down / up smooth page view'),
+        ('J / K', 'Vimium: switch to previous / next browser tab'),
+        ('o', 'Vimium: search browser history and bookmarks bar'),
+        ('x / X', 'Vimium: close current tab / restore recently closed tab'),
+        ('H / L', 'Vimium: navigate backward / forward in tab history'),
+        ('Ctrl + L', 'Focus browser address bar (URL input)'),
+        ('Ctrl + T / Ctrl + W', 'Open new tab / close active tab'),
+        ('Ctrl + Shift + T', 'Reopen last closed browser tab'),
+        ('Ctrl + Tab', 'Cycle forward through open browser tabs'),
     ]),
 ]
 
-# Arch silhouette rendered directly in the terminal.
-LOGO = [
-    '          ▄          ',
-    '         ▟█▙         ',
-    '        ▟███▙        ',
-    '       ▟◤ ▜██▙       ',
-    '      ▟██  ███▙      ',
-    '     ▟██▛  ▜███▙     ',
-    '    ▟█▛      ▜██▙    ',
-]
+
+def normalize(text):
+    return ''.join(c for c in unicodedata.normalize('NFKD', text.lower()) if not unicodedata.combining(c))
 
 
-def styled_runs(line, style):
-    """Share the Arch blue palette between curses and terminal output."""
-    if style < 10:
-        return [(line, style)]
-    logo_width = len(LOGO[style - 10])
-    return [(line[:logo_width], 4), (line[logo_width:], 1)]
-
-
-def normalize(value):
-    return ''.join(c for c in unicodedata.normalize('NFD', value.casefold())
-                   if not unicodedata.combining(c))
+def styled_runs(line, base_style):
+    parts = line.split('`')
+    for index, part in enumerate(parts):
+        if not part:
+            continue
+        yield part, (base_style if index % 2 == 0 else 4)
 
 
 def render(width, query=''):
-    """Return (text, style) rows, wrapped before applying terminal colors."""
-    width = max(20, width)
     rows = []
-    titles = ['', 'FERRAM / COMMAND CENTER', 'SHORTCUTS & COMMANDS', '',
-              'Super = Windows key', 'Shortcuts grouped by application', '']
-    logo_width = max(map(len, LOGO))
-    side_by_side = width >= logo_width + 2 + max(map(len, titles))
-    for index, pixel in enumerate(LOGO):
-        title = titles[index] if index < len(titles) else ''
-        line = pixel.ljust(logo_width) + '  ' + title if side_by_side else pixel
-        rows.append((line[:width].rstrip(), 10 + index))
-    if not side_by_side:
-        rows.append(('SHORTCUTS & COMMANDS', 1))
+    w = max(40, width)
+    
+    # Sleek Apple Obsidian / Arch Linux Header Banner
+    rows.append(('╭' + '─' * (w - 2) + '╮', 2))
+    title_text = "  󰌌  HYPRLAND & ARCH LINUX COMMAND PALETTE"
+    badge_text = "[Super+H Reference]  "
+    space_len = max(1, w - 2 - len(title_text) - len(badge_text))
+    header_line = "│" + title_text + " " * space_len + badge_text + "│"
+    rows.append((header_line, 1))
+    rows.append(('╰' + '─' * (w - 2) + '╯', 2))
     rows.append(('', 0))
+
     needle = normalize(query)
     total = 0
+    matched_sections = 0
+
     for index, (title, items) in enumerate(SECTIONS, 1):
         matched = [(cmd, desc) for cmd, desc in items
                    if needle in normalize(f'{title} {cmd} {desc}')]
         if not matched:
             continue
-        for line in textwrap.wrap(f'{index:02d} / {title}', width):
-            rows.append((line, 1))
-        rows.append(('─' * width, 2))
+        matched_sections += 1
+        
+        # Section Header Banner
+        clean_title = f"{title}"
+        rows.append((f"  {clean_title}", 1))
+        rows.append(('  ' + '┄' * (w - 4), 2))
+        
         for cmd, desc in matched:
             total += 1
-            if width >= 90:
-                parts = textwrap.wrap(desc, width - 38)
-                rows.append((f'  {cmd:<34}  {parts[0]}', 0))
-                rows.extend((' ' * 38 + part, 0) for part in parts[1:])
+            cmd_badge = f"{cmd}"
+            if w >= 90:
+                left_col_width = 38
+                desc_width = w - left_col_width - 6
+                parts = textwrap.wrap(desc, desc_width)
+                rows.append((f"    `{cmd_badge:<{left_col_width}}`  {parts[0]}", 0))
+                for part in parts[1:]:
+                    rows.append((' ' * (left_col_width + 8) + part, 0))
             else:
-                rows.extend((line, 3) for line in textwrap.wrap(cmd, width, initial_indent='  ', subsequent_indent='  '))
-                rows.extend((line, 0) for line in textwrap.wrap(desc, width, initial_indent='    ', subsequent_indent='    '))
+                rows.append((f"    `{cmd_badge}`", 3))
+                for desc_line in textwrap.wrap(desc, w - 8):
+                    rows.append((f"      {desc_line}", 0))
         rows.append(('', 0))
-    rows.append((f'{total} entries' if total else 'No matches found.', 2))
+
+    if total == 0:
+        rows.append((f"  󰅖  No commands matching '{query}' found.", 2))
+        rows.append(('', 0))
+
     return rows
 
 
 def popup(screen, initial_query=''):
     curses.curs_set(0)
     styles = [0, curses.A_BOLD, curses.A_DIM, curses.A_BOLD, curses.A_BOLD]
+    
     if curses.has_colors():
         curses.start_color()
         curses.use_default_colors()
-        curses.init_pair(1, curses.COLOR_CYAN, -1)
-        styles[1] |= curses.color_pair(1)
-        styles[3] |= curses.color_pair(1)
-        arch_blue = 38 if curses.COLORS >= 256 else curses.COLOR_CYAN
-        curses.init_pair(2, arch_blue, -1)
-        styles[4] |= curses.color_pair(2)
+        
+        if curses.COLORS >= 256:
+            # High-end 256-color palette
+            curses.init_pair(1, 114, -1)  # Emerald/Lime title (#6fbf27)
+            curses.init_pair(2, 242, -1)  # Zinc borders (#6c7086)
+            curses.init_pair(3, 38, -1)   # Vibrant sky cyan (#38bdf8)
+            curses.init_pair(4, 38, -1)   # Command highlights
+            curses.init_pair(5, 220, -1)  # Amber gold
+        else:
+            curses.init_pair(1, curses.COLOR_GREEN, -1)
+            curses.init_pair(2, curses.COLOR_CYAN, -1)
+            curses.init_pair(3, curses.COLOR_CYAN, -1)
+            curses.init_pair(4, curses.COLOR_CYAN, -1)
+            curses.init_pair(5, curses.COLOR_YELLOW, -1)
+
+        styles[1] = curses.color_pair(1) | curses.A_BOLD
+        styles[2] = curses.color_pair(2)
+        styles[3] = curses.color_pair(3) | curses.A_BOLD
+        styles[4] = curses.color_pair(4) | curses.A_BOLD
+
     query, offset, editing = initial_query, 0, False
+
     while True:
         height, width = screen.getmaxyx()
-        content = render(max(20, width - 2), query)
-        page = max(1, height - 3)
+        content = render(max(30, width - 2), query)
+        page = max(1, height - 4)
         offset = min(max(0, offset), max(0, len(content) - page))
         screen.erase()
+
         def put(y, value, style=0):
             if 0 <= y < height:
                 try:
                     screen.addnstr(y, 0, value, max(0, width - 1), style)
                 except curses.error:
-                    pass  # Tiny terminal or bottom-right cell during resize.
+                    pass
+
+        # Draw content lines
         for y, (line, style) in enumerate(content[offset:offset + page]):
             x = 0
             for text, color in styled_runs(line, style):
@@ -236,12 +288,24 @@ def popup(screen, initial_query=''):
                 except curses.error:
                     pass
                 x += len(text)
+
+        # Draw bottom status & navigation bar
         put(height - 3, '─' * max(0, width - 1), styles[2])
-        put(height - 2, '↑↓ / j k scroll · PgUp/PgDn page · g/G top/end · / search · q quit', styles[1])
-        status = f'Search: {query}▏' if editing else f'Filter: {query or "all"} · {offset + 1}–{min(offset + page, len(content))}/{len(content)} · Esc clear'
-        put(height - 1, status, styles[2])
+        nav_info = "  ↑↓/jk Scroll  •  PgUp/PgDn Page  •  g/G Top/End  •  / Search  •  q Quit"
+        put(height - 2, nav_info, styles[1])
+
+        if editing:
+            status = f"  󰍉 Search query: {query}▏  (Enter: finish, Esc: cancel)"
+            put(height - 1, status, styles[3])
+        else:
+            filter_label = query if query else "All Commands"
+            pos_info = f"{offset + 1}–{min(offset + page, len(content))} of {len(content)} lines"
+            status = f"  󰍉 Filter: [{filter_label}]  •  {pos_info}  •  Press / to search"
+            put(height - 1, status, styles[2])
+
         screen.refresh()
         key = screen.get_wch()
+
         if editing:
             if key in ('\n', '\r'):
                 editing = False
@@ -278,15 +342,27 @@ def main():
     parser.add_argument('query', nargs='*', help='Filter commands and sections')
     args = parser.parse_args()
     query = ' '.join(args.query)
+
     if args.popup and sys.stdin.isatty() and sys.stdout.isatty():
         curses.wrapper(popup, query)
     else:
-        colors = ['', '\033[1;38;2;127;196;219m', '\033[2m', '\033[38;2;66;160;191m',
-                  '\033[1;38;2;23;147;209m']
-        for line, style in render(shutil.get_terminal_size((100, 30)).columns - 2, query):
-            print(''.join(f'{colors[color]}{text}\033[0m' for text, color in styled_runs(line, style))
-                  if sys.stdout.isatty() else line)
-        print('\nFilter: cmds <text> · Interactive guide: cmds --popup')
+        # High quality ANSI colors for standard terminal print
+        colors = [
+            '\033[0m',                          # 0 default
+            '\033[1;38;2;160;219;106m',        # 1 emerald bold
+            '\033[38;2;113;113;122m',          # 2 zinc muted
+            '\033[1;38;2;56;189;248m',         # 3 sky cyan bold
+            '\033[1;38;2;56;189;248m',         # 4 highlight bold
+            '\033[38;2;255;214;10m'            # 5 amber
+        ]
+        term_width = shutil.get_terminal_size((100, 30)).columns - 2
+        for line, style in render(term_width, query):
+            if sys.stdout.isatty():
+                print(''.join(f'{colors[color]}{text}\033[0m' for text, color in styled_runs(line, style)))
+            else:
+                print(line)
+        if sys.stdout.isatty():
+            print('\033[38;2;113;113;122m  Filter: cmds <query>  •  Interactive palette: Super + H  or  cmds --popup\033[0m\n')
 
 
 if __name__ == '__main__':

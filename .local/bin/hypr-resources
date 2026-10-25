@@ -53,7 +53,6 @@ def get_ram():
 
 def get_temp():
     try:
-        # First priority: hwmon coretemp / k10temp / cpu_thermal package temp
         for hw in Path("/sys/class/hwmon").glob("hwmon*"):
             name_file = hw / "name"
             if name_file.exists() and name_file.read_text().strip() in ("coretemp", "k10temp", "cpu_thermal", "zenpower"):
@@ -69,7 +68,6 @@ def get_temp():
                     if val > 0:
                         return round(val / 1000)
 
-        # Second priority: thermal_zone with x86_pkg_temp or TCPU
         for tz in Path("/sys/class/thermal").glob("thermal_zone*"):
             type_file = tz / "type"
             temp_file = tz / "temp"
@@ -82,6 +80,48 @@ def get_temp():
     except Exception:
         pass
     return 0
+
+def get_fan():
+    max_rpm = 0
+    try:
+        for hw in Path("/sys/class/hwmon").glob("hwmon*"):
+            for fan in hw.glob("fan*_input"):
+                try:
+                    rpm = int(fan.read_text().strip())
+                    if rpm > max_rpm:
+                        max_rpm = rpm
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return max_rpm
+
+def get_freq():
+    try:
+        freqs = []
+        for f in Path("/sys/devices/system/cpu").glob("cpu[0-9]*/cpufreq/scaling_cur_freq"):
+            try:
+                freqs.append(int(f.read_text().strip()))
+            except Exception:
+                pass
+        if freqs:
+            return round(sum(freqs) / len(freqs) / 1000000, 2)
+    except Exception:
+        pass
+    return 0.0
+
+def get_thermald():
+    try:
+        for p in Path("/proc").glob("[0-9]*"):
+            try:
+                cmdline = (p / "cmdline").read_bytes()
+                if b"thermald" in cmdline:
+                    return True
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return False
 
 def get_cpu_info():
     try:
@@ -101,6 +141,9 @@ def main():
     cpu = get_cpu()
     ram_pct, ram_used, ram_total = get_ram()
     temp = get_temp()
+    fan_rpm = get_fan()
+    freq_ghz = get_freq()
+    thermald_active = get_thermald()
     cpu_short, cpu_full = get_cpu_info()
     
     print(json.dumps({
@@ -109,6 +152,9 @@ def main():
         "ram_used": ram_used,
         "ram_total": ram_total,
         "temp": temp,
+        "fan": fan_rpm,
+        "freq": freq_ghz,
+        "thermald": thermald_active,
         "cpu_name": cpu_short,
         "cpu_full": cpu_full
     }))
