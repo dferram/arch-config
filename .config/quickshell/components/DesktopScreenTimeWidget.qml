@@ -84,8 +84,65 @@ Rectangle {
         id: hoverArea
         anchors.fill: parent
         hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: {
+        cursorShape: isDragging ? Qt.ClosedHandCursor : (containsMouse ? Qt.PointingHandCursor : Qt.ArrowCursor)
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+        property real startScreenX: 0
+        property real startScreenY: 0
+        property bool isDragging: false
+
+        onPressed: (mouse) => {
+            if (mouse.button === Qt.RightButton) {
+                if (root.wrapper) root.wrapper.menuOpen = !root.wrapper.menuOpen;
+                return;
+            }
+            if (mouse.button !== Qt.LeftButton) return;
+            if (root.wrapper && root.wrapper.menuOpen) root.wrapper.menuOpen = false;
+
+            let canvasPt = mapToItem(root.wrapper ? root.wrapper.parent : root.parent, mouse.x, mouse.y);
+            startScreenX = canvasPt.x;
+            startScreenY = canvasPt.y;
+            isDragging = false;
+        }
+
+        onPositionChanged: (mouse) => {
+            if (!hoverArea.pressed || (mouse.buttons & Qt.LeftButton) === 0) {
+                if (isDragging) {
+                    isDragging = false;
+                    if (root.wrapper) root.wrapper.endDrag();
+                }
+                return;
+            }
+
+            let canvasPt = mapToItem(root.wrapper ? root.wrapper.parent : root.parent, mouse.x, mouse.y);
+            let dx = canvasPt.x - startScreenX;
+            let dy = canvasPt.y - startScreenY;
+
+            if (!isDragging && Math.hypot(dx, dy) > 4) {
+                isDragging = true;
+                if (root.wrapper) root.wrapper.startDrag(mouse.x, mouse.y);
+            }
+            if (isDragging && root.wrapper) {
+                root.wrapper.updateDrag(dx, dy);
+            }
+        }
+
+        onReleased: (mouse) => {
+            if (isDragging) {
+                isDragging = false;
+                if (root.wrapper) root.wrapper.endDrag();
+            }
+        }
+
+        onCanceled: {
+            if (isDragging) {
+                isDragging = false;
+                if (root.wrapper) root.wrapper.endDrag();
+            }
+        }
+
+        onClicked: (mouse) => {
+            if (isDragging) return;
             if (root.wrapper && root.wrapper.overlay && root.wrapper.overlay.showGridGuide) {
                 return;
             }
@@ -98,16 +155,16 @@ Rectangle {
         anchors.margins: 15
         spacing: 8
 
-        // Header: Icon + Title + Productivity Badge
+        // Header: Dot + Title + Productivity Badge
         RowLayout {
             Layout.fillWidth: true
-            spacing: 6
+            spacing: 8
 
-            Text {
-                text: "󱑎"
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 14
-                color: theme.blueLight != "" ? theme.blueLight : "#a0db6a"
+            Rectangle {
+                width: 7
+                height: 7
+                radius: 3.5
+                color: "#0a84ff"
             }
 
             Text {
@@ -131,7 +188,7 @@ Rectangle {
                 Text {
                     id: scoreText
                     anchors.centerIn: parent
-                    text: root.productivityScore + "% Prod"
+                    text: root.productivityScore + "%"
                     font.family: theme.fontFamily
                     font.pixelSize: 9
                     font.weight: Font.Bold
@@ -158,7 +215,7 @@ Rectangle {
                 }
 
                 Text {
-                    text: "Total Active Today"
+                    text: "Total Today"
                     font.family: theme.fontFamily
                     font.pixelSize: 10
                     font.weight: Font.Medium
@@ -208,7 +265,7 @@ Rectangle {
                             startAngle = endAngle;
                         }
 
-                        // Slacking slice (Coral Red)
+                        // Entertainment slice (Coral Red)
                         if (root.slackingRatio > 0.01) {
                             let endAngle = startAngle + (root.slackingRatio * 2 * Math.PI);
                             ctx.beginPath();
@@ -232,14 +289,6 @@ Rectangle {
                         }
                     }
                 }
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "󰄬"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 12
-                    color: theme.textSub
-                }
             }
         }
 
@@ -255,13 +304,23 @@ Rectangle {
 
                 RowLayout {
                     width: parent.width
-                    Text {
-                        text: "󰌢 Work & Dev"
-                        font.family: theme.fontFamily
-                        font.pixelSize: 10
-                        font.weight: Font.Medium
-                        color: theme.textSub
+                    Row {
+                        spacing: 6
                         Layout.fillWidth: true
+                        Rectangle {
+                            width: 6
+                            height: 6
+                            radius: 3
+                            color: "#30d158"
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        Text {
+                            text: "Work"
+                            font.family: theme.fontFamily
+                            font.pixelSize: 10
+                            font.weight: Font.Medium
+                            color: theme.textSub
+                        }
                     }
                     Text {
                         text: root.workFormatted + " (" + Math.round(root.workRatio * 100) + "%)"
@@ -286,20 +345,30 @@ Rectangle {
                 }
             }
 
-            // Leisure & Slacking Stat Row
+            // Entertainment Stat Row
             Column {
                 width: parent.width
                 spacing: 2
 
                 RowLayout {
                     width: parent.width
-                    Text {
-                        text: "󰊗 Leisure / Slacking"
-                        font.family: theme.fontFamily
-                        font.pixelSize: 10
-                        font.weight: Font.Medium
-                        color: theme.textSub
+                    Row {
+                        spacing: 6
                         Layout.fillWidth: true
+                        Rectangle {
+                            width: 6
+                            height: 6
+                            radius: 3
+                            color: "#ff453a"
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        Text {
+                            text: "Entertainment"
+                            font.family: theme.fontFamily
+                            font.pixelSize: 10
+                            font.weight: Font.Medium
+                            color: theme.textSub
+                        }
                     }
                     Text {
                         text: root.slackingFormatted + " (" + Math.round(root.slackingRatio * 100) + "%)"
@@ -342,7 +411,7 @@ Rectangle {
                 anchors.rightMargin: 8
 
                 Text {
-                    text: root.currentClass ? ("󰆍 " + root.currentClass) : "󰒲 Idle"
+                    text: root.currentClass ? ("● " + root.currentClass) : "Idle"
                     font.family: theme.fontFamily
                     font.pixelSize: 10
                     font.weight: Font.Medium
@@ -352,10 +421,11 @@ Rectangle {
                 }
 
                 Text {
-                    text: "Open GUI 󰅂"
+                    text: "Details →"
                     font.family: theme.fontFamily
                     font.pixelSize: 9
-                    color: theme.blueLight != "" ? theme.blueLight : "#a0db6a"
+                    font.weight: Font.DemiBold
+                    color: theme.blueLight != "" ? theme.blueLight : "#0a84ff"
                 }
             }
         }

@@ -294,9 +294,11 @@ Item {
         height: 36
         z: 60
 
-        // Handle is visible when customize guide is active, or when resizing
-        opacity: (resizeMouseArea.containsMouse || wrapper.resizing || (overlay && overlay.showGridGuide)) ? 1.0 : 0.0
-        Behavior on opacity { NumberAnimation { duration: 180 } }
+        // Handle is ONLY visible and active when grid edit mode is on
+        visible: !!(overlay && overlay.showGridGuide)
+        enabled: !!(overlay && overlay.showGridGuide)
+        opacity: (overlay && overlay.showGridGuide) ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 150 } }
 
         // Apple Sonoma Glass Handle Pill
         Rectangle {
@@ -346,6 +348,7 @@ Item {
                     overlay.snapRow = wrapper.targetRow;
                     overlay.snapWidth = wrapper.width;
                     overlay.snapHeight = wrapper.height;
+                    overlay.snapValid = true;
                 }
             }
 
@@ -363,14 +366,17 @@ Item {
                 cols = Math.max(1, Math.min(overlay.gridCols - wrapper.targetCol, cols));
                 rows = Math.max(1, Math.min(overlay.gridRows - wrapper.targetRow, rows));
 
-                wrapper.previewColSpan = cols;
-                wrapper.previewRowSpan = rows;
+                // Only perform layout updates when column or row span actually changes (smooth performance)
+                if (cols !== wrapper.previewColSpan || rows !== wrapper.previewRowSpan) {
+                    wrapper.previewColSpan = cols;
+                    wrapper.previewRowSpan = rows;
 
-                overlay.snapCol = wrapper.targetCol;
-                overlay.snapRow = wrapper.targetRow;
-                overlay.snapValid = overlay.isSlotAvailable ? overlay.isSlotAvailable(wrapper.widgetKey, wrapper.targetCol, wrapper.targetRow, cols, rows) : true;
-                overlay.snapWidth = cols * overlay.cellWidth + (cols - 1) * overlay.gridGap;
-                overlay.snapHeight = rows * overlay.cellHeight + (rows - 1) * overlay.gridGap;
+                    overlay.snapCol = wrapper.targetCol;
+                    overlay.snapRow = wrapper.targetRow;
+                    overlay.snapValid = overlay.isSlotAvailable ? overlay.isSlotAvailable(wrapper.widgetKey, wrapper.targetCol, wrapper.targetRow, cols, rows) : true;
+                    overlay.snapWidth = cols * overlay.cellWidth + (cols - 1) * overlay.gridGap;
+                    overlay.snapHeight = rows * overlay.cellHeight + (rows - 1) * overlay.gridGap;
+                }
             }
 
             onReleased: {

@@ -437,6 +437,26 @@ Item {
     property bool isPrimeVideo: currentPlatform === "prime"
     property bool isHboMax: currentPlatform === "hbomax"
     property bool isStremio: currentPlatform === "stremio"
+    // Formula 1 content on any media platform (YouTube, Stremio, Browser, MPV...)
+    property bool isF1: {
+        let t = (trackTitle + " " + trackArtist + " " + trackAlbum).toLowerCase();
+        let kws = ["formula 1", "formula1", "formula one", "f1 tv", "f1tv", "grand prix", "fia f1", "motorsport", "red bull racing", "scuderia ferrari", "mercedes amg f1", "checo perez", "max verstappen", "lewis hamilton", "fernando alonso", "qualifying", "f1:", "f1 -", "- f1", "| f1", "f1 live"];
+        for (let i = 0; i < kws.length; i++) {
+            if (t.indexOf(kws[i]) !== -1) return true;
+        }
+        return /(?:^|[\s\-_/|(\[])f1(?:$|[\s\-_/|)\].:])/i.test(t);
+    }
+
+    // NBA content on any media platform
+    property bool isNba: {
+        let t = (trackTitle + " " + trackArtist + " " + trackAlbum).toLowerCase();
+        let kws = ["nba", "basketball", "nba league pass", "nba tv", "nbatv", "nba.com", "national basketball association", "nba playoffs", "nba finals", "nba highlights", "lakers", "golden state warriors", "boston celtics", "chicago bulls", "dallas mavericks"];
+        for (let i = 0; i < kws.length; i++) {
+            if (t.indexOf(kws[i]) !== -1) return true;
+        }
+        return /(?:^|[\s\-_/|(\[])nba(?:$|[\s\-_/|)\].:])/i.test(t);
+    }
+
     // Spider-Man content on any media platform (Stremio, Spotify, YouTube, Disney+, Netflix...)
     property bool isSpiderMan: {
         let t = (trackTitle + " " + trackArtist + " " + trackAlbum).toLowerCase();
@@ -455,6 +475,8 @@ Item {
     property color dynamicAlbumColorAccent: "#94a3b8"
 
     property color mediaAccentColor: {
+        if (isF1) return "#E10600"; // Official Formula 1 Racing Red
+        if (isNba) return "#1D428A"; // Official NBA Royal Blue
         if (isSpiderMan) return "#e23636";
         if (isSpotify || (embedded && artUrl !== "")) return dynamicAlbumColor;
         if (isStremio) return "#7b5bf5";
@@ -476,6 +498,8 @@ Item {
 
     // Visualizer Bars Colorimetry (Matches album for Spotify, strictly red for YouTube, orange for SoundCloud)
     property color albumColorPrimary: {
+        if (isF1) return "#E10600";
+        if (isNba) return "#1D428A";
         if (isSpiderMan) return "#e23636";
         if (isStremio) return "#7b5bf5";
         if (isSpotify || (embedded && artUrl !== "")) return dynamicAlbumColor;
@@ -532,6 +556,8 @@ Item {
     Component.onCompleted: updatePalette()
 
     property string playerBrandName: {
+        if (isF1) return "Formula 1";
+        if (isNba) return "NBA";
         if (isSpiderMan) return "Spider-Man";
         if (isStremio) return "Stremio";
         if (isYouTube) return "YouTube";
@@ -543,6 +569,10 @@ Item {
         if (isHboMax) return "HBO Max";
         return "Media";
     }
+
+    // Official Formula 1 and NBA Icons
+    property string f1SvgUri: "file:///home/ferram/.local/share/icons/f1.png"
+    property string nbaSvgUri: "file:///home/ferram/.local/share/icons/nba.svg"
 
     // Official SoundCloud SVG vector
     property string soundcloudSvgUri: Qt.resolvedUrl("../icons/soundcloud.svg")
@@ -640,6 +670,8 @@ Item {
         id: pill
         visible: !root.embedded
         iconSource: {
+            if (root.isF1) return root.f1SvgUri;
+            if (root.isNba) return root.nbaSvgUri;
             if (root.isSpiderMan) return root.spiderSvgUri;
             if (root.isStremio) return root.stremioSvgUri;
             if (root.isYouTube) return root.youtubeSvgUri;
@@ -712,8 +744,8 @@ Item {
             parent: root.embedded ? root : popup.contentItem
             anchors.fill: parent
             anchors.topMargin: root.embedded ? 0 : 10
-            color: theme.popupBg
-            border.color: theme.border
+            color: root.embedded ? Qt.rgba(0.04, 0.04, 0.06, 0.88) : theme.popupBg
+            border.color: root.embedded ? Qt.rgba(255, 255, 255, 0.10) : theme.border
             border.width: 1
             radius: 16
             clip: true
@@ -737,7 +769,7 @@ Item {
                 anchors.topMargin: -40
                 width: 300
                 height: 300
-                opacity: root.isPlaying ? 0.30 : 0.14
+                opacity: root.isPlaying ? (root.embedded ? 0.20 : 0.30) : (root.embedded ? 0.08 : 0.14)
                 gradient: Gradient {
                     GradientStop { position: 0.0; color: root.mediaAccentColor }
                     GradientStop { position: 0.45; color: Qt.rgba(root.mediaAccentColor.r, root.mediaAccentColor.g, root.mediaAccentColor.b, 0.16) }
@@ -755,8 +787,8 @@ Item {
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
                     GradientStop { position: 0.0; color: "transparent" }
-                    GradientStop { position: 0.25; color: Qt.rgba(255, 255, 255, 0.25) }
-                    GradientStop { position: 0.75; color: Qt.rgba(255, 255, 255, 0.25) }
+                    GradientStop { position: 0.25; color: root.embedded ? Qt.rgba(255, 255, 255, 0.14) : Qt.rgba(255, 255, 255, 0.25) }
+                    GradientStop { position: 0.75; color: root.embedded ? Qt.rgba(255, 255, 255, 0.14) : Qt.rgba(255, 255, 255, 0.25) }
                     GradientStop { position: 1.0; color: "transparent" }
                 }
             }
@@ -800,6 +832,8 @@ Item {
                                 height: 14
                                 anchors.verticalCenter: parent.verticalCenter
                                 source: {
+                                    if (root.isF1) return root.f1SvgUri;
+                                    if (root.isNba) return root.nbaSvgUri;
                                     if (root.isSpiderMan) return root.spiderSvgUri;
                                     if (root.isStremio) return root.stremioSvgUri;
                                     if (root.isYouTube) return root.youtubeSvgUri;
@@ -994,9 +1028,25 @@ Item {
                             }
                             Image {
                                 anchors.centerIn: parent
+                                width: 56
+                                height: 56
+                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && root.isF1
+                                source: root.f1SvgUri
+                                fillMode: Image.PreserveAspectFit
+                            }
+                            Image {
+                                anchors.centerIn: parent
+                                width: 48
+                                height: 48
+                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && root.isNba
+                                source: root.nbaSvgUri
+                                fillMode: Image.PreserveAspectFit
+                            }
+                            Image {
+                                anchors.centerIn: parent
                                 width: 50
                                 height: 50
-                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && (root.isSpiderMan || root.isStremio)
+                                visible: (root.artUrl === "" || fullArtImg.status !== Image.Ready) && (root.isSpiderMan || root.isStremio) && !root.isF1 && !root.isNba
                                 source: root.isSpiderMan ? root.spiderSvgUri : root.stremioSvgUri
                                 fillMode: Image.PreserveAspectFit
                             }

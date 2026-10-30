@@ -130,8 +130,14 @@ Item {
     // Official Kitty Terminal SVG
     property string kittySvgUri: "file:///home/ferram/.local/share/icons/kitty.svg"
 
+    // Official Formula 1 and NBA PNGs
+    property string f1SvgUri: "file:///home/ferram/.local/share/icons/f1.png"
+    property string nbaSvgUri: "file:///home/ferram/.local/share/icons/nba.png"
+
     // Rules to dynamically detect active browser tabs by window title
     property var webTabRules: [
+        { keywords: ["formula 1", "formula1", "formula one", "f1 tv", "f1tv", "grand prix", "fia f1", "motorsport", "red bull racing", "ferrari f1", "mercedes f1", "checo perez", "verstappen", "hamilton", "f1 -", "f1 |", " f1 "], icon: root.f1SvgUri },
+        { keywords: ["nba", "basketball", "nba league pass", "nba.com", "national basketball association", "nba playoffs", "nba finals", "nba highlights", "lakers", "warriors", "celtics", "bulls", "dallas mavericks", "heat", "bucks"], icon: root.nbaSvgUri },
         { keywords: root.spiderKeywords, icon: root.spiderUri },
         { keywords: ["colgate", "colpal"], icon: root.cpSvgUri },
         { keywords: ["troyanos", "uaq"], icon: root.troyanosSvgUri },
@@ -417,6 +423,23 @@ Item {
         }
 
         // --- 2. GUI Applications ---
+        // Formula 1 content (Stremio, Browser, MPV, VLC, etc.)
+        if (titleLower.indexOf("formula 1") !== -1 || titleLower.indexOf("formula1") !== -1 ||
+            titleLower.indexOf("formula one") !== -1 || titleLower.indexOf("f1 tv") !== -1 ||
+            titleLower.indexOf("f1tv") !== -1 || titleLower.indexOf("grand prix") !== -1 ||
+            /(?:^|[\s\-_/|(\[])f1(?:$|[\s\-_/|)\].:])/i.test(titleLower) ||
+            lower.indexOf("f1") !== -1) {
+            return { icon: root.f1SvgUri, isTerminal: false, isAi: false };
+        }
+
+        // NBA content (Stremio, Browser, MPV, VLC, etc.)
+        if (titleLower.indexOf("nba") !== -1 || titleLower.indexOf("basketball") !== -1 ||
+            titleLower.indexOf("nba league pass") !== -1 || titleLower.indexOf("nba.com") !== -1 ||
+            /(?:^|[\s\-_/|(\[])nba(?:$|[\s\-_/|)\].:])/i.test(titleLower) ||
+            lower.indexOf("nba") !== -1) {
+            return { icon: root.nbaSvgUri, isTerminal: false, isAi: false };
+        }
+
         // Spider-Man content (Stremio, streaming PWAs, browser tabs...) takes priority
         let spiderIcon = root.resolveSpiderIcon(titleLower);
         if (spiderIcon) return { icon: spiderIcon, isTerminal: false, isAi: false };

@@ -37,6 +37,7 @@ Item {
     property int intervalSecs: 30
     property string fitMode: "crop" // "crop" (PreserveAspectCrop) or "fit" (PreserveAspectFit)
     property string albumSearchText: ""
+    property bool multiSelectMode: true
 
     function getFilteredAlbums() {
         let list = root.availableAlbums || [];
@@ -484,6 +485,13 @@ Item {
     // =========================================================================
     // Unified Mouse Handler: Drag & Drop + Click to Open Selector
     // =========================================================================
+    Timer {
+        id: singleClickTimer
+        interval: 220
+        repeat: false
+        onTriggered: root.nextPhoto()
+    }
+
     MouseArea {
         id: photoMouseArea
         anchors.fill: parent
@@ -530,6 +538,13 @@ Item {
             }
         }
 
+        onDoubleClicked: (mouse) => {
+            if (mouse.button === Qt.LeftButton) {
+                singleClickTimer.stop();
+                root.selectorOpen = !root.selectorOpen;
+            }
+        }
+
         onReleased: (mouse) => {
             if (isDragging) {
                 isDragging = false;
@@ -541,8 +556,9 @@ Item {
                     if (root.wrapper && root.wrapper.toggleMenu) {
                         root.wrapper.toggleMenu();
                     }
-                } else {
-                    root.selectorOpen = !root.selectorOpen;
+                } else if (mouse.button === Qt.LeftButton) {
+                    // Single click advances photo without opening menu
+                    singleClickTimer.restart();
                 }
             }
         }
@@ -995,13 +1011,89 @@ Item {
                     }
                 }
 
-                // Multi-Album Toggle Chips (Showing All Folders & Subfolders Hierarchically)
+                // Multi-Album Control Toolbar
+                RowLayout {
+                    width: parent.width
+                    spacing: 8
+
+                    // Multi-Select toggle pill
+                    Rectangle {
+                        implicitHeight: 22
+                        implicitWidth: multiSelectRow.implicitWidth + 14
+                        radius: 11
+                        color: root.multiSelectMode ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.3) : Qt.rgba(1, 1, 1, 0.08)
+                        border.color: root.multiSelectMode ? (theme.blueLight != "" ? theme.blueLight : theme.blue) : theme.borderSubtle
+                        border.width: 1
+
+                        Row {
+                            id: multiSelectRow
+                            anchors.centerIn: parent
+                            spacing: 5
+                            Rectangle {
+                                width: 6; height: 6; radius: 3
+                                color: root.multiSelectMode ? "#30d158" : theme.textDim
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            Text {
+                                text: "Multi-Select"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 9
+                                font.weight: Font.DemiBold
+                                color: root.multiSelectMode ? "#ffffff" : theme.textDim
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.multiSelectMode = !root.multiSelectMode
+                        }
+                    }
+
+                    // Quick "All Photos" button
+                    Rectangle {
+                        implicitHeight: 22
+                        implicitWidth: allPhotosText.implicitWidth + 14
+                        radius: 11
+                        color: (root.activeFolders.length === 1 && root.activeFolders[0].indexOf("Pictures") !== -1 && root.activeFolders[0].split("/").pop() === "Pictures") ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.35) : Qt.rgba(1, 1, 1, 0.08)
+                        border.color: theme.borderSubtle
+                        border.width: 1
+
+                        Text {
+                            id: allPhotosText
+                            anchors.centerIn: parent
+                            text: "All Photos"
+                            font.family: theme.fontFamily
+                            font.pixelSize: 9
+                            font.weight: Font.Medium
+                            color: theme.text
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.setFolder(Quickshell.env("HOME") + "/Pictures")
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Text {
+                        text: root.activeFolders.length + " selected"
+                        color: theme.blueLight != "" ? theme.blueLight : theme.blue
+                        font.family: theme.fontFamily
+                        font.pixelSize: 9
+                        font.weight: Font.DemiBold
+                    }
+                }
+
                 Text {
-                    text: "Click an album to select • Click 󰄵 or Ctrl-click to multi-select"
+                    text: root.multiSelectMode ? "Click any album to toggle it into your pool • Double-click for solo" : "Click an album to display only that album"
                     color: theme.textDim
                     font.family: theme.fontFamily
                     font.pixelSize: 9
-                    font.weight: Font.Medium
+                    font.weight: Font.Normal
                 }
 
                 Flow {
@@ -1027,8 +1119,8 @@ Item {
                                 spacing: 4
 
                                 Text {
-                                    text: isSelected ? "󰄵" : (isSubfolder ? "󰉋" : "󰄱")
-                                    font.family: "JetBrainsMono Nerd Font"
+                                    text: isSelected ? "✓" : (isSubfolder ? "↳" : "○")
+                                    font.family: theme.fontFamily
                                     font.pixelSize: 10
                                     color: isSelected ? (theme.blueLight != "" ? theme.blueLight : "#ffffff") : (isSubfolder ? theme.blue : theme.textDim)
                                     anchors.verticalCenter: parent.verticalCenter
@@ -1060,201 +1152,16 @@ Item {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: (mouse) => {
-                                    if ((mouse.modifiers & Qt.ControlModifier) || mouse.x < 24) {
+                                    if (root.multiSelectMode || (mouse.modifiers & Qt.ControlModifier)) {
                                         root.toggleAlbum(modelData.path);
                                     } else {
                                         root.setFolder(modelData.path);
                                     }
                                 }
+                                onDoubleClicked: {
+                                    root.setFolder(modelData.path);
+                                }
                             }
-                        }
-                    }
-                }
-
-                // Divider
-                Rectangle {
-                    width: parent.width
-                    height: 1
-                    color: theme.borderSubtle
-                }
-
-                // Main Action Buttons
-                Row {
-                    width: parent.width
-                    spacing: 5
-
-                    // Browse Folder
-                    Rectangle {
-                        width: (parent.width - 5) / 2
-                        height: 26
-                        radius: 7
-                        color: bFolderHover.containsMouse ? theme.surfaceActive : Qt.rgba(1, 1, 1, 0.08)
-                        border.color: theme.borderSubtle
-                        border.width: 1
-
-                        Row {
-                            anchors.centerIn: parent
-                            spacing: 5
-                            Text {
-                                text: "󰉋"
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 11
-                                color: theme.textSub
-                            }
-                            Text {
-                                text: "Folder..."
-                                color: theme.text
-                                font.family: theme.fontFamily
-                                font.pixelSize: 10
-                                font.weight: Font.Medium
-                            }
-                        }
-
-                        MouseArea {
-                            id: bFolderHover
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                root.openAlbumPicker();
-                                root.selectorOpen = false;
-                            }
-                        }
-                    }
-
-                    // Select Photos
-                    Rectangle {
-                        width: (parent.width - 5) / 2
-                        height: 26
-                        radius: 7
-                        color: bFilesHover.containsMouse ? theme.surfaceActive : Qt.rgba(1, 1, 1, 0.08)
-                        border.color: theme.borderSubtle
-                        border.width: 1
-
-                        Row {
-                            anchors.centerIn: parent
-                            spacing: 5
-                            Text {
-                                text: "󰄀"
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 11
-                                color: theme.textSub
-                            }
-                            Text {
-                                text: "Photos..."
-                                color: theme.text
-                                font.family: theme.fontFamily
-                                font.pixelSize: 10
-                                font.weight: Font.Medium
-                            }
-                        }
-
-                        MouseArea {
-                            id: bFilesHover
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                root.openFilesPicker();
-                                root.selectorOpen = false;
-                            }
-                        }
-                    }
-                }
-
-                // Dolphin & Step Controls Row
-                Row {
-                    width: parent.width
-                    spacing: 5
-
-                    // Open Dolphin
-                    Rectangle {
-                        width: parent.width - 58
-                        height: 26
-                        radius: 7
-                        color: bDolHover.containsMouse ? Qt.rgba(0.2, 0.8, 0.4, 0.25) : Qt.rgba(1, 1, 1, 0.08)
-                        border.color: theme.borderSubtle
-                        border.width: 1
-
-                        Row {
-                            anchors.centerIn: parent
-                            spacing: 5
-                            Text {
-                                text: "󰈔"
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 12
-                                color: "#30d158"
-                            }
-                            Text {
-                                text: "Open in Dolphin"
-                                color: theme.text
-                                font.family: theme.fontFamily
-                                font.pixelSize: 10
-                                font.weight: Font.Medium
-                            }
-                        }
-
-                        MouseArea {
-                            id: bDolHover
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                root.openDolphin();
-                                root.selectorOpen = false;
-                            }
-                        }
-                    }
-
-                    // Prev Step
-                    Rectangle {
-                        width: 26
-                        height: 26
-                        radius: 7
-                        color: prevHover.containsMouse ? theme.surfaceActive : Qt.rgba(1, 1, 1, 0.08)
-                        border.color: theme.borderSubtle
-                        border.width: 1
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "󰅁"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 12
-                            color: theme.text
-                        }
-
-                        MouseArea {
-                            id: prevHover
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.prevPhoto()
-                        }
-                    }
-
-                    // Next Step
-                    Rectangle {
-                        width: 26
-                        height: 26
-                        radius: 7
-                        color: nextHover.containsMouse ? theme.surfaceActive : Qt.rgba(1, 1, 1, 0.08)
-                        border.color: theme.borderSubtle
-                        border.width: 1
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "󰅂"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 12
-                            color: theme.text
-                        }
-
-                        MouseArea {
-                            id: nextHover
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.nextPhoto()
                         }
                     }
                 }

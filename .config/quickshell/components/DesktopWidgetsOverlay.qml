@@ -476,6 +476,39 @@ PanelWindow {
             }
         }
 
+        // 14. Formula 1 Motorsport Hub
+        GridWidgetWrapper {
+            id: itemF1
+            overlay: desktopWindow
+            widgetKey: "f1"
+            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["f1"])
+            DesktopF1Widget {
+                anchors.fill: parent
+            }
+        }
+
+        // 15. NBA Scoreboard Hub
+        GridWidgetWrapper {
+            id: itemNba
+            overlay: desktopWindow
+            widgetKey: "nba"
+            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["nba"])
+            DesktopNbaWidget {
+                anchors.fill: parent
+            }
+        }
+
+        // 16. GitHub Green Wall Hub
+        GridWidgetWrapper {
+            id: itemGithub
+            overlay: desktopWindow
+            widgetKey: "github"
+            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["github"])
+            DesktopGithubWidget {
+                anchors.fill: parent
+            }
+        }
+
         // =====================================================================
         // APPLE SONOMA EDIT MODE CONTROLS OVERLAY (z: 1000 - Guaranteed Clickable)
         // =====================================================================
@@ -736,6 +769,9 @@ PanelWindow {
                                 { "key": "media",     "name": "Now Playing",  "icon": "󰎈", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "reminders", "name": "Reminders",    "icon": "󰄟", "span": "1x1", "c": 1, "r": 1 },
                                 { "key": "notes",     "name": "Quick Notes",  "icon": "󰈔", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "f1",        "name": "Formula 1",    "icon": "󰀝", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "nba",       "name": "NBA Hub",      "icon": "󰊪", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "github",    "name": "GitHub Wall",  "icon": "󰊤", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "photo1",    "name": "Photos (1)",   "icon": "󰄀", "span": "2x2", "c": 2, "r": 2 },
                                 { "key": "photo2",    "name": "Photos (2)",   "icon": "󰄀", "span": "2x2", "c": 2, "r": 2 },
                                 { "key": "photo3",    "name": "Photos (3)",   "icon": "󰄀", "span": "2x2", "c": 2, "r": 2 },

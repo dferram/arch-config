@@ -110,7 +110,7 @@ gaps_out = 8,
 border_size = 2,
 
 col = {
-    active_border   = { colors = {'rgba(bf8142ee)', 'rgba(dbad7fee)'}, angle = 45 },
+    active_border   = { colors = {'rgba(42a0bfee)', 'rgba(7fc4dbee)'}, angle = 45 },
     inactive_border = "rgba(151a2455)",
 },
 
@@ -226,6 +226,16 @@ force_default_wallpaper = 0,    -- Set to 0 or 1 to disable the anime mascot wal
 disable_hyprland_logo   = true, -- If true disables the random hyprland logo / anime girl background. :(
 disable_splash_rendering = true, -- Disables splash quotes/text at bottom of screen
 allow_session_lock_restore = true, -- Quickshell lock screen can re-acquire the lock after a restart
+},
+})
+
+-----------------
+---- RENDERING --
+-----------------
+
+hl.config({
+render = {
+    direct_scanout = 1, -- Reduces compositor overhead for fullscreen games
 },
 })
 
@@ -556,7 +566,7 @@ hl.window_rule({
     match  = { class = "hypr-screentime-gui" },
     float  = true,
     center = true,
-    size   = "980 680",
+    size   = "1060 780",
 })
 
 -- XDG Desktop Portal file picker dialog floating windowrule

@@ -111,12 +111,35 @@ def scan_apps():
 def launch_app(desktop_file, exec_cmd, terminal=False):
     desktop_id = os.path.basename(desktop_file) if desktop_file else ""
 
-    # 1. Try launching through gtk-launch directly
+    # If terminal app, run inside kitty
+    if terminal and exec_cmd:
+        try:
+            subprocess.Popen(
+                f"kitty -e {exec_cmd}",
+                shell=True,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
+            return True
+        except Exception:
+            pass
+
+    # 1. Try launching through gtk-launch without piping stdout/stderr
     if desktop_id:
         try:
-            res = subprocess.run(["gtk-launch", desktop_id], capture_output=True)
+            res = subprocess.run(
+                ["gtk-launch", desktop_id],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=0.4
+            )
             if res.returncode == 0:
                 return True
+        except subprocess.TimeoutExpired:
+            return True
         except Exception:
             pass
 
@@ -124,12 +147,15 @@ def launch_app(desktop_file, exec_cmd, terminal=False):
     if not exec_cmd:
         return False
 
-    cmd = exec_cmd
-    if terminal:
-        cmd = f"kitty -e {cmd}"
-
     try:
-        subprocess.Popen(cmd, shell=True, start_new_session=True)
+        subprocess.Popen(
+            exec_cmd,
+            shell=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
         return True
     except Exception:
         return False

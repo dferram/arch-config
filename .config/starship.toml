@@ -31,17 +31,17 @@ ssh_only = false
 format = "[$hostname](#f5f5f5 bold)"
 
 [directory]
-style = "bold #dbad7f"
+style = "bold #7fc4db"
 truncate_to_repo = false
 format = "[$path]($style) "
 
 [git_branch]
-style = "bold #dbad7f"
+style = "bold #7fc4db"
 symbol = "git"
 format = "[$symbol\\(]($style)[$branch](bold #a6e3a1)[\\)]($style) "
 
 [git_status]
-style = "bold #bf8142"
+style = "bold #42a0bf"
 conflicted = "x"
 ahead = "^"
 behind = "v"

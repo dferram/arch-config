@@ -725,7 +725,7 @@ Item {
     // MINI MEDIA PILL (idle clock state only: floating under the monumental flip clock)
     // ==========================================================================
     // ==========================================================================
-    // MINI MEDIA PILL (idle flip-clock mode) — Subtle Frosted Glass capsule
+    // MINI MEDIA PILL (idle flip-clock mode) — Dark Obsidian Liquid Glass capsule
     // ==========================================================================
     Rectangle {
         id: miniMediaPill
@@ -735,9 +735,9 @@ Item {
         width: Math.min(360, root.width - 40)
         height: 50
         radius: 25
-        color: theme.popupBg
+        color: Qt.rgba(0.04, 0.04, 0.06, 0.88)
         border.width: 1
-        border.color: theme.border
+        border.color: Qt.rgba(255, 255, 255, 0.10)
 
         opacity: (!root.revealed && lockMedia.hasTrack) ? 1.0 : 0.0
         visible: opacity > 0.01
@@ -752,6 +752,7 @@ Item {
                     width: miniMediaPill.width
                     height: miniMediaPill.height
                     radius: miniMediaPill.radius
+                    visible: false
                 }
             }
 
@@ -763,11 +764,11 @@ Item {
                 sourceSize.height: 120
                 asynchronous: true
                 visible: root.hasArt && status === Image.Ready
-                opacity: 0.16
+                opacity: 0.12
 
                 Rectangle {
                     anchors.fill: parent
-                    color: Qt.rgba(10, 11, 16, 0.55)
+                    color: Qt.rgba(4, 5, 8, 0.80)
                 }
             }
         }
@@ -778,13 +779,13 @@ Item {
             radius: parent.radius
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10) }
+                GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.12) }
                 GradientStop { position: 0.40; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.02) }
                 GradientStop { position: 1.0; color: "transparent" }
             }
         }
 
-        // 3. Top specular hairline (light reflection across curved glass edge)
+        // 3. Top specular hairline (light reflection across curved dark glass edge)
         Rectangle {
             anchors.top: parent.top
             anchors.horizontalCenter: parent.horizontalCenter
@@ -793,8 +794,8 @@ Item {
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0.0; color: "transparent" }
-                GradientStop { position: 0.25; color: Qt.rgba(255, 255, 255, 0.22) }
-                GradientStop { position: 0.75; color: Qt.rgba(255, 255, 255, 0.22) }
+                GradientStop { position: 0.25; color: Qt.rgba(255, 255, 255, 0.14) }
+                GradientStop { position: 0.75; color: Qt.rgba(255, 255, 255, 0.14) }
                 GradientStop { position: 1.0; color: "transparent" }
             }
         }
@@ -816,7 +817,7 @@ Item {
                 id: miniProgressTrough
                 anchors.fill: parent
                 radius: 1.5
-                color: Qt.rgba(255, 255, 255, 0.16)
+                color: Qt.rgba(255, 255, 255, 0.08)
             }
 
             // Played track fill (matching top bar MediaWidget styling and mediaAccentColor)
@@ -886,12 +887,13 @@ Item {
                             width: miniThumbContainer.width
                             height: miniThumbContainer.height
                             radius: miniThumbContainer.width / 2
+                            visible: false
                         }
                     }
 
                     Rectangle {
                         anchors.fill: parent
-                        color: Qt.rgba(255, 255, 255, 0.06)
+                        color: Qt.rgba(0, 0, 0, 0.40)
                     }
 
                     Image {
@@ -921,7 +923,7 @@ Item {
                     radius: width / 2
                     color: "transparent"
                     border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.14)
+                    border.color: Qt.rgba(255, 255, 255, 0.08)
                 }
             }
 
@@ -999,14 +1001,14 @@ Item {
                     }
                 }
 
-                // Play / Pause Button (Subtle glass pill, soft white icon — Android inspired)
+                // Play / Pause Button (Dark liquid glass pill, soft white icon)
                 Rectangle {
                     width: 28
                     height: 28
                     radius: 14
-                    color: miniPlayMa.containsMouse ? Qt.rgba(255, 255, 255, 0.15) : Qt.rgba(255, 255, 255, 0.08)
+                    color: miniPlayMa.containsMouse ? Qt.rgba(255, 255, 255, 0.12) : Qt.rgba(255, 255, 255, 0.05)
                     border.width: 1
-                    border.color: miniPlayMa.containsMouse ? root.waveColor : Qt.rgba(255, 255, 255, 0.10)
+                    border.color: miniPlayMa.containsMouse ? root.waveColor : Qt.rgba(255, 255, 255, 0.08)
                     anchors.verticalCenter: parent.verticalCenter
                     scale: miniPlayMa.pressed ? 0.92 : (miniPlayMa.containsMouse ? 1.04 : 1.0)
                     Behavior on scale { NumberAnimation { duration: 120 } }
@@ -1104,9 +1106,9 @@ Item {
                     anchors.fill: parent
                     visible: !lockMedia.hasTrack
                     radius: 16
-                    color: root.glass
+                    color: Qt.rgba(0.04, 0.04, 0.06, 0.88)
                     border.width: 1
-                    border.color: theme.border
+                    border.color: Qt.rgba(255, 255, 255, 0.10)
                     Column {
                         anchors.centerIn: parent
                         spacing: 10

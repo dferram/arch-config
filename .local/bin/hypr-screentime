@@ -127,14 +127,14 @@ def load_rules():
         return {
             "idle_timeout_seconds": 180,
             "categories": [],
-            "default_category": {"name": "Otras aplicaciones", "color": "#71717a"}
+            "default_category": {"name": "Other Apps", "color": "#71717a"}
         }
     try:
         with open(RULES_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"[!] Error loading rules: {e}", file=sys.stderr)
-        return {"idle_timeout_seconds": 180, "categories": [], "default_category": {"name": "Otras aplicaciones", "color": "#71717a"}}
+        return {"idle_timeout_seconds": 180, "categories": [], "default_category": {"name": "Other Apps", "color": "#71717a"}}
 
 
 def classify(app_class: str, title: str, rules_config: dict):
@@ -145,7 +145,7 @@ def classify(app_class: str, title: str, rules_config: dict):
 
     categories = rules_config.get("categories", [])
     for cat in categories:
-        name = cat.get("name", "Otras aplicaciones")
+        name = cat.get("name", "Other Apps")
         color = cat.get("color", "#a1a1aa")
         rules = cat.get("rules", [])
 
@@ -164,8 +164,8 @@ def classify(app_class: str, title: str, rules_config: dict):
             if match_class and match_title:
                 return name, color
 
-    default_cat = rules_config.get("default_category", {"name": "Otras aplicaciones", "color": "#71717a"})
-    return default_cat.get("name", "Otras aplicaciones"), default_cat.get("color", "#71717a")
+    default_cat = rules_config.get("default_category", {"name": "Other Apps", "color": "#71717a"})
+    return default_cat.get("name", "Other Apps"), default_cat.get("color", "#71717a")
 
 
 def get_active_media_players():
@@ -250,16 +250,17 @@ def generate_stats_snapshot(conn, current_class="", current_title="", current_ca
     c.execute("""
         SELECT category, SUM(duration)
         FROM sessions
-        WHERE date = ?
+        WHERE date = ? AND category != 'Idle' AND app_class != ''
         GROUP BY category
     """, (today_str,))
     cat_rows = c.fetchall()
 
     cat_map = {}
     for cat_name, dur in cat_rows:
-        cat_map[cat_name] = dur or 0
+        if cat_name != "Idle":
+            cat_map[cat_name] = dur or 0
 
-    if current_cat and current_elapsed > 0:
+    if current_cat and current_cat != "Idle" and current_elapsed > 0:
         cat_map[current_cat] = cat_map.get(current_cat, 0) + current_elapsed
 
     total_seconds = sum(cat_map.values())
@@ -268,7 +269,7 @@ def generate_stats_snapshot(conn, current_class="", current_title="", current_ca
     meta = {}
     for cat in rules.get("categories", []):
         meta[cat["name"]] = {"color": cat.get("color", "#a1a1aa")}
-    def_cat = rules.get("default_category", {"name": "Otras aplicaciones", "color": "#71717a"})
+    def_cat = rules.get("default_category", {"name": "Other Apps", "color": "#71717a"})
     meta[def_cat["name"]] = {"color": def_cat.get("color", "#71717a")}
 
     categories_dict = {}
@@ -283,44 +284,53 @@ def generate_stats_snapshot(conn, current_class="", current_title="", current_ca
             "color": c_meta["color"]
         }
 
-    # Top applications (excluding system dialogs)
-    placeholders = ",".join("?" for _ in IGNORE_CLASSES)
+    # Top applications (excluding system dialogs and internal tools)
+    ignore_lower = [c.lower() for c in IGNORE_CLASSES]
+    placeholders = ",".join("?" for _ in ignore_lower)
     c.execute(f"""
-        SELECT app_class, SUM(duration) as total_dur
+        SELECT LOWER(app_class) as clean_app, SUM(duration) as total_dur
         FROM sessions
-        WHERE date = ? AND app_class != '' AND app_class NOT IN ({placeholders})
-        GROUP BY app_class
+        WHERE date = ? AND app_class != '' AND LOWER(app_class) NOT IN ({placeholders})
+        GROUP BY LOWER(app_class)
         ORDER BY total_dur DESC
         LIMIT 8
-    """, (today_str, *IGNORE_CLASSES))
+    """, (today_str, *ignore_lower))
     top_rows = c.fetchall()
 
     top_apps = []
-    for app, dur in top_rows:
+    for app_lower, dur in top_rows:
         c.execute("""
             SELECT category, SUM(duration) as cat_dur
             FROM sessions
-            WHERE date = ? AND app_class = ?
+            WHERE date = ? AND LOWER(app_class) = ?
             GROUP BY category
             ORDER BY cat_dur DESC
             LIMIT 1
-        """, (today_str, app))
+        """, (today_str, app_lower))
         dom_cat = c.fetchone()
-        cat_name = dom_cat[0] if dom_cat else "Otras aplicaciones"
+        cat_name = dom_cat[0] if dom_cat else "Other Apps"
 
         c.execute("""
             SELECT window_title, SUM(duration) as win_dur
             FROM sessions
-            WHERE date = ? AND app_class = ? AND window_title != ''
+            WHERE date = ? AND LOWER(app_class) = ? AND window_title != ''
             GROUP BY window_title
             ORDER BY win_dur DESC
-            LIMIT 3
-        """, (today_str, app))
-        activities = [clean_display_title(r[0]) for r in c.fetchall() if clean_display_title(r[0])]
+            LIMIT 6
+        """, (today_str, app_lower))
+        seen_act = set()
+        activities = []
+        for r in c.fetchall():
+            cleaned = clean_display_title(r[0])
+            if cleaned and cleaned.lower() not in seen_act and cleaned.lower() != app_lower:
+                seen_act.add(cleaned.lower())
+                activities.append(cleaned)
+            if len(activities) >= 3:
+                break
 
         top_apps.append({
-            "class": app,
-            "display_name": APP_NAME_MAP.get(app, app.capitalize()),
+            "class": app_lower,
+            "display_name": APP_NAME_MAP.get(app_lower, app_lower.capitalize()),
             "category": cat_name,
             "seconds": dur,
             "formatted": format_duration(dur),
@@ -356,8 +366,8 @@ def generate_stats_snapshot(conn, current_class="", current_title="", current_ca
     current_media = active_players[0] if active_players else None
 
     # Work vs leisure calculation
-    work_sec = cat_map.get("Trabajo y Desarrollo", 0) + cat_map.get("Work & Dev", 0) + cat_map.get("Terminal", 0)
-    leisure_sec = cat_map.get("Entretenimiento", 0) + cat_map.get("Leisure & Slacking", 0)
+    work_sec = cat_map.get("Work & Dev", 0) + cat_map.get("Trabajo y Desarrollo", 0) + cat_map.get("Terminal", 0)
+    leisure_sec = cat_map.get("Entertainment", 0) + cat_map.get("Entretenimiento", 0) + cat_map.get("Leisure & Slacking", 0)
     tracked_focus = work_sec + leisure_sec
     prod_score = round((work_sec / tracked_focus * 100)) if tracked_focus > 0 else 100
 
@@ -492,7 +502,7 @@ def run_daemon():
 
             if event_occurred and (new_class != cur_class or new_title != cur_title):
                 capped_duration = min(elapsed, idle_cap)
-                if capped_duration >= 1 and cur_class:
+                if capped_duration >= 1 and cur_class and cur_cat != "Idle":
                     today_str = date.today().isoformat()
                     c = conn.cursor()
                     c.execute("""
@@ -509,13 +519,14 @@ def run_daemon():
                 last_stats_update = now
 
             elif elapsed >= 60:
-                today_str = date.today().isoformat()
-                c = conn.cursor()
-                c.execute("""
-                    INSERT INTO sessions (start_time, end_time, duration, app_class, window_title, category, date)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (last_switch_time, now, elapsed, cur_class, cur_title, cur_cat, today_str))
-                conn.commit()
+                if cur_class and cur_cat != "Idle":
+                    today_str = date.today().isoformat()
+                    c = conn.cursor()
+                    c.execute("""
+                        INSERT INTO sessions (start_time, end_time, duration, app_class, window_title, category, date)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (last_switch_time, now, elapsed, cur_class, cur_title, cur_cat, today_str))
+                    conn.commit()
                 last_switch_time = now
                 generate_stats_snapshot(conn, cur_class, cur_title, cur_cat, 0)
                 last_stats_update = now
@@ -549,23 +560,23 @@ def show_stats_cli(as_json=False):
         return
 
     print("┌─────────────────────────────────────────────────────────────┐")
-    print(f"│  TIEMPO EN PANTALLA  •  {data.get('date')}                           │")
+    print(f"│  SCREEN TIME  •  {data.get('date')}                                     │")
     print("├─────────────────────────────────────────────────────────────┤")
-    print(f"│  Tiempo Activo:     {data.get('formatted_total', '0s'):<12}                           │")
-    print(f"│  Productividad:     {data.get('productivity_score', 0)}%                                    │")
-    print(f"│    Trabajo:         {data.get('work_formatted', '0s'):<12}                           │")
-    print(f"│    Entretenimiento: {data.get('entertainment_formatted', '0s'):<12}                           │")
+    print(f"│  Active Time:       {data.get('formatted_total', '0s'):<12}                           │")
+    print(f"│  Productivity:      {data.get('productivity_score', 0)}%                                    │")
+    print(f"│    Work & Dev:      {data.get('work_formatted', '0s'):<12}                           │")
+    print(f"│    Entertainment:   {data.get('entertainment_formatted', '0s'):<12}                           │")
     bg = data.get("background_media", {})
     if bg.get("total_seconds", 0) > 0:
-        print(f"│    Música / Fondo:  {bg.get('formatted_total', '0s'):<12}                           │")
+        print(f"│    Background Audio:{bg.get('formatted_total', '0s'):<12}                           │")
     print("├─────────────────────────────────────────────────────────────┤")
-    print("│  Distribución por Categorías:                               │")
+    print("│  Category Distribution:                                     │")
     for cat_name, cat_data in data.get("categories", {}).items():
         bar_len = int(cat_data.get("percentage", 0) / 4)
         bar = "█" * bar_len + "░" * (25 - bar_len)
         print(f"│    • {cat_name:<20} {cat_data.get('formatted'):<8} {bar} {cat_data.get('percentage'):>4}% │")
     print("├─────────────────────────────────────────────────────────────┤")
-    print("│  Aplicaciones Principales:                                  │")
+    print("│  Top Applications:                                          │")
     for app in data.get("top_apps", []):
         d_name = app.get('display_name', app.get('class'))
         print(f"│    • {d_name:<20} {app.get('formatted'):<8} ({app.get('category')})│")

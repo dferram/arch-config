@@ -90,6 +90,10 @@ PanelWindow {
     }
 
     function launchSelected() {
+        if (launchProc.running) {
+            launchProc.running = false;
+        }
+
         if (calcResult !== "") {
             // Copy calculation result to clipboard
             launchProc.command = ["sh", "-c", "echo -n '" + calcResult + "' | wl-copy"];
