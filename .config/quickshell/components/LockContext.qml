@@ -22,6 +22,35 @@ Scope {
     property string statusText: ""
     property int failCount: 0
 
+    // Grace period quick-unlock (double-tap Enter within 1 minute of locking)
+    property double lockedAt: 0
+    property double lastEnterTime: 0
+
+    function tryQuickUnlock(): bool {
+        if (password.length > 0 || failCount > 0) {
+            lastEnterTime = 0;
+            return false;
+        }
+        const now = Date.now();
+        const lockedDuration = now - lockedAt;
+        if (lockedAt > 0 && lockedDuration <= 60000) {
+            const delta = now - lastEnterTime;
+            lastEnterTime = now;
+            if (delta > 50 && delta <= 750) {
+                lastEnterTime = 0;
+                ctx.unlocked();
+                return true;
+            }
+        } else {
+            lastEnterTime = 0;
+        }
+        return false;
+    }
+
+    function resetQuickUnlock() {
+        lastEnterTime = 0;
+    }
+
     function reveal() {
         revealed = true;
         idleTimer.restart();
@@ -45,6 +74,8 @@ Scope {
 
     onLockedChanged: {
         if (locked) {
+            lockedAt = Date.now();
+            lastEnterTime = 0;
             revealed = false;
             password = "";
             authFailed = false;
@@ -58,6 +89,8 @@ Scope {
                 fprintProc.running = true;
             }
         } else {
+            lockedAt = 0;
+            lastEnterTime = 0;
             if (pam.active) pam.abort();
             fprintProc.running = false;
         }

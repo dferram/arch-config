@@ -386,11 +386,18 @@ Item {
         id: photoContainer
         anchors.fill: parent
 
-        // Hidden source container for the OpacityMask
+        // Main photo display container with clean rounded corner layer mask
         Item {
             id: photoSourceItem
             anchors.fill: parent
-            visible: false
+            layer.enabled: true
+            layer.effect: OpacityMask {
+                maskSource: Rectangle {
+                    width: photoSourceItem.width
+                    height: photoSourceItem.height
+                    radius: root.radius
+                }
+            }
 
             // Obsidian translucent base tint
             Rectangle {
@@ -430,22 +437,6 @@ Item {
                     NumberAnimation { duration: 650; easing.type: Easing.InOutQuad }
                 }
             }
-        }
-
-        // Mask Rectangle with identical Apple border radius
-        Rectangle {
-            id: maskRect
-            anchors.fill: parent
-            radius: root.radius
-            color: "#ffffff"
-            visible: false
-        }
-
-        // Clips photo strictly to rounded corners
-        OpacityMask {
-            anchors.fill: parent
-            source: photoSourceItem
-            maskSource: maskRect
         }
 
         // Apple Liquid Glass Border Overlay

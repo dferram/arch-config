@@ -34,7 +34,28 @@ Rectangle {
     readonly property bool isPlaying: activePlayer ? (activePlayer.playbackState === MprisPlaybackState.Playing) : false
     readonly property string trackTitle: activePlayer ? (activePlayer.trackTitle || "No Media Playing") : "No Media Playing"
     readonly property string trackArtist: activePlayer ? (activePlayer.trackArtist || "Idle") : "Music Player Ready"
-    readonly property string trackArtUrl: activePlayer ? (activePlayer.trackArtUrl || "") : ""
+    readonly property string trackArtUrl: {
+        if (!activePlayer) return "";
+        let u = "";
+        try {
+            if (activePlayer.trackArtUrl) u = activePlayer.trackArtUrl.toString();
+        } catch(e) {}
+        if (!u && activePlayer.metadata && activePlayer.metadata["mpris:artUrl"]) {
+            try {
+                u = activePlayer.metadata["mpris:artUrl"].toString();
+            } catch(e) {}
+        }
+        return (u || "").trim();
+    }
+
+    function getResolvedArtUrl(url) {
+        if (!url) return "";
+        if (url.startsWith("https://i.scdn.co/image/")) {
+            let id = url.substring(url.lastIndexOf("/") + 1).split("?")[0];
+            if (id) return "file:///home/ferram/.cache/spotify-covers/" + id + ".jpg";
+        }
+        return url;
+    }
 
     Row {
         anchors.fill: parent
@@ -43,17 +64,10 @@ Rectangle {
 
         // Album Artwork Container
         Item {
+            id: artContainer
             width: parent.height
             height: parent.height
             anchors.verticalCenter: parent.verticalCenter
-
-            Rectangle {
-                id: artMask
-                anchors.fill: parent
-                radius: 14
-                color: "#ffffff"
-                visible: false
-            }
 
             Rectangle {
                 id: artPlaceholder
@@ -72,22 +86,33 @@ Rectangle {
                 }
             }
 
-            Image {
-                id: artImg
+            Item {
+                id: artTile
                 anchors.fill: parent
-                source: root.trackArtUrl
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                visible: false
-                sourceSize.width: 250
-                sourceSize.height: 250
-            }
-
-            OpacityMask {
-                anchors.fill: parent
-                source: artImg
-                maskSource: artMask
                 visible: root.trackArtUrl !== "" && artImg.status === Image.Ready
+                layer.enabled: true
+                layer.effect: OpacityMask {
+                    maskSource: Rectangle {
+                        width: artTile.width
+                        height: artTile.height
+                        radius: 14
+                    }
+                }
+
+                Image {
+                    id: artImg
+                    anchors.fill: parent
+                    source: root.getResolvedArtUrl(root.trackArtUrl)
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: true
+                    cache: true
+
+                    onStatusChanged: {
+                        if (status === Image.Error && source.toString().indexOf(".cache/spotify-covers") !== -1) {
+                            source = root.trackArtUrl;
+                        }
+                    }
+                }
             }
         }
 

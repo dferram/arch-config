@@ -27,6 +27,15 @@ Item {
     readonly property string artUrl: lockMedia.hasTrack ? lockMedia.artUrl : ""
     readonly property bool hasArt: artUrl !== ""
 
+    function getResolvedArtUrl(url) {
+        if (!url) return "";
+        if (url.startsWith("https://i.scdn.co/image/")) {
+            let id = url.substring(url.lastIndexOf("/") + 1).split("?")[0];
+            if (id) return "file:///home/ferram/.cache/spotify-covers/" + id + ".jpg";
+        }
+        return url;
+    }
+
     function getPastelWaveColor(col) {
         if (!col) return Qt.rgba(0.85, 0.82, 0.95, 0.95);
         let r = col.r, g = col.g, b = col.b;
@@ -75,7 +84,7 @@ Item {
     Item {
         id: backdrop
         anchors.fill: parent
-        opacity: root.revealed ? 1 : 0
+        opacity: root.revealed ? 1.0 : (root.hasArt ? 0.75 : 0.0)
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: root.revealDuration; easing.type: Easing.OutCubic } }
 
@@ -107,12 +116,18 @@ Item {
         Image {
             id: bgArtA
             anchors.fill: parent
-            source: !root.flipArt ? root.artUrl : ""
+            source: !root.flipArt ? root.getResolvedArtUrl(root.artUrl) : ""
             fillMode: Image.PreserveAspectCrop
             sourceSize.width: 640
             sourceSize.height: 640
             asynchronous: true
             visible: false
+
+            onStatusChanged: {
+                if (status === Image.Error && source.toString().indexOf(".cache/spotify-covers") !== -1) {
+                    source = !root.flipArt ? root.artUrl : "";
+                }
+            }
         }
         MultiEffect {
             anchors.fill: parent
@@ -131,12 +146,18 @@ Item {
         Image {
             id: bgArtB
             anchors.fill: parent
-            source: root.flipArt ? root.artUrl : ""
+            source: root.flipArt ? root.getResolvedArtUrl(root.artUrl) : ""
             fillMode: Image.PreserveAspectCrop
             sourceSize.width: 640
             sourceSize.height: 640
             asynchronous: true
             visible: false
+
+            onStatusChanged: {
+                if (status === Image.Error && source.toString().indexOf(".cache/spotify-covers") !== -1) {
+                    source = root.flipArt ? root.artUrl : "";
+                }
+            }
         }
         MultiEffect {
             anchors.fill: parent
@@ -722,9 +743,6 @@ Item {
     }
 
     // ==========================================================================
-    // MINI MEDIA PILL (idle clock state only: floating under the monumental flip clock)
-    // ==========================================================================
-    // ==========================================================================
     // MINI MEDIA PILL (idle flip-clock mode) — Dark Obsidian Liquid Glass capsule
     // ==========================================================================
     Rectangle {
@@ -752,7 +770,6 @@ Item {
                     width: miniMediaPill.width
                     height: miniMediaPill.height
                     radius: miniMediaPill.radius
-                    visible: false
                 }
             }
 
@@ -887,7 +904,6 @@ Item {
                             width: miniThumbContainer.width
                             height: miniThumbContainer.height
                             radius: miniThumbContainer.width / 2
-                            visible: false
                         }
                     }
 
@@ -899,12 +915,18 @@ Item {
                     Image {
                         id: miniThumb
                         anchors.fill: parent
-                        source: root.artUrl
+                        source: root.getResolvedArtUrl(root.artUrl)
                         fillMode: Image.PreserveAspectCrop
                         sourceSize.width: 64
                         sourceSize.height: 64
                         asynchronous: true
                         visible: status === Image.Ready
+
+                        onStatusChanged: {
+                            if (status === Image.Error && source.toString().indexOf(".cache/spotify-covers") !== -1) {
+                                source = root.artUrl;
+                            }
+                        }
                     }
 
                     Text {
@@ -1076,7 +1098,7 @@ Item {
         id: panel
         anchors.horizontalCenter: parent.horizontalCenter
         y: root.miniTop + root.miniHeight + 24 + slide
-        scale: Math.min(1, (root.width - 40) / 646, (root.height - y - 24) / Math.max(1, implicitHeight))
+        scale: Math.min(1, (root.width - 40) / Math.max(646, cardsRow.implicitWidth), (root.height - y - 24) / Math.max(1, implicitHeight))
         transformOrigin: Item.Top
         spacing: 24
 
@@ -1086,8 +1108,9 @@ Item {
         visible: opacity > 0.01
         Behavior on opacity { NumberAnimation { duration: 380; easing.type: Easing.OutCubic } }
 
-        // The bar's media card, including its live CAVA spectrum and artwork palette.
+        // The bar's media card, calendar, and NSQK Mosca countdown card
         Row {
+            id: cardsRow
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 16
             readonly property real rowH: Math.max(330, lockMedia.implicitHeight)
@@ -1141,11 +1164,20 @@ Item {
                 accent: root.accent
                 active: root.revealed
             }
+
+            LockEventCountdownCard {
+                id: eventCountdown
+                width: 280
+                height: parent.rowH
+                reminders: root.ctx.reminders
+                accent: root.accent
+                active: root.revealed
+            }
         }
 
         LockRemindersCard {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 646
+            width: cardsRow.implicitWidth
             now: root.ctx.now
             reminders: root.ctx.reminders
             accent: root.accent
@@ -1290,6 +1322,7 @@ Item {
         readOnly: root.ctx.authBusy
         cursorVisible: false
         onTextChanged: {
+            if (text.length > 0) root.ctx.resetQuickUnlock();
             if (root.ctx.password !== text) root.ctx.password = text;
             if (text.length > 0) {
                 root.ctx.authFailed = false;
@@ -1301,6 +1334,26 @@ Item {
             else root.ctx.submit();
         }
         Keys.onPressed: event => {
+            if (event.isAutoRepeat) return;
+
+            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                if (root.ctx.tryQuickUnlock()) {
+                    event.accepted = true;
+                    return;
+                }
+                if (!root.ctx.revealed) {
+                    root.ctx.reveal();
+                    event.accepted = true;
+                    return;
+                }
+                if (root.ctx.password.length === 0) {
+                    event.accepted = true;
+                    return;
+                }
+            } else {
+                root.ctx.resetQuickUnlock();
+            }
+
             if (event.key === Qt.Key_CapsLock) {
                 root.ctx.toggleCapsLockTentative();
                 root.ctx.poke();

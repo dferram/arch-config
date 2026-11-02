@@ -21,7 +21,7 @@ Rectangle {
     readonly property string f1WhitePng: Quickshell.shellPath("icons/f1-white.png")
     readonly property string f1Png: Quickshell.shellPath("icons/f1.png")
 
-    // State properties (dynamically populated from live ESPN F1 API)
+    // State properties (dynamically populated from live ESPN/Jolpica F1 API)
     property string raceName: "Mexico City Grand Prix"
     property string shortName: "Mexico City GP"
     property string circuitName: "Autodromo Hermanos Rodriguez"
@@ -29,8 +29,10 @@ Rectangle {
     property string raceDate: "Friday, Oct 30"
     property string raceTime: "18:30 UTC"
     property string roundStr: "Round 21 / 25"
-    property string countdownStr: "03d 17h 50m"
-    property int remainingSecs: 323400
+    property string sessionLabel: "FP1"
+    property string sessionFullLabel: "Práctica 1"
+    property string countdownStr: "02h 30m 00s"
+    property int remainingSecs: 9000
     property string circuitLength: "4.304 km"
     property int laps: 71
 
@@ -64,8 +66,10 @@ Rectangle {
                         root.raceDate = d.nextRace.date || root.raceDate;
                         root.raceTime = d.nextRace.time || root.raceTime;
                         root.roundStr = d.nextRace.round || root.roundStr;
+                        root.sessionLabel = d.nextRace.sessionLabel || root.sessionLabel;
+                        root.sessionFullLabel = d.nextRace.sessionFullLabel || root.sessionFullLabel;
                         root.countdownStr = d.nextRace.countdown || root.countdownStr;
-                        root.remainingSecs = d.nextRace.secondsRemaining || root.remainingSecs;
+                        root.remainingSecs = d.nextRace.secondsRemaining !== undefined ? d.nextRace.secondsRemaining : root.remainingSecs;
                         root.circuitLength = d.nextRace.circuitLength || root.circuitLength;
                         root.laps = d.nextRace.laps || root.laps;
                     }
@@ -80,11 +84,11 @@ Rectangle {
         }
     }
 
-    // Auto rotate drivers every 12 seconds
+    // Auto rotate drivers disabled per user preference (driver stays static)
     Timer {
         id: autoRotateTimer
         interval: 12000
-        running: true
+        running: false
         repeat: true
         onTriggered: {
             if (root.standings && root.standings.length > 1) {
@@ -96,21 +100,19 @@ Rectangle {
     function prevDriver() {
         if (root.standings && root.standings.length > 0) {
             root.selectedDriverIndex = (root.selectedDriverIndex - 1 + root.standings.length) % root.standings.length;
-            autoRotateTimer.restart();
         }
     }
 
     function nextDriver() {
         if (root.standings && root.standings.length > 0) {
             root.selectedDriverIndex = (root.selectedDriverIndex + 1) % root.standings.length;
-            autoRotateTimer.restart();
         }
     }
 
-    // Live 1-second countdown ticker
+    // Live 1-second countdown ticker (only ticks when widget is visible)
     Timer {
         interval: 1000
-        running: true
+        running: root.visible
         repeat: true
         onTriggered: {
             if (root.remainingSecs > 0) {
@@ -123,9 +125,13 @@ Rectangle {
                 let hPad = hours < 10 ? "0" + hours : hours;
                 let mPad = mins < 10 ? "0" + mins : mins;
                 let sPad = secs < 10 ? "0" + secs : secs;
-                root.countdownStr = dPad + "d " + hPad + "h " + mPad + "m " + sPad + "s";
+                if (days > 0) {
+                    root.countdownStr = dPad + "d " + hPad + "h " + mPad + "m " + sPad + "s";
+                } else {
+                    root.countdownStr = hPad + "h " + mPad + "m " + sPad + "s";
+                }
             } else {
-                root.countdownStr = "RACE DAY • LIVE";
+                root.countdownStr = "LIVE NOW";
             }
         }
     }
@@ -250,6 +256,7 @@ Rectangle {
                         Layout.alignment: Qt.AlignVCenter
 
                         SequentialAnimation on opacity {
+                            running: root.visible
                             loops: Animation.Infinite
                             NumberAnimation { from: 1.0; to: 0.25; duration: 600 }
                             NumberAnimation { from: 0.25; to: 1.0; duration: 600 }
@@ -258,7 +265,7 @@ Rectangle {
 
                     Text {
                         id: countdownText
-                        text: root.countdownStr
+                        text: (root.sessionLabel ? root.sessionLabel + " • " : "") + root.countdownStr
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 11
                         font.weight: Font.Black

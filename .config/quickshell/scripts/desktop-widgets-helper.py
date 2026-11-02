@@ -612,105 +612,192 @@ def get_f1_data():
             "herta":     {"number": 26, "code": "HER", "team": "Cadillac Formula 1 Team", "teamKey": "cadillac", "color": "#C5A059"},
         }
 
-        # 1. Fetch Official Live Standings from ESPN API
-        req_st = urllib.request.Request(
-            "https://site.web.api.espn.com/apis/v2/sports/racing/f1/standings",
-            headers={"User-Agent": "Mozilla/5.0"}
-        )
-        with urllib.request.urlopen(req_st, timeout=5) as r:
-            st_data = json.loads(r.read().decode())
-
+        # 1. Fetch Official Live Standings from Jolpica / Ergast API (Fast & Reliable)
         standings = []
-        driver_group = next((g for g in st_data.get("children", []) if "driver" in g.get("name", "").lower()), None)
-        if driver_group:
-            entries = driver_group.get("standings", {}).get("entries", [])
-            for e in entries:
-                ath = e.get("athlete", {})
-                stats = {s.get("name"): s.get("displayValue") for s in e.get("stats", [])}
-                full_name = ath.get("displayName", "")
-
-                matched = None
-                for k, v in F1_DRIVERS_2026.items():
-                    if k in full_name.lower():
-                        matched = v
-                        break
+        try:
+            req_st = urllib.request.Request(
+                "https://api.jolpi.ca/ergast/f1/current/driverStandings.json",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            with urllib.request.urlopen(req_st, timeout=4) as r:
+                st_data = json.loads(r.read().decode())
+            st_list = st_data.get("MRData", {}).get("StandingsTable", {}).get("StandingsLists", [{}])[0].get("DriverStandings", [])
+            for item in st_list:
+                drv = item.get("Driver", {})
+                fname = drv.get("familyName", "")
+                gname = drv.get("givenName", "")
+                full_name = f"{gname} {fname}".strip()
+                matched = F1_DRIVERS_2026.get(fname.lower())
                 if not matched:
-                    matched = {"number": 0, "code": (ath.get("shortName") or full_name)[:3].upper(), "team": "Formula 1 Team", "teamKey": "f1", "color": "#E10600"}
-
-                try:
-                    pts_val = int(stats.get("championshipPts") or stats.get("points") or 0)
-                except:
-                    pts_val = 0
-
+                    for k, v in F1_DRIVERS_2026.items():
+                        if k in full_name.lower():
+                            matched = v
+                            break
+                if not matched:
+                    matched = {
+                        "number": int(drv.get("permanentNumber") or 0),
+                        "code": drv.get("code") or fname[:3].upper(),
+                        "team": item.get("Constructors", [{}])[0].get("name", "Formula 1 Team"),
+                        "teamKey": "f1",
+                        "color": "#E10600"
+                    }
                 standings.append({
-                    "pos": int(stats.get("rank") or (len(standings) + 1)),
+                    "pos": int(item.get("position") or (len(standings) + 1)),
                     "number": matched["number"],
-                    "driver": ath.get("shortName") or full_name,
+                    "driver": f"{gname[:1]}. {fname}" if gname else fname,
                     "fullName": full_name,
                     "code": matched["code"],
                     "team": matched["team"],
                     "teamKey": matched["teamKey"],
-                    "pts": pts_val,
+                    "pts": int(float(item.get("points") or 0)),
                     "color": matched["color"]
                 })
+        except Exception:
+            pass
 
-        # 2. Fetch Official Live Race Schedule from ESPN API
-        req_sb = urllib.request.Request(
-            "https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard?dates=2026",
-            headers={"User-Agent": "Mozilla/5.0"}
-        )
-        with urllib.request.urlopen(req_sb, timeout=5) as r:
-            sb_data = json.loads(r.read().decode())
-
-        events = sb_data.get("events", [])
-        now_utc = datetime.now(timezone.utc)
-        upcoming_events = []
-        for idx, ev in enumerate(events):
-            date_str = ev.get("date")
+        # Fallback to ESPN if standings empty
+        if not standings:
             try:
-                ev_dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-                if ev_dt > now_utc:
-                    upcoming_events.append((idx + 1, ev_dt, ev))
+                req_st = urllib.request.Request(
+                    "https://site.web.api.espn.com/apis/v2/sports/racing/f1/standings",
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                with urllib.request.urlopen(req_st, timeout=4) as r:
+                    st_data = json.loads(r.read().decode())
+                driver_group = next((g for g in st_data.get("children", []) if "driver" in g.get("name", "").lower()), None)
+                if driver_group:
+                    entries = driver_group.get("standings", {}).get("entries", [])
+                    for e in entries:
+                        ath = e.get("athlete", {})
+                        stats = {s.get("name"): s.get("displayValue") for s in e.get("stats", [])}
+                        full_name = ath.get("displayName", "")
+                        matched = None
+                        for k, v in F1_DRIVERS_2026.items():
+                            if k in full_name.lower():
+                                matched = v
+                                break
+                        if not matched:
+                            matched = {"number": 0, "code": (ath.get("shortName") or full_name)[:3].upper(), "team": "Formula 1 Team", "teamKey": "f1", "color": "#E10600"}
+                        try:
+                            pts_val = int(stats.get("championshipPts") or stats.get("points") or 0)
+                        except:
+                            pts_val = 0
+                        standings.append({
+                            "pos": int(stats.get("rank") or (len(standings) + 1)),
+                            "number": matched["number"],
+                            "driver": ath.get("shortName") or full_name,
+                            "fullName": full_name,
+                            "code": matched["code"],
+                            "team": matched["team"],
+                            "teamKey": matched["teamKey"],
+                            "pts": pts_val,
+                            "color": matched["color"]
+                        })
             except Exception:
                 pass
 
-        upcoming_events.sort(key=lambda x: x[1])
-        round_no, next_dt, next_ev = upcoming_events[0] if upcoming_events else (len(events), now_utc, events[-1] if events else {})
+        # 2. Fetch Official Live Race Schedule and Sessions from Jolpica / Ergast
+        now_utc = datetime.now(timezone.utc)
+        clean_name = "Mexico City Grand Prix"
+        short_name = "Mexico City GP"
+        circuit_full = "Autodromo Hermanos Rodriguez"
+        location_str = "Mexico City, Mexico"
+        round_no = 20
+        total_rounds = 24
+        session_label = "Carrera"
+        session_full = "Gran Premio (Carrera)"
+        session_date = "Sunday, Nov 01"
+        session_time = "20:00 UTC"
+        session_seconds = 200000
+        session_countdown = "02d 10h 30m"
 
-        delta = next_dt - now_utc
-        days = max(0, delta.days)
-        hours = max(0, delta.seconds // 3600)
-        mins = max(0, (delta.seconds % 3600) // 60)
-        countdown_str = f"{days:02d}d {hours:02d}h {mins:02d}m"
+        try:
+            req_jp = urllib.request.Request(
+                "https://api.jolpi.ca/ergast/f1/current/next.json",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            with urllib.request.urlopen(req_jp, timeout=4) as rjp:
+                jp_data = json.loads(rjp.read().decode())
+            r_info = jp_data.get("MRData", {}).get("RaceTable", {}).get("Races", [{}])[0]
+            if r_info:
+                clean_name = r_info.get("raceName", clean_name)
+                short_name = clean_name.replace("Grand Prix", "GP").strip()
+                c_obj = r_info.get("Circuit", {})
+                circuit_full = c_obj.get("circuitName", circuit_full)
+                loc_obj = c_obj.get("Location", {})
+                city = loc_obj.get("locality", "Mexico City")
+                country = loc_obj.get("country", "Mexico")
+                location_str = f"{city}, {country}"
+                round_no = int(r_info.get("round", 20))
 
-        raw_name = next_ev.get("name", "Mexico City Grand Prix")
-        clean_name = raw_name.replace("MSC Cruises ", "").replace("Qatar Airways ", "").replace("Heineken ", "").replace("Lenovo ", "").replace("Aramco ", "").replace("Pirelli ", "").replace("AWS ", "").replace("Tag Heuer ", "").replace("Etihad Airways ", "").replace("Singapore Airlines ", "").replace("Gulf Air ", "")
-        short_name = clean_name.replace("Grand Prix", "GP").strip()
+                sess_candidates = [
+                    ("FirstPractice", "FP1", "Práctica 1"),
+                    ("SecondPractice", "FP2", "Práctica 2"),
+                    ("ThirdPractice", "FP3", "Práctica 3"),
+                    ("SprintQualifying", "Sprint Qualy", "Clasif. Sprint"),
+                    ("Sprint", "Sprint", "Carrera Sprint"),
+                    ("Qualifying", "Qualy", "Clasificación"),
+                ]
+                parsed_sessions = []
+                for skey, slbl, sfull in sess_candidates:
+                    sobj = r_info.get(skey)
+                    if sobj and "date" in sobj and "time" in sobj:
+                        try:
+                            sdt = datetime.fromisoformat(f"{sobj['date']}T{sobj['time'].replace('Z', '+00:00')}")
+                            parsed_sessions.append((skey, slbl, sfull, sdt))
+                        except Exception:
+                            pass
+                if "date" in r_info and "time" in r_info:
+                    try:
+                        rdt = datetime.fromisoformat(f"{r_info['date']}T{r_info['time'].replace('Z', '+00:00')}")
+                        parsed_sessions.append(("Race", "Carrera", "Gran Premio (Carrera)", rdt))
+                    except Exception:
+                        pass
 
-        # Dynamic Circuit & Location from ESPN API
-        circuit_obj = next_ev.get("circuit", {})
-        circuit_full = circuit_obj.get("fullName") or "Autodromo Hermanos Rodriguez"
-        addr_obj = circuit_obj.get("address", {})
-        city = addr_obj.get("city", "Mexico City")
-        country = addr_obj.get("country", "Mexico")
-        location_str = f"{city}, {country}"
+                parsed_sessions.sort(key=lambda x: x[3])
+                for skey, slbl, sfull, sdt in parsed_sessions:
+                    s_sec = (sdt - now_utc).total_seconds()
+                    # Upcoming or started less than 90m ago
+                    if s_sec > -5400:
+                        session_label = slbl
+                        session_full = sfull
+                        session_date = sdt.strftime("%A, %b %d")
+                        session_time = sdt.strftime("%H:%M UTC")
+                        session_seconds = max(0, int(s_sec))
+                        sdays = session_seconds // 86400
+                        shours = (session_seconds % 86400) // 3600
+                        smins = (session_seconds % 3600) // 60
+                        ssecs = session_seconds % 60
+                        if s_sec <= 0:
+                            session_countdown = "LIVE NOW"
+                        elif sdays > 0:
+                            session_countdown = f"{sdays:02d}d {shours:02d}h {smins:02d}m"
+                        else:
+                            session_countdown = f"{shours:02d}h {smins:02d}m {ssecs:02d}s"
+                        break
+        except Exception:
+            pass
 
         payload = {
             "status": "ok",
             "sport": "f1",
-            "source": "espn_f1_api",
+            "source": "jolpica_f1_api",
             "nextRace": {
                 "name": clean_name,
                 "shortName": short_name,
                 "circuit": circuit_full,
                 "location": location_str,
-                "date": next_dt.strftime("%A, %b %d"),
-                "time": next_dt.strftime("%H:%M UTC"),
-                "round": f"Round {round_no} / {len(events)}",
+                "date": session_date,
+                "time": session_time,
+                "sessionLabel": session_label,
+                "sessionFullLabel": session_full,
+                "sessionDate": session_date,
+                "sessionTime": session_time,
+                "round": f"Round {round_no} / {total_rounds}",
                 "laps": 71 if "mexico" in clean_name.lower() else 53,
                 "circuitLength": "4.304 km" if "mexico" in clean_name.lower() else "5.8 km",
-                "countdown": countdown_str,
-                "secondsRemaining": int(delta.total_seconds()),
+                "countdown": session_countdown,
+                "secondsRemaining": session_seconds,
                 "compounds": [
                     {"code": "C3", "compound": "Hard", "color": "#FFFFFF", "textColor": "#000000"},
                     {"code": "C4", "compound": "Medium", "color": "#FFD700", "textColor": "#000000"},
@@ -756,6 +843,99 @@ def get_f1_data():
         },
         "standings": []
     }
+
+def get_f1_calendar():
+    cache_file = DATA_DIR / "f1_calendar_cache.json"
+    cache_ttl = 3600 * 12  # 12 hours
+    if cache_file.exists():
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+                if cached.get("_timestamp") and (datetime.now().timestamp() - cached["_timestamp"] < cache_ttl):
+                    return cached["payload"]
+        except Exception:
+            pass
+
+    import urllib.request
+    from datetime import datetime
+
+    events = {}
+    try:
+        req = urllib.request.Request("https://api.jolpi.ca/ergast/f1/current.json", headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+        races = data.get("MRData", {}).get("RaceTable", {}).get("Races", [])
+        total_rounds = len(races)
+        for r in races:
+            r_name = r.get("raceName", "Grand Prix")
+            round_no = r.get("round", "1")
+            round_str = f"Round {round_no} / {total_rounds}"
+            circuit = r.get("Circuit", {}).get("circuitName", "Formula 1 Circuit")
+            loc = r.get("Circuit", {}).get("Location", {})
+            city = loc.get("locality", "")
+            country = loc.get("country", "")
+            location_str = f"{city}, {country}".strip(", ")
+
+            sessions = [
+                ("FirstPractice", "Practice 1 (FP1)", "FP1"),
+                ("SecondPractice", "Practice 2 (FP2)", "FP2"),
+                ("ThirdPractice", "Practice 3 (FP3)", "FP3"),
+                ("SprintQualifying", "Sprint Qualifying", "Sprint Qualy"),
+                ("Sprint", "Sprint Race", "Sprint"),
+                ("Qualifying", "Qualifying", "Qualy"),
+            ]
+            for skey, sfull, sshort in sessions:
+                sobj = r.get(skey)
+                if sobj and "date" in sobj:
+                    d = sobj["date"]
+                    t = sobj.get("time", "")
+                    events[d] = {
+                        "raceName": r_name,
+                        "session": sfull,
+                        "sessionShort": sshort,
+                        "round": round_str,
+                        "circuit": circuit,
+                        "location": location_str,
+                        "time": t,
+                        "isRace": False
+                    }
+
+            if "date" in r:
+                d = r["date"]
+                t = r.get("time", "")
+                events[d] = {
+                    "raceName": r_name,
+                    "session": "Gran Premio (Carrera)",
+                    "sessionShort": "Race",
+                    "round": round_str,
+                    "circuit": circuit,
+                    "location": location_str,
+                    "time": t,
+                    "isRace": True
+                }
+    except Exception:
+        pass
+
+    # Ensure Mexico City GP fallback or current nextRace if missing
+    if "2026-11-01" not in events:
+        events["2026-11-01"] = {
+            "raceName": "Mexico City Grand Prix",
+            "session": "Gran Premio (Carrera)",
+            "sessionShort": "Race",
+            "round": "Round 19 / 24",
+            "circuit": "Autódromo Hermanos Rodríguez",
+            "location": "Mexico City, Mexico",
+            "time": "20:00:00Z",
+            "isRace": True
+        }
+
+    try:
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump({"_timestamp": datetime.now().timestamp(), "payload": events}, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+    return events
 
 def get_nba_data():
     cache_file = DATA_DIR / "nba_cache.json"
@@ -1070,6 +1250,9 @@ def main():
 
     elif cmd == "f1-data":
         print(json.dumps(get_f1_data(), ensure_ascii=False))
+
+    elif cmd == "f1-calendar":
+        print(json.dumps(get_f1_calendar(), ensure_ascii=False))
 
     elif cmd == "nba-data":
         print(json.dumps(get_nba_data(), ensure_ascii=False))

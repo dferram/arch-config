@@ -293,6 +293,15 @@ Item {
         return (u || "").trim();
     }
 
+    function getResolvedArtUrl(url) {
+        if (!url) return "";
+        if (url.startsWith("https://i.scdn.co/image/")) {
+            let id = url.substring(url.lastIndexOf("/") + 1).split("?")[0];
+            if (id) return "file:///home/ferram/.cache/spotify-covers/" + id + ".jpg";
+        }
+        return url;
+    }
+
     property string displayLabel: {
         if (!trackTitle) return "";
         let full = trackArtist ? trackArtist + " • " + trackTitle : trackTitle;
@@ -469,16 +478,17 @@ Item {
     property bool isInstagram: false
     property bool isTwitch: false
 
-    // Dynamic album color extracted via hypr-media-palette (Spotify only)
+    // Dynamic album/cover color extracted via hypr-media-palette (all platforms with artwork)
     property color dynamicAlbumColor: "#e2e8f0"
     property color dynamicAlbumColorSecondary: "#cbd5e1"
     property color dynamicAlbumColorAccent: "#94a3b8"
+    property bool hasDynamicPalette: false
 
     property color mediaAccentColor: {
         if (isF1) return "#E10600"; // Official Formula 1 Racing Red
         if (isNba) return "#1D428A"; // Official NBA Royal Blue
         if (isSpiderMan) return "#e23636";
-        if (isSpotify || (embedded && artUrl !== "")) return dynamicAlbumColor;
+        if (artUrl !== "" && hasDynamicPalette) return dynamicAlbumColor;
         if (isStremio) return "#7b5bf5";
         if (isYouTube) return "#ef4444";
         if (isSoundCloud) return "#ff5500";
@@ -486,6 +496,7 @@ Item {
         if (isDisney) return "#0032ac";
         if (isPrimeVideo) return "#00a8e1";
         if (isHboMax) return "#5822b4";
+        if (isSpotify) return "#1ed760";
         return theme.blueLight;
     }
 
@@ -496,23 +507,28 @@ Item {
         return lum > 0.70;
     }
 
-    // Visualizer Bars Colorimetry (Matches album for Spotify, strictly red for YouTube, orange for SoundCloud)
+    // Visualizer Bars Colorimetry (Dynamic from cover artwork when present, fallback to platform brand)
     property color albumColorPrimary: {
         if (isF1) return "#E10600";
         if (isNba) return "#1D428A";
         if (isSpiderMan) return "#e23636";
+        if (artUrl !== "" && hasDynamicPalette) return dynamicAlbumColor;
         if (isStremio) return "#7b5bf5";
-        if (isSpotify || (embedded && artUrl !== "")) return dynamicAlbumColor;
         if (isYouTube) return "#ef4444";
         if (isSoundCloud) return "#ff5500";
+        if (isNetflix) return "#e50914";
+        if (isDisney) return "#0032ac";
+        if (isPrimeVideo) return "#00a8e1";
+        if (isHboMax) return "#5822b4";
+        if (isSpotify) return "#1ed760";
         return theme.blueLight;
     }
     property color albumColorSecondary: {
-        if (!(isSpiderMan || isStremio) && (isSpotify || (embedded && artUrl !== ""))) return dynamicAlbumColorSecondary;
+        if (artUrl !== "" && hasDynamicPalette) return dynamicAlbumColorSecondary;
         return Qt.lighter(albumColorPrimary, 1.25);
     }
     property color albumColorAccent: {
-        if (!(isSpiderMan || isStremio) && (isSpotify || (embedded && artUrl !== ""))) return dynamicAlbumColorAccent;
+        if (artUrl !== "" && hasDynamicPalette) return dynamicAlbumColorAccent;
         return Qt.lighter(albumColorSecondary, 1.35);
     }
 
@@ -524,9 +540,8 @@ Item {
         id: paletteProc
         command: ["/home/ferram/.local/bin/hypr-media-palette", root.artUrl, root.trackTitle, root.trackAlbum]
         stdout: StdioCollector {
-            onTextChanged: {
-                if (!root.isSpotify && !root.embedded) return;
-                let lines = text.trim().split("\n");
+            function parsePalette(raw) {
+                let lines = (raw || "").trim().split("\n");
                 if (lines.length >= 3) {
                     let c1 = lines[0].trim();
                     let c2 = lines[1].trim();
@@ -534,16 +549,23 @@ Item {
                     if (c1.startsWith("#")) root.dynamicAlbumColor = c1;
                     if (c2.startsWith("#")) root.dynamicAlbumColorSecondary = c2;
                     if (c3.startsWith("#")) root.dynamicAlbumColorAccent = c3;
+                    root.hasDynamicPalette = true;
                 }
             }
+            onTextChanged: parsePalette(text)
+            onStreamFinished: parsePalette(text)
         }
     }
 
     function updatePalette() {
-        if ((root.isSpotify || root.embedded) && root.artUrl && root.artUrl !== "") {
+        if (root.artUrl && root.artUrl !== "") {
+            if (paletteProc.running) {
+                paletteProc.running = false;
+            }
             paletteProc.command = ["/home/ferram/.local/bin/hypr-media-palette", root.artUrl, root.trackTitle, root.trackAlbum];
             paletteProc.running = true;
         } else {
+            root.hasDynamicPalette = false;
             root.dynamicAlbumColor = "#e2e8f0";
             root.dynamicAlbumColorSecondary = "#cbd5e1";
             root.dynamicAlbumColorAccent = "#94a3b8";
@@ -551,7 +573,7 @@ Item {
     }
 
     onArtUrlChanged: updatePalette()
-    onIsSpotifyChanged: updatePalette()
+    onCurrentPlatformChanged: updatePalette()
     onTrackAlbumChanged: updatePalette()
     Component.onCompleted: updatePalette()
 
@@ -583,17 +605,11 @@ Item {
         return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'><g transform='translate(12, 12) scale(0.78) translate(-12, -12)'><path fill-rule='evenodd' clip-rule='evenodd' d='M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z' fill='" + col + "'/></g></svg>";
     }
 
-    // Official YouTube SVG vector (ALWAYS official YouTube red)
-    property string youtubeSvgUri: {
-        let col = theme.urlColor(root.mediaAccentColor);
-        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'><g transform='translate(12, 12) scale(0.82) translate(-12, -12)'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z' fill='" + col + "'/><polygon points='9.545,15.568 9.545,8.432 15.818,12' fill='%23ffffff'/></g></svg>";
-    }
+    // Official YouTube SVG vector (FIXED official YouTube red #FF0000)
+    property string youtubeSvgUri: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'><g transform='translate(12, 12) scale(0.82) translate(-12, -12)'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z' fill='%23FF0000'/><polygon points='9.545,15.568 9.545,8.432 15.818,12' fill='%23ffffff'/></g></svg>"
 
     // Generic clean audio note SVG vector
-    property string defaultMediaSvgUri: {
-        let col = theme.urlColor(root.mediaAccentColor);
-        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'><g transform='translate(12, 12) scale(0.78) translate(-12, -12)'><path d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z' fill='" + col + "'/></g></svg>";
-    }
+    property string defaultMediaSvgUri: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'><g transform='translate(12, 12) scale(0.78) translate(-12, -12)'><path d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z' fill='%2394a3b8'/></g></svg>"
 
     property string netflixSvgUri: "file:///home/ferram/.local/share/icons/netflix.svg"
     property string disneySvgUri: "file:///home/ferram/.local/share/icons/disney.svg"
@@ -966,12 +982,18 @@ Item {
                             Image {
                                 id: fullArtImg
                                 anchors.fill: parent
-                                source: root.artUrl
+                                source: root.getResolvedArtUrl(root.artUrl)
                                 visible: root.artUrl !== "" && status === Image.Ready
                                 fillMode: (root.isSpiderMan || root.isStremio) ? Image.PreserveAspectFit : Image.PreserveAspectCrop
                                 asynchronous: true
                                 cache: true
                                 mipmap: true
+
+                                onStatusChanged: {
+                                    if (status === Image.Error && source.toString().indexOf(".cache/spotify-covers") !== -1) {
+                                        source = root.artUrl;
+                                    }
+                                }
                             }
 
                             // Fallback icons
@@ -1141,15 +1163,31 @@ Item {
                             }
                         }
 
-                        // Album
-                        Text {
-                            visible: root.trackAlbum !== "" && root.trackAlbum.toLowerCase() !== root.trackTitle.toLowerCase()
+                        // Album (Clean icon badge with proper spacing & typography)
+                        Row {
                             width: parent.width
-                            text: "󰀥 " + root.trackAlbum
-                            color: theme.textMuted
-                            font.family: theme.fontFamily
-                            font.pixelSize: 11
-                            elide: Text.ElideRight
+                            spacing: 6
+                            visible: root.trackAlbum !== "" && root.trackAlbum.toLowerCase() !== root.trackTitle.toLowerCase()
+
+                            Text {
+                                text: "󰽰"
+                                color: Qt.rgba(root.mediaAccentColor.r, root.mediaAccentColor.g, root.mediaAccentColor.b, 0.85)
+                                font.family: "GeistMono Nerd Font Propo"
+                                font.pixelSize: 12
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            Text {
+                                text: root.trackAlbum
+                                color: theme.textMuted
+                                font.family: theme.fontFamily
+                                font.pixelSize: 11
+                                font.weight: Font.Medium
+                                elide: Text.ElideRight
+                                maximumLineCount: 1
+                                width: Math.min(implicitWidth, parent.width - 20)
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
                         }
                     }
                 }

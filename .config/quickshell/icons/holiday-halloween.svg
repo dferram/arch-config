@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Pumpkin Stem -->
+  <path d="M23 7 C23 4, 27 3, 29 4 C27.5 6, 26 8, 25 11 Z" fill="#43A047" stroke="#2E7D32" stroke-width="0.8" stroke-linejoin="round"/>
+  <!-- Pumpkin Body Back Ridges -->
+  <ellipse cx="24" cy="27" rx="19" ry="15" fill="#EF6C00"/>
+  <ellipse cx="14" cy="27" rx="10" ry="14.5" fill="#F57C00"/>
+  <ellipse cx="34" cy="27" rx="10" ry="14.5" fill="#F57C00"/>
+  <!-- Pumpkin Center Ridges -->
+  <ellipse cx="19" cy="27.5" rx="8" ry="15" fill="#FB8C00"/>
+  <ellipse cx="29" cy="27.5" rx="8" ry="15" fill="#FB8C00"/>
+  <ellipse cx="24" cy="28" rx="7" ry="15.2" fill="#FFA726"/>
+  <!-- Pumpkin Highlights -->
+  <path d="M22 15 C19 18, 18 24, 19 32" stroke="#FFCC80" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.6"/>
+  <!-- Glowing Eyes -->
+  <polygon points="17,21 21,26 14,26" fill="#FFF176"/>
+  <polygon points="17,21.8 20.2,25.5 14.8,25.5" fill="#FFEE58"/>
+  <polygon points="31,21 34,26 27,26" fill="#FFF176"/>
+  <polygon points="31,21.8 33.2,25.5 27.8,25.5" fill="#FFEE58"/>
+  <!-- Glowing Nose -->
+  <polygon points="24,26 26,29.5 22,29.5" fill="#FFF59D"/>
+  <!-- Carved Wicked Smile with Teeth -->
+  <path d="M12 32 Q24 43 36 32 Q33 36 30 34 L30 32 L27 32 L27 35.5 Q24 37 21 35.5 L21 32 L18 32 L18 34 Q15 36 12 32 Z" fill="#FFF59D"/>
+  <path d="M14 33 Q24 41 34 33" stroke="#F57F17" stroke-width="0.8" fill="none"/>
+</svg>

@@ -53,7 +53,7 @@ Rectangle {
                         let d = String(now.getDate()).padStart(2, '0');
                         let todayStr = y + "-" + m + "-" + d;
 
-                        let filtered = list.filter(r => !r.done && r.date && r.date.startsWith(root.currentMonthPrefix) && r.date >= todayStr);
+                        let filtered = list.filter(r => r.date && r.date.startsWith(root.currentMonthPrefix) && r.date >= todayStr);
                         // Sort by date and time
                         filtered.sort((a, b) => {
                             let da = (a.date || "") + " " + (a.time || "");
@@ -233,20 +233,91 @@ Rectangle {
                             anchors.margins: 6
                             spacing: 7
 
-                            // Static Apple Bullet indicator matching category
-                            Rectangle {
-                                width: 8
-                                height: 8
-                                radius: 4
+                            // Category / Reminder Indicator (Heart for Sara, Marvel for Doomsday, F1, CP, Troyanos, or bullet)
+                            Item {
+                                readonly property string catLow: (modelData.category || "").toLowerCase()
+                                readonly property string titleLow: (modelData.title || "").toLowerCase()
+                                readonly property bool isSara: catLow === "sara" || titleLow.indexOf("sara") !== -1
+                                readonly property bool isMarvel: catLow === "marvel" || titleLow.indexOf("doomsday") !== -1 || titleLow.indexOf("marvel") !== -1
+                                readonly property bool isF1: catLow === "f1" || titleLow.indexOf("formula 1") !== -1 || titleLow.indexOf("grand prix") !== -1
+                                readonly property bool isCP: catLow === "colgate-palmolive" || catLow === "colgate"
+                                readonly property bool isSchool: catLow === "school" || catLow === "troyanos"
+
+                                width: isSara ? 11 : (isMarvel ? 16 : (isF1 ? 12 : (isCP ? 11 : (isSchool ? 10 : 8))))
+                                height: isSara ? 11 : (isMarvel ? 8 : (isF1 ? 8 : (isCP ? 8 : (isSchool ? 10 : 8))))
                                 anchors.verticalCenter: parent.verticalCenter
-                                color: {
-                                    let cat = modelData.category || "";
-                                    if (cat === "Colgate-Palmolive") return "#ef4444";
-                                    if (cat === "Projects") return "#06b6d4";
-                                    if (cat === "School") return "#a855f7";
-                                    if (cat === "Personal") return "#10b981";
-                                    if (cat === "Health") return "#f59e0b";
-                                    return "#38bdf8";
+
+                                Rectangle {
+                                    visible: !parent.isSara && !parent.isMarvel && !parent.isF1 && !parent.isCP && !parent.isSchool
+                                    anchors.fill: parent
+                                    radius: width / 2
+                                    color: {
+                                        if (parent.catLow === "projects") return "#10b981";
+                                        if (parent.catLow === "free lance" || parent.catLow === "free-lance" || parent.catLow === "freelance") return "#06b6d4";
+                                        if (parent.catLow === "gym") return "#eab308";
+                                        if (parent.catLow === "family") return "#f43f5e";
+                                        if (parent.catLow === "personal") return "#f97316";
+                                        return "#38bdf8";
+                                    }
+                                }
+
+                                Image {
+                                    visible: parent.isSara
+                                    anchors.fill: parent
+                                    source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                }
+
+                                Image {
+                                    visible: parent.isMarvel
+                                    anchors.fill: parent
+                                    source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                }
+
+                                Image {
+                                    visible: parent.isF1
+                                    anchors.fill: parent
+                                    source: "file:///home/ferram/.local/share/icons/f1.svg"
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                }
+
+                                Image {
+                                    visible: parent.isCP
+                                    anchors.fill: parent
+                                    source: "file:///home/ferram/.local/share/icons/cp.svg"
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                }
+
+                                Image {
+                                    visible: parent.isSchool
+                                    anchors.fill: parent
+                                    source: "file:///home/ferram/.local/share/icons/troyanos.svg"
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                }
+                            }
+
+                            // Optional photo thumbnail
+                            Rectangle {
+                                visible: !!(modelData.photo && modelData.photo.trim().length > 0)
+                                width: 22
+                                height: 22
+                                radius: 4
+                                clip: true
+                                color: "black"
+                                border.color: Qt.rgba(255, 255, 255, 0.15)
+                                border.width: 1
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                Image {
+                                    anchors.fill: parent
+                                    source: (modelData.photo && modelData.photo.trim().length > 0) ? ((modelData.photo.startsWith("http") || modelData.photo.startsWith("file://")) ? modelData.photo : ("file://" + modelData.photo)) : ""
+                                    fillMode: Image.PreserveAspectCrop
                                 }
                             }
 

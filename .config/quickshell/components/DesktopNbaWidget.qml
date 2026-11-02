@@ -53,10 +53,10 @@ Rectangle {
         }
     }
 
-    // Auto rotate games every 12 seconds if multiple games exist
+    // Auto rotate games disabled per user preference (game stays static where user left it)
     Timer {
         interval: 12000
-        running: true
+        running: false
         repeat: true
         onTriggered: {
             if (root.games && root.games.length > 1) {
@@ -281,6 +281,7 @@ Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         visible: root.activeGame && root.activeGame.state === "in"
                         SequentialAnimation on opacity {
+                            running: root.visible && root.activeGame && root.activeGame.state === "in"
                             loops: Animation.Infinite
                             NumberAnimation { from: 1.0; to: 0.2; duration: 500 }
                             NumberAnimation { from: 0.2; to: 1.0; duration: 500 }

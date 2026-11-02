@@ -459,7 +459,7 @@ Rectangle {
                                 visible: cellItem.isToday
 
                                 SequentialAnimation on opacity {
-                                    running: cellItem.isToday
+                                    running: root.visible && cellItem.isToday
                                     loops: Animation.Infinite
                                     NumberAnimation { from: 0.2; to: 1.0; duration: 900; easing.type: Easing.InOutQuad }
                                     NumberAnimation { from: 1.0; to: 0.2; duration: 900; easing.type: Easing.InOutQuad }

@@ -49,6 +49,21 @@ PanelWindow {
         }
     }
 
+    Process {
+        id: f1SoundProc
+        command: ["pw-play", "/home/ferram/.local/share/sounds/f1.oga"]
+    }
+
+    property real lastF1SoundTime: 0
+
+    function playF1Sound() {
+        let now = Date.now();
+        if (now - lastF1SoundTime < 2500) return;
+        lastF1SoundTime = now;
+        f1SoundProc.running = false;
+        f1SoundProc.running = true;
+    }
+
     Timer {
         interval: 1500
         running: true
@@ -167,10 +182,30 @@ PanelWindow {
                     incomingApp.includes("devin") || incomingApp.includes("claude") ||
                     incomingSum.includes("antigravity") || incomingSum.includes("agente") || incomingSum.includes("agent");
 
-                if (!isSystemAlert && !isDevOrAgentAlert) {
+                let isCalendarOrF1Alert = incomingApp.includes("remind") || incomingSum.includes("remind") ||
+                    incomingApp.includes("calendar") || incomingSum.includes("calendar") ||
+                    incomingApp.includes("formula") || incomingApp.includes("f1") || incomingSum.includes("f1") ||
+                    incomingSum.includes("grand prix") || (notif.hints && (String(notif.hints.category || "") === "F1" || String(notif.hints["x-category"] || "") === "F1"));
+
+                if (!isSystemAlert && !isDevOrAgentAlert && !isCalendarOrF1Alert) {
                     try { notif.dismiss(); } catch(e) {}
                     return;
                 }
+            }
+
+            let notifBody = (notif.body || "").toLowerCase();
+            let notifCat = "";
+            if (notif.hints) {
+                if (notif.hints.category) notifCat = String(notif.hints.category).toLowerCase();
+                else if (notif.hints["category"]) notifCat = String(notif.hints["category"]).toLowerCase();
+                else if (notif.hints["x-category"]) notifCat = String(notif.hints["x-category"]).toLowerCase();
+            }
+            let isF1Notif = incomingApp.includes("f1") || incomingSum.includes("f1") || notifBody.includes("f1") ||
+                            incomingApp.includes("formula 1") || incomingSum.includes("formula 1") || notifBody.includes("formula 1") ||
+                            incomingSum.includes("grand prix") || notifBody.includes("grand prix") || notifCat.includes("f1");
+
+            if (isF1Notif) {
+                notifWindow.playF1Sound();
             }
 
             let arr = [];
@@ -477,6 +512,27 @@ PanelWindow {
                     }
 
                     // --- 2. Custom Affiliations & Themes ---
+                    // Formula 1 (Official F1 Racing Red & Speed Crimson)
+                    if (ctx.includes("formula 1") || ctx.includes("formula1") || ctx.includes("grand prix") ||
+                        ctx.includes("f1 tv") || ctx.includes("f1tv") ||
+                        /(?:^|[\s\-_/|(\[])f1(?:$|[\s\-_/|)\].:])/i.test(ctx)) {
+                        return {
+                            primary: "#E10600",    // Official Formula 1 Racing Red
+                            secondary: "#b80500",  // Deep Crimson
+                            accent: "#ff3b30",     // Speed Carmine Glow
+                            label: "FORMULA 1",
+                            isAntigravity: false,
+                            isNightLight: false,
+                            isF1: true
+                        };
+                    }
+                    // Formula 1 official SVG icon
+                    if (ctx.includes("formula 1") || ctx.includes("formula1") || ctx.includes("grand prix") ||
+                        ctx.includes("f1 tv") || ctx.includes("f1tv") ||
+                        /(?:^|[\s\-_/|(\[])f1(?:$|[\s\-_/|)\].:])/i.test(ctx)) {
+                        return "file:///home/ferram/.local/share/icons/f1.svg";
+                    }
+
                     // Spider-Man (Marvel Vibrant Red & Electric Blue)
                     if (ctx.includes("spider-man") || ctx.includes("spiderman") || ctx.includes("spider man") ||
                         ctx.includes("spider_man") || ctx.includes("hombre araña") || ctx.includes("peter parker") ||
@@ -491,12 +547,12 @@ PanelWindow {
                         };
                     }
 
-                    // Colgate-Palmolive (Official CP Crimson & Ruby)
+                    // Colgate-Palmolive (Electric Blue matching logo)
                     if (ctx.includes("colgate") || ctx.includes("colpal")) {
                         return {
-                            primary: "#e21836",    // Colgate Red
-                            secondary: "#b81027",  // Deep Ruby
-                            accent: "#ff6b6b",     // Soft Red Glow
+                            primary: "#0067fe",    // Colgate Blue
+                            secondary: "#0052fe",  // Deep Blue
+                            accent: "#60a5fa",     // Soft Blue Glow
                             label: "COLGATE-PALMOLIVE",
                             isAntigravity: false,
                             isNightLight: false
@@ -1038,73 +1094,98 @@ PanelWindow {
 
                         let fullTxt = (hintCat + " " + lowerSum + " " + (card.bodyText || "").toLowerCase());
 
-                        // Colgate-Palmolive (Red)
+                        // Sara (Romantic Rose / Pink)
+                        if (fullTxt.includes("sara")) {
+                            return {
+                                primary: "#ff2d55",
+                                secondary: "#e11d48",
+                                accent: "#f43f5e",
+                                label: "REMINDERS • SARA",
+                                isAntigravity: false,
+                                isNightLight: false
+                            };
+                        }
+
+                        // Marvel / Doomsday (Marvel Red)
+                        if (fullTxt.includes("marvel") || fullTxt.includes("doomsday")) {
+                            return {
+                                primary: "#ed1d24",
+                                secondary: "#b91c1c",
+                                accent: "#ef4444",
+                                label: "REMINDERS • MARVEL",
+                                isAntigravity: false,
+                                isNightLight: false
+                            };
+                        }
+
+                        // Formula 1 (Official F1 Racing Red)
+                        if (fullTxt.includes("f1") || fullTxt.includes("formula 1") || fullTxt.includes("formula1") || fullTxt.includes("grand prix")) {
+                            return {
+                                primary: "#E10600",
+                                secondary: "#b80500",
+                                accent: "#ff3b30",
+                                label: "REMINDERS • F1",
+                                isAntigravity: false,
+                                isNightLight: false,
+                                isF1: true
+                            };
+                        }
+
+                        // Colgate-Palmolive (Electric Blue)
                         if (fullTxt.includes("colgate")) {
                             return {
-                                primary: "#ef4444",
-                                secondary: "#dc2626",
-                                accent: "#f87171",
+                                primary: "#0067fe",
+                                secondary: "#0052fe",
+                                accent: "#60a5fa",
                                 label: "REMINDERS • COLGATE",
                                 isAntigravity: false,
                                 isNightLight: false
                             };
                         }
 
-                        // Personal (Emerald Green)
+                        // Personal (Orange)
                         if (fullTxt.includes("personal")) {
                             return {
-                                primary: "#10b981",
-                                secondary: "#059669",
-                                accent: "#34d399",
+                                primary: "#f97316",
+                                secondary: "#ea580c",
+                                accent: "#fb923c",
                                 label: "REMINDERS • PERSONAL",
                                 isAntigravity: false,
                                 isNightLight: false
                             };
                         }
 
-                        // Projects (Cyan)
+                        // Projects (Green)
                         if (fullTxt.includes("project")) {
                             return {
-                                primary: "#06b6d4",
-                                secondary: "#0891b2",
-                                accent: "#22d3ee",
+                                primary: "#10b981",
+                                secondary: "#059669",
+                                accent: "#34d399",
                                 label: "REMINDERS • PROJECTS",
                                 isAntigravity: false,
                                 isNightLight: false
                             };
                         }
 
+                        // Free Lance (Electric Cyan)
+                        if (fullTxt.includes("free lance") || fullTxt.includes("free-lance") || fullTxt.includes("freelance")) {
+                            return {
+                                primary: "#06b6d4",
+                                secondary: "#0891b2",
+                                accent: "#22d3ee",
+                                label: "REMINDERS • FREE LANCE",
+                                isAntigravity: false,
+                                isNightLight: false
+                            };
+                        }
+
                         // School (Purple)
-                        if (fullTxt.includes("school") || fullTxt.includes("escuela")) {
+                        if (fullTxt.includes("school") || fullTxt.includes("escuela") || fullTxt.includes("troyanos")) {
                             return {
                                 primary: "#a855f7",
                                 secondary: "#9333ea",
                                 accent: "#c084fc",
                                 label: "REMINDERS • SCHOOL",
-                                isAntigravity: false,
-                                isNightLight: false
-                            };
-                        }
-
-                        // Health (Amber)
-                        if (fullTxt.includes("health") || fullTxt.includes("salud")) {
-                            return {
-                                primary: "#f59e0b",
-                                secondary: "#d97706",
-                                accent: "#fbbf24",
-                                label: "REMINDERS • HEALTH",
-                                isAntigravity: false,
-                                isNightLight: false
-                            };
-                        }
-
-                        // Urgent (Orange)
-                        if (fullTxt.includes("urgent") || fullTxt.includes("urgente")) {
-                            return {
-                                primary: "#f97316",
-                                secondary: "#ea580c",
-                                accent: "#fb923c",
-                                label: "REMINDERS • URGENT",
                                 isAntigravity: false,
                                 isNightLight: false
                             };
@@ -1204,6 +1285,13 @@ PanelWindow {
                     // Ollama
                     if (lowerApp.includes("ollama") || ctx.includes("ollama")) {
                         return "file:///home/ferram/.local/share/icons/ollama.svg";
+                    }
+
+                    // Formula 1 official SVG icon
+                    if (ctx.includes("formula 1") || ctx.includes("formula1") || ctx.includes("grand prix") ||
+                        ctx.includes("f1 tv") || ctx.includes("f1tv") ||
+                        /(?:^|[\s\-_/|(\[])f1(?:$|[\s\-_/|)\].:])/i.test(ctx)) {
+                        return "file:///home/ferram/.local/share/icons/f1.svg";
                     }
 
                     // Spider-Man
@@ -1426,6 +1514,8 @@ PanelWindow {
 
                     // Calendar / Reminders custom 3D SVG icon
                     if (lowerApp.includes("remind") || lowerApp.includes("recordatorio") || lowerApp.includes("calendar")) {
+                        if (ctx.includes("sara")) return "file:///home/ferram/.local/share/icons/heart.svg";
+                        if (ctx.includes("marvel") || ctx.includes("doomsday")) return "file:///home/ferram/.local/share/icons/marvel.svg";
                         return "file:///home/ferram/.local/share/icons/calendar-3d.svg";
                     }
 
@@ -1512,12 +1602,12 @@ PanelWindow {
                             width: Math.max(parent.width, parent.height) * 2.2
                             height: width
 
-                            RotationAnimator on rotation {
+                            NumberAnimation on rotation {
                                 from: 0
                                 to: 360
-                                duration: 4600
+                                duration: 3200
                                 loops: Animation.Infinite
-                                running: true
+                                running: card.visible
                             }
 
                             ConicalGradient {
@@ -1556,6 +1646,24 @@ PanelWindow {
                     color: "transparent"
                     border.color: theme.borderSubtle
                     border.width: 1
+                }
+
+                // F1 Dynamic Red Racing Pulse Animation
+                Rectangle {
+                    visible: !!(card.palette && card.palette.isF1)
+                    anchors.fill: parent
+                    radius: theme.windowRadius
+                    color: "transparent"
+                    border.color: "#E10600"
+                    border.width: 1.5
+                    opacity: 0.7
+
+                    SequentialAnimation on opacity {
+                        running: !!(card.palette && card.palette.isF1) && card.visible
+                        loops: Animation.Infinite
+                        NumberAnimation { from: 0.30; to: 0.95; duration: 900; easing.type: Easing.InOutSine }
+                        NumberAnimation { from: 0.95; to: 0.30; duration: 900; easing.type: Easing.InOutSine }
+                    }
                 }
 
                 // 3. Inner Card Surface (Opaque obsidian base - strictly 0% light bleed into interior)
@@ -1600,21 +1708,30 @@ PanelWindow {
                             Layout.preferredWidth: 34
                             Layout.preferredHeight: 34
                             radius: 8
-                            color: theme.surface
-                            border.color: theme.borderSubtle
+                            color: (card.palette && card.palette.isF1) ? Qt.rgba(225/255, 6/255, 0/255, 0.20) : theme.surface
+                            border.color: (card.palette && card.palette.isF1) ? "#E10600" : theme.borderSubtle
                             border.width: 1
 
                             Image {
                                 id: iconImg
                                 anchors.centerIn: parent
-                                width: card.palette.isAntigravity ? 22 : 18
-                                height: width
+                                width: (card.palette && card.palette.isF1) ? 26 : (card.palette.isAntigravity ? 22 : 18)
+                                height: (card.palette && card.palette.isF1) ? 18 : width
                                 source: card.resolvedIcon
                                 fillMode: Image.PreserveAspectFit
                                 mipmap: true
-                                sourceSize.width: 36
-                                sourceSize.height: 36
+                                smooth: true
+                                sourceSize.width: 48
+                                sourceSize.height: 48
                                 visible: status === Image.Ready && card.resolvedIcon !== ""
+
+                                scale: 1.0
+                                SequentialAnimation on scale {
+                                    running: !!(card.palette && card.palette.isF1) && card.visible
+                                    loops: Animation.Infinite
+                                    NumberAnimation { from: 0.92; to: 1.06; duration: 900; easing.type: Easing.InOutSine }
+                                    NumberAnimation { from: 1.06; to: 0.92; duration: 900; easing.type: Easing.InOutSine }
+                                }
                             }
 
                             // Pure vector logo fallback (Arch Linux logo) - never letters

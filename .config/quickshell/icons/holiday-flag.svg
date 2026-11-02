@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Flag Pole -->
+  <line x1="8" y1="6" x2="8" y2="44" stroke="#78909C" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="8" cy="6" r="2.5" fill="#FFB300"/>
+  <!-- Waving Mexican Tricolor Flag -->
+  <!-- Green Stripe -->
+  <path d="M9.5 8 C15 7, 19 11, 21 10 L21 28 C19 29, 15 25, 9.5 26 Z" fill="#006847"/>
+  <!-- White Stripe with subtle warm tint -->
+  <path d="M21 10 C23 9.5, 27 7.5, 31 9 L31 27 C27 25.5, 23 27.5, 21 28 Z" fill="#F8F9FA"/>
+  <!-- Mexican Eagle Emblem representation -->
+  <circle cx="26" cy="18.2" r="2.8" fill="#B7823B"/>
+  <circle cx="26" cy="18.2" r="1.6" fill="#8D6E63"/>
+  <path d="M24.5 20.2 Q26 21 27.5 20.2" stroke="#2E7D32" stroke-width="0.8" fill="none"/>
+  <!-- Red Stripe -->
+  <path d="M31 9 C35 10.5, 38 9, 41 8 L41 26 C38 27, 35 28.5, 31 27 Z" fill="#CE1126"/>
+  <!-- Subtle wavy flag shading line -->
+  <path d="M9.5 8 C15 7, 21 10, 26 9 C31 8, 36 10, 41 8" stroke="#FFFFFF" stroke-width="0.6" fill="none" opacity="0.4"/>
+</svg>

@@ -29,7 +29,7 @@ Rectangle {
         const list = [];
         for (let i = 0; i < reminders.length; i++) {
             const r = reminders[i];
-            if (r.done || !r.date) continue;
+            if (!r.date) continue;
             const dt = toDate(r);
             if (dt.getTime() >= from && dt.getTime() <= to) list.push({ title: r.title, category: r.category || "", dt: dt });
         }

@@ -75,18 +75,20 @@ def switch_to_headphones():
     print("[headphone-jack-autoswitch] Headphones plugged in -> Switching to Headphones", flush=True)
     run_cmd(["amixer", "-c", CARD, "sset", "Auto-Mute Mode", "Enabled"])
     run_cmd(["pactl", "set-card-profile", CARD_NAME, HEADPHONES_PROFILE])
-    time.sleep(0.2)
+    time.sleep(0.15)
     run_cmd(["pactl", "set-default-sink", HEADPHONES_SINK])
     run_cmd(["amixer", "-c", CARD, "sset", "Headphone", "unmute"])
+    run_cmd(["amixer", "-c", CARD, "sset", "Headphone", "80%"])
+    run_cmd(["amixer", "-c", CARD, "sset", "Master", "unmute"])
     run_cmd(["amixer", "-c", CARD, "sset", "Speaker", "mute"])
 
     # Use boosted loudness & clarity profile
     run_cmd(["easyeffects", "-l", "Huawei MateBook - Max Loudness & Clarity"])
 
-    # Set volume to 15% on wired headphones
+    # Set volume to a clear, audible 35% on wired headphones
     time.sleep(0.15)
-    run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "15"])
-    notify_headphones_connected("15%")
+    run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "35"])
+    notify_headphones_connected("35%")
 
 def get_external_headphone_sink():
     try:
@@ -111,9 +113,10 @@ def switch_to_speaker():
     print("[headphone-jack-autoswitch] Headphones unplugged -> Switching to Speakers", flush=True)
     run_cmd(["amixer", "-c", CARD, "sset", "Auto-Mute Mode", "Enabled"])
     run_cmd(["pactl", "set-card-profile", CARD_NAME, SPEAKER_PROFILE])
-    time.sleep(0.2)
+    time.sleep(0.15)
     run_cmd(["pactl", "set-default-sink", SPEAKER_SINK])
     run_cmd(["amixer", "-c", CARD, "sset", "Speaker", "unmute"])
+    run_cmd(["amixer", "-c", CARD, "sset", "Master", "unmute"])
 
     # Enable hardware DRC for laptop speaker protection
     run_cmd(["amixer", "-c", CARD, "sset", "Post Mixer Analog Playback DRC switch", "on"])
@@ -188,43 +191,48 @@ def main():
     initial_plugged = is_headphone_plugged()
     apply_state(initial_plugged)
 
-    while True:
-        proc = None
-        try:
-            proc = subprocess.Popen(
-                ["stdbuf", "-oL", "amixer", "-c", CARD, "events"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                bufsize=1
-            )
-            while proc.poll() is None:
-                r, _, _ = select.select([proc.stdout], [], [], 1.0)
-                if r:
-                    line = proc.stdout.readline()
-                    if not line:
-                        break
+    def alsa_events_listener():
+        while True:
+            proc = None
+            try:
+                proc = subprocess.Popen(
+                    ["amixer", "-c", CARD, "events"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                    bufsize=1
+                )
+                for line in iter(proc.stdout.readline, ''):
                     if "Headphone Jack" in line or "numid=8" in line:
-                        time.sleep(0.1)
+                        time.sleep(0.05)
                         plugged = is_headphone_plugged()
                         if plugged != current_state:
                             apply_state(plugged)
-                else:
-                    plugged = is_headphone_plugged()
-                    if plugged != current_state:
-                        apply_state(plugged)
+            except Exception as e:
+                time.sleep(1)
+            finally:
+                if proc and proc.poll() is None:
+                    try:
+                        proc.terminate()
+                        proc.wait(timeout=0.5)
+                    except Exception:
+                        pass
+                time.sleep(0.5)
+
+    events_thread = threading.Thread(target=alsa_events_listener, daemon=True)
+    events_thread.start()
+
+    # Main thread polling fallback to guarantee state accuracy
+    while True:
+        try:
+            time.sleep(1.0)
+            plugged = is_headphone_plugged()
+            if plugged != current_state:
+                apply_state(plugged)
         except KeyboardInterrupt:
             break
         except Exception as e:
-            print(f"[headphone-jack-autoswitch] Error: {e}", file=sys.stderr, flush=True)
-            time.sleep(1)
-        finally:
-            if proc and proc.poll() is None:
-                try:
-                    proc.terminate()
-                    proc.wait(timeout=0.5)
-                except Exception:
-                    pass
+            time.sleep(1.0)
 
 if __name__ == "__main__":
     main()

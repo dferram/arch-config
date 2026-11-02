@@ -16,20 +16,64 @@ from pathlib import Path
 
 DATA_DIR = Path.home() / ".local" / "share" / "hypr-reminders"
 DATA_FILE = DATA_DIR / "reminders.json"
+CATEGORIES_FILE = DATA_DIR / "categories.json"
 
 DEFAULT_CATEGORIES = {
-    "Colgate-Palmolive": {"color": "#ef4444", "icon": "briefcase"},
-    "Projects": {"color": "#06b6d4", "icon": "folder"},
+    "Personal": {"color": "#f97316", "icon": "user"},
+    "Sara": {"color": "#ff2d55", "icon": "heart"},
+    "Marvel": {"color": "#ed1d24", "icon": "marvel"},
+    "Colgate-Palmolive": {"color": "#0067fe", "icon": "briefcase"},
+    "Projects": {"color": "#10b981", "icon": "folder"},
+    "Free Lance": {"color": "#06b6d4", "icon": "laptop"},
     "School": {"color": "#a855f7", "icon": "book"},
-    "Personal": {"color": "#10b981", "icon": "user"},
-    "Health": {"color": "#f59e0b", "icon": "heart"},
-    "Urgent": {"color": "#f97316", "icon": "alert-circle"}
+    "F1": {"color": "#E10600", "icon": "f1"},
+    "Gym": {"color": "#eab308", "icon": "dumbbell"},
+    "Family": {"color": "#f43f5e", "icon": "home"},
+    "Travel": {"color": "#38bdf8", "icon": "plane"}
 }
 
 def ensure_data():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     if not DATA_FILE.exists():
         DATA_FILE.write_text("[]", encoding="utf-8")
+
+def load_categories():
+    ensure_data()
+    cats = dict(DEFAULT_CATEGORIES)
+    if CATEGORIES_FILE.exists():
+        try:
+            custom = json.loads(CATEGORIES_FILE.read_text(encoding="utf-8"))
+            if isinstance(custom, dict):
+                cats.update(custom)
+            elif isinstance(custom, list):
+                for c in custom:
+                    if isinstance(c, str) and c:
+                        cats[c] = {"color": "#38bdf8", "icon": "tag"}
+        except Exception:
+            pass
+    reminders = load_reminders()
+    for r in reminders:
+        c = r.get("category")
+        if c and c not in cats:
+            cats[c] = {"color": "#38bdf8", "icon": "tag"}
+    return cats
+
+def add_category(name, color="#38bdf8", icon="tag"):
+    ensure_data()
+    name = name.strip()
+    if not name:
+        return load_categories()
+    custom = {}
+    if CATEGORIES_FILE.exists():
+        try:
+            custom = json.loads(CATEGORIES_FILE.read_text(encoding="utf-8"))
+            if not isinstance(custom, dict):
+                custom = {}
+        except Exception:
+            custom = {}
+    custom[name] = {"color": color, "icon": icon}
+    CATEGORIES_FILE.write_text(json.dumps(custom, indent=2, ensure_ascii=False), encoding="utf-8")
+    return load_categories()
 
 def load_reminders():
     ensure_data()
@@ -45,7 +89,7 @@ def save_reminders(reminders):
     temp_file.write_text(json.dumps(reminders, indent=2, ensure_ascii=False), encoding="utf-8")
     temp_file.replace(DATA_FILE)
 
-def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes=""):
+def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes="", photo=""):
     reminders = load_reminders()
     
     # Validate date
@@ -61,7 +105,7 @@ def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes=
         time_str = "12:00"
 
     rem_id = f"rem_{int(time.time())}_{len(reminders) + 1}"
-    cat = category if category in DEFAULT_CATEGORIES else "Colgate-Palmolive"
+    cat = category.strip() if (category and category.strip()) else "Personal"
 
     item = {
         "id": rem_id,
@@ -70,6 +114,7 @@ def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes=
         "time": time_str,
         "category": cat,
         "notes": notes.strip(),
+        "photo": photo.strip() if photo else "",
         "done": False,
         "created_at": datetime.now().isoformat(),
         "notified_5min": False,
@@ -80,6 +125,29 @@ def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes=
     reminders.sort(key=lambda x: (x.get("date", ""), x.get("time", "")))
     save_reminders(reminders)
     return item
+
+def edit_reminder(rem_id, title=None, date_str=None, time_str=None, category=None, notes=None, photo=None):
+    reminders = load_reminders()
+    for r in reminders:
+        if r.get("id") == rem_id:
+            if title is not None and title.strip():
+                r["title"] = title.strip()
+            if date_str is not None and date_str.strip():
+                r["date"] = date_str.strip()
+            if time_str is not None and time_str.strip():
+                r["time"] = time_str.strip()
+            if category is not None and category.strip():
+                r["category"] = category.strip()
+            if notes is not None:
+                r["notes"] = notes.strip()
+            if photo is not None:
+                r["photo"] = photo.strip()
+            r["notified_5min"] = False
+            r["notified_due"] = False
+            reminders.sort(key=lambda x: (x.get("date", ""), x.get("time", "")))
+            save_reminders(reminders)
+            return r
+    return None
 
 def delete_reminder(rem_id):
     reminders = load_reminders()
@@ -100,8 +168,22 @@ def toggle_done(rem_id):
 
 CUSTOM_ICON = Path.home() / ".local" / "share" / "icons" / "calendar-3d.svg"
 ICON_REMINDER = str(CUSTOM_ICON) if CUSTOM_ICON.exists() else "preferences-system-time"
+ICON_F1_CUSTOM = Path.home() / ".local" / "share" / "icons" / "f1.svg"
+ICON_F1 = str(ICON_F1_CUSTOM) if ICON_F1_CUSTOM.exists() else ICON_REMINDER
+ICON_HEART_CUSTOM = Path.home() / ".local" / "share" / "icons" / "heart.svg"
+ICON_HEART = str(ICON_HEART_CUSTOM) if ICON_HEART_CUSTOM.exists() else ICON_REMINDER
+ICON_MARVEL_CUSTOM = Path.home() / ".local" / "share" / "icons" / "marvel.svg"
+ICON_MARVEL = str(ICON_MARVEL_CUSTOM) if ICON_MARVEL_CUSTOM.exists() else ICON_REMINDER
 
 def play_sound(sound_name="message"):
+    for ext in [".oga", ".wav", ".ogg", ".mp3"]:
+        custom_sound = Path.home() / ".local" / "share" / "sounds" / f"{sound_name}{ext}"
+        if custom_sound.exists():
+            try:
+                subprocess.Popen(["pw-play", str(custom_sound)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return
+            except Exception:
+                pass
     sound_path = Path("/usr/share/sounds/freedesktop/stereo") / f"{sound_name}.oga"
     if sound_path.exists():
         try:
@@ -128,6 +210,12 @@ def check_and_notify(reminders=None):
             continue
 
         diff_seconds = (event_dt - now).total_seconds()
+        title_low = (rem.get("title", "") + " " + rem.get("notes", "")).lower()
+        cat_low = (rem.get("category", "")).lower()
+        is_f1 = (cat_low == "f1") or ("f1" in title_low) or ("formula 1" in title_low) or ("grand prix" in title_low)
+        is_sara = (cat_low == "sara") or ("sara" in title_low)
+        is_marvel = (cat_low == "marvel") or ("doomsday" in title_low) or ("marvel" in title_low)
+        icon_to_use = ICON_F1 if is_f1 else (ICON_HEART if is_sara else (ICON_MARVEL if is_marvel else ICON_REMINDER))
 
         # 5 minutes before notification (between 0 and 310 seconds before event)
         if 0 <= diff_seconds <= 310 and not rem.get("notified_5min", False):
@@ -140,13 +228,13 @@ def check_and_notify(reminders=None):
             try:
                 subprocess.run([
                     "notify-send", "-a", "Reminders",
-                    "-i", ICON_REMINDER,
+                    "-i", icon_to_use,
                     "-u", "normal",
                     "-t", "9000",
                     "-h", f"string:category:{rem.get('category', 'Personal')}",
                     title, body
                 ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                play_sound("message")
+                play_sound("f1" if is_f1 else "message")
             except Exception:
                 pass
 
@@ -163,13 +251,13 @@ def check_and_notify(reminders=None):
             try:
                 subprocess.run([
                     "notify-send", "-a", "Reminders",
-                    "-i", ICON_REMINDER,
+                    "-i", icon_to_use,
                     "-u", "critical",
                     "-t", "12000",
                     "-h", f"string:category:{rem.get('category', 'Personal')}",
                     title, body
                 ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                play_sound("alarm-clock-elapsed")
+                play_sound("f1" if is_f1 else "alarm-clock-elapsed")
             except Exception:
                 pass
 
@@ -186,12 +274,13 @@ def check_and_notify(reminders=None):
             try:
                 subprocess.run([
                     "notify-send", "-a", "Reminders",
-                    "-i", ICON_REMINDER,
+                    "-i", icon_to_use,
                     "-u", "normal",
                     "-t", "8000",
                     "-h", f"string:category:{rem.get('category', 'Personal')}",
                     title, body
                 ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                play_sound("f1" if is_f1 else "message")
             except Exception:
                 pass
 
@@ -227,8 +316,19 @@ def main():
     add_p.add_argument("title", help="Reminder title")
     add_p.add_argument("--date", default=datetime.now().strftime("%Y-%m-%d"), help="Date YYYY-MM-DD")
     add_p.add_argument("--time", default=datetime.now().strftime("%H:%M"), help="Time HH:MM")
-    add_p.add_argument("--category", default="Colgate-Palmolive", help="Category: Colgate-Palmolive, Projects, School, Personal, Health, Urgent")
+    add_p.add_argument("--category", default="Colgate-Palmolive", help="Category: F1, Colgate-Palmolive, Projects, School, Personal, Health, Urgent")
     add_p.add_argument("--notes", default="", help="Optional notes")
+    add_p.add_argument("--photo", default="", help="Optional photo / image path or URL")
+
+    # edit
+    edit_p = subparsers.add_parser("edit")
+    edit_p.add_argument("id", help="Reminder ID")
+    edit_p.add_argument("--title", default=None, help="New title")
+    edit_p.add_argument("--date", default=None, help="New date YYYY-MM-DD")
+    edit_p.add_argument("--time", default=None, help="New time HH:MM")
+    edit_p.add_argument("--category", default=None, help="New category")
+    edit_p.add_argument("--notes", default=None, help="New notes")
+    edit_p.add_argument("--photo", default=None, help="New photo path or URL")
 
     # toggle
     toggle_p = subparsers.add_parser("toggle")
@@ -238,6 +338,15 @@ def main():
     del_p = subparsers.add_parser("delete")
     del_p.add_argument("id", help="Reminder ID")
 
+    # categories
+    subparsers.add_parser("categories")
+
+    # add-category
+    add_cat_p = subparsers.add_parser("add-category")
+    add_cat_p.add_argument("name", help="Category name")
+    add_cat_p.add_argument("--color", default="#38bdf8", help="Hex color")
+    add_cat_p.add_argument("--icon", default="tag", help="Icon name")
+
     # daemon
     subparsers.add_parser("daemon")
 
@@ -246,7 +355,15 @@ def main():
 
     args = parser.parse_args()
 
-    if args.command == "list" or not args.command:
+    if args.command == "categories":
+        cats = load_categories()
+        print(json.dumps(list(cats.keys()), ensure_ascii=False))
+
+    elif args.command == "add-category":
+        cats = add_category(args.name, getattr(args, "color", "#38bdf8"), getattr(args, "icon", "tag"))
+        print(json.dumps(list(cats.keys()), ensure_ascii=False))
+
+    elif args.command == "list" or not args.command:
         reminders = load_reminders()
         date_filter = getattr(args, "date", None)
         cat_filter = getattr(args, "category", None)
@@ -257,8 +374,21 @@ def main():
         print(json.dumps(reminders, ensure_ascii=False))
 
     elif args.command == "add":
-        item = add_reminder(args.title, args.date, args.time, args.category, args.notes)
+        photo_val = getattr(args, "photo", "") or ""
+        item = add_reminder(args.title, args.date, args.time, args.category, args.notes, photo_val)
         print(json.dumps(item, ensure_ascii=False))
+
+    elif args.command == "edit":
+        res = edit_reminder(
+            args.id,
+            title=getattr(args, "title", None),
+            date_str=getattr(args, "date", None),
+            time_str=getattr(args, "time", None),
+            category=getattr(args, "category", None),
+            notes=getattr(args, "notes", None),
+            photo=getattr(args, "photo", None)
+        )
+        print(json.dumps({"success": bool(res), "item": res}, ensure_ascii=False))
 
     elif args.command == "toggle":
         res = toggle_done(args.id)

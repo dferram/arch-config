@@ -162,7 +162,7 @@ Item {
         showText: root.showPercentageInBar || root.activePopupId === "battery"
         accentColor: root.batteryColor
         active: root.activePopupId === "battery"
-        pulsingIcon: root.isCharging
+        pulsingIcon: root.currentPercent <= 10 && !root.isCharging
 
         onClicked: {
             root.togglePopup("battery");

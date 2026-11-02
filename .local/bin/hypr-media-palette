@@ -103,11 +103,28 @@ def extract_palette(target, *extra_args):
     if "a1ec7f2db51df33718bd17c4" in target.lower() or "lovelanguage" in all_meta_str:
         is_lovelanguage = True
 
+    cover_dir = os.path.expanduser("~/.cache/spotify-covers")
+    os.makedirs(cover_dir, exist_ok=True)
+    img_id = target.split("/")[-1].split("?")[0] if ("/" in target) else ""
+    local_cover = os.path.join(cover_dir, f"{img_id}.jpg") if (img_id and len(img_id) >= 16) else None
+
     cache_key = hashlib.md5(f"{target}::{is_lovelanguage}".encode("utf-8")).hexdigest()
     cache_file = f"/tmp/media_pal_{cache_key}.txt"
 
+    # If colors already cached, ensure image is also saved locally for offline use before returning
     if os.path.exists(cache_file):
         try:
+            if local_cover and not os.path.exists(local_cover) and (target.startswith("http://") or target.startswith("https://")):
+                try:
+                    req = urllib.request.Request(target, headers={"User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(req, timeout=8.0) as resp:
+                        d = resp.read()
+                    if d:
+                        with open(local_cover, "wb") as f_img:
+                            f_img.write(d)
+                except Exception:
+                    pass
+
             with open(cache_file, "r") as f:
                 lines = [line.strip() for line in f if line.strip()]
                 if len(lines) >= 3:
@@ -118,11 +135,34 @@ def extract_palette(target, *extra_args):
     try:
         from PIL import Image
         data = None
+        cover_dir = os.path.expanduser("~/.cache/spotify-covers")
+        os.makedirs(cover_dir, exist_ok=True)
+        img_id = target.split("/")[-1].split("?")[0] if ("/" in target) else ""
+        local_cover = os.path.join(cover_dir, f"{img_id}.jpg") if (img_id and len(img_id) >= 16) else None
+
         if target.startswith("http://") or target.startswith("https://"):
-            req = urllib.request.Request(target, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=8.0) as resp:
-                data = resp.read()
-            img = Image.open(BytesIO(data)).convert("RGB")
+            if local_cover and os.path.exists(local_cover) and os.path.getsize(local_cover) > 0:
+                try:
+                    img = Image.open(local_cover).convert("RGB")
+                except Exception:
+                    img = None
+            else:
+                img = None
+
+            if img is None:
+                try:
+                    req = urllib.request.Request(target, headers={"User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(req, timeout=8.0) as resp:
+                        data = resp.read()
+                    if local_cover and data:
+                        try:
+                            with open(local_cover, "wb") as f_img:
+                                f_img.write(data)
+                        except Exception:
+                            pass
+                    img = Image.open(BytesIO(data)).convert("RGB")
+                except Exception:
+                    return white_palette
         elif target.startswith("file://"):
             path = target[7:]
             if not os.path.exists(path):

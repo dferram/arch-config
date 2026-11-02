@@ -30,7 +30,7 @@ Rectangle {
         const k = dateKey(d);
         let c = 0;
         for (let i = 0; i < reminders.length; i++)
-            if (reminders[i].date === k && !reminders[i].done) c++;
+            if (reminders[i].date === k) c++;
         return c;
     }
     function toDate(r) {
@@ -43,7 +43,7 @@ Rectangle {
         const list = [];
         for (let i = 0; i < reminders.length; i++) {
             const r = reminders[i];
-            if (r.done || !r.date) continue;
+            if (!r.date) continue;
             const dt = toDate(r);
             if (dt.getTime() >= from) list.push({ title: r.title, category: r.category || "", dt: dt });
         }

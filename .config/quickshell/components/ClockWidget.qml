@@ -102,21 +102,153 @@ Item {
 
     // Distinct Category Colors
     readonly property var categoryColors: ({
-        "Colgate-Palmolive": "#ef4444",
-        "Projects": "#06b6d4",
+        "F1": "#E10600",
+        "Colgate-Palmolive": "#0067fe",
+        "Projects": "#10b981",
+        "Free Lance": "#06b6d4",
         "School": "#a855f7",
-        "Personal": "#10b981",
-        "Health": "#f59e0b",
-        "Urgent": "#f97316"
+        "Personal": "#f97316",
+        "Sara": "#ff2d55",
+        "Marvel": "#ed1d24",
+        "Gym": "#eab308",
+        "Family": "#f43f5e",
+        "Travel": "#38bdf8"
     })
 
-    function getCategoryColor(cat) {
+    function getCategoryColor(cat, title) {
         if (cat === "All") return theme.frost;
-        return categoryColors[cat] || theme.textSub;
+        let c = (cat || "").toLowerCase();
+        let t = (title || "").toLowerCase();
+        if (c === "sara" || t.indexOf("sara") !== -1) return "#ff2d55";
+        if (c === "marvel" || t.indexOf("doomsday") !== -1 || t.indexOf("marvel") !== -1) return "#ed1d24";
+        if (c === "f1") return "#E10600";
+        if (c === "colgate-palmolive") return "#0067fe";
+        if (c === "projects") return "#10b981";
+        if (c === "free lance" || c === "free-lance" || c === "freelance") return "#06b6d4";
+        if (c === "school") return "#a855f7";
+        if (c === "personal") return "#f97316";
+        if (c === "gym") return "#eab308";
+        if (c === "family") return "#f43f5e";
+        if (c === "travel") return "#38bdf8";
+        return categoryColors[cat] || "#38bdf8";
+    }
+
+    property var baseCategories: ["F1", "Colgate-Palmolive", "Projects", "Free Lance", "School", "Personal", "Sara", "Marvel", "Gym", "Family"]
+    property var customCategories: []
+    property var availableCategories: {
+        let list = baseCategories.concat(customCategories);
+        if (allReminders && Array.isArray(allReminders)) {
+            for (let i = 0; i < allReminders.length; i++) {
+                let c = allReminders[i].category;
+                if (c && list.indexOf(c) === -1) {
+                    list.push(c);
+                }
+            }
+        }
+        return list;
+    }
+
+    Process {
+        id: loadCategoriesProc
+        command: ["/home/ferram/.local/bin/hypr-reminders", "categories"]
+        running: true
+        stdout: StdioCollector {
+            onTextChanged: {
+                let txt = text.trim();
+                if (!txt || !txt.startsWith("[")) return;
+                try {
+                    let parsed = JSON.parse(txt);
+                    if (Array.isArray(parsed)) {
+                        for (let i = 0; i < parsed.length; i++) {
+                            let item = parsed[i];
+                            if (root.baseCategories.indexOf(item) === -1 && root.customCategories.indexOf(item) === -1) {
+                                root.customCategories.push(item);
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+        }
+    }
+
+    Process {
+        id: addCategoryProc
+        property string catToAdd: ""
+        command: ["/home/ferram/.local/bin/hypr-reminders", "add-category", catToAdd]
+        onExited: {
+            if (!loadCategoriesProc.running) loadCategoriesProc.running = true;
+        }
+    }
+
+    function addNewCategory(catName) {
+        let c = catName.trim();
+        if (!c) return;
+        if (root.availableCategories.indexOf(c) === -1) {
+            let nextCustom = root.customCategories.slice();
+            nextCustom.push(c);
+            root.customCategories = nextCustom;
+        }
+        addCategoryProc.catToAdd = c;
+        addCategoryProc.running = false;
+        addCategoryProc.running = true;
+    }
+
+    // F1 Sound Preview Process
+    Process {
+        id: f1SoundProc
+        command: ["pw-play", "/home/ferram/.local/share/sounds/f1.oga"]
+    }
+
+    function playF1Sound() {
+        f1SoundProc.running = false;
+        f1SoundProc.running = true;
+    }
+
+    // F1 Season Race Schedule
+    property var f1Calendar: ({})
+    readonly property var selectedF1Event: (root.f1Calendar && root.selectedDateStr) ? root.f1Calendar[root.selectedDateStr] : null
+
+    Process {
+        id: loadF1CalendarProc
+        command: ["python3", Quickshell.shellPath("scripts/desktop-widgets-helper.py"), "f1-calendar"]
+        running: true
+        stdout: StdioCollector {
+            onTextChanged: {
+                let txt = text.trim();
+                if (!txt || !txt.startsWith("{")) return;
+                try {
+                    root.f1Calendar = JSON.parse(txt);
+                } catch(e) {
+                    console.log("Error parsing F1 calendar:", e);
+                }
+            }
+        }
+    }
+
+    Timer {
+        interval: 60000
+        running: true
+        repeat: true
+        onTriggered: {
+            if (!loadF1CalendarProc.running) loadF1CalendarProc.running = true;
+        }
     }
 
     property string selectedCategory: "All"
     property bool showAddForm: false
+    property string editingReminderId: ""
+
+    // Zenity File Picker Process for attaching photos to reminders
+    Process {
+        id: photoPickerProc
+        command: ["zenity", "--file-selection", "--title=Select Reminder Photo", "--file-filter=Images (*.png *.jpg *.jpeg *.webp *.svg) | *.png *.jpg *.jpeg *.webp *.svg"]
+        stdout: StdioCollector {
+            onTextChanged: {
+                let p = text.trim();
+                if (p) addFormRect.formPhoto = p;
+            }
+        }
+    }
 
     // Reminders Data
     property var allReminders: []
@@ -159,10 +291,10 @@ Item {
         }
     }
 
-    function addReminder(title, dateStr, timeStr, category, notes) {
+    function addReminder(title, dateStr, timeStr, category, notes, photo) {
         if (!title.trim()) return;
         actionProc.running = false;
-        actionProc.command = [
+        let cmd = [
             "/home/ferram/.local/bin/hypr-reminders", "add",
             title.trim(),
             "--date", dateStr,
@@ -170,8 +302,52 @@ Item {
             "--category", category,
             "--notes", notes || ""
         ];
+        if (photo && photo.trim()) {
+            cmd.push("--photo");
+            cmd.push(photo.trim());
+        }
+        actionProc.command = cmd;
         actionProc.running = true;
+        resetForm();
+    }
+
+    function editReminder(remId, title, dateStr, timeStr, category, notes, photo) {
+        if (!remId || !title.trim()) return;
+        actionProc.running = false;
+        let cmd = [
+            "/home/ferram/.local/bin/hypr-reminders", "edit", remId,
+            "--title", title.trim(),
+            "--date", dateStr,
+            "--time", timeStr,
+            "--category", category,
+            "--notes", notes || "",
+            "--photo", photo || ""
+        ];
+        actionProc.command = cmd;
+        actionProc.running = true;
+        resetForm();
+    }
+
+    function startEdit(item) {
+        if (!item) return;
+        editingReminderId = item.id;
+        showAddForm = true;
+        titleInput.text = item.title || "";
+        timeInput.text = item.time || "12:00";
+        addFormRect.formCat = item.category || "Colgate-Palmolive";
+        addFormRect.formNotes = item.notes || "";
+        addFormRect.formPhoto = item.photo || "";
+        addFormRect.titleError = false;
+        Qt.callLater(() => titleInput.forceActiveFocus());
+    }
+
+    function resetForm() {
+        editingReminderId = "";
         showAddForm = false;
+        if (titleInput) titleInput.text = "";
+        addFormRect.formNotes = "";
+        addFormRect.formPhoto = "";
+        addFormRect.titleError = false;
     }
 
     function toggleReminder(remId) {
@@ -203,23 +379,28 @@ Item {
     }
 
     function hasReminders(dStr) {
+        if (root.f1Calendar && root.f1Calendar[dStr]) return true;
         if (!allReminders) return false;
         for (let i = 0; i < allReminders.length; i++) {
-            if (allReminders[i].date === dStr && !allReminders[i].done) return true;
+            if (allReminders[i].date === dStr) return true;
         }
         return false;
     }
 
     function getDayCategories(dStr) {
-        if (!allReminders) return [];
         let cats = [];
-        for (let i = 0; i < allReminders.length; i++) {
-            let r = allReminders[i];
-            if (r.date === dStr && !r.done) {
-                let cat = r.category || "Colgate-Palmolive";
-                if (cats.indexOf(cat) === -1) {
-                    cats.push(cat);
-                    if (cats.length >= 3) break;
+        if (root.f1Calendar && root.f1Calendar[dStr]) {
+            cats.push("F1");
+        }
+        if (allReminders) {
+            for (let i = 0; i < allReminders.length; i++) {
+                let r = allReminders[i];
+                if (r.date === dStr) {
+                    let cat = r.category || "Colgate-Palmolive";
+                    if (cats.indexOf(cat) === -1) {
+                        cats.push(cat);
+                        if (cats.length >= 3) break;
+                    }
                 }
             }
         }
@@ -231,7 +412,7 @@ Item {
         let count = 0;
         for (let i = 0; i < allReminders.length; i++) {
             let r = allReminders[i];
-            if (r.date === dStr && !r.done) count++;
+            if (r.date === dStr) count++;
         }
         return count;
     }
@@ -290,6 +471,18 @@ Item {
     // Mexican Holidays Calculation (Official LFT & Traditional Mexican Dates)
     readonly property var selectedHoliday: root.getMexicanHoliday(root.selectedDateStr)
 
+    function getHolidayIcon(hol) {
+        if (!hol) return "../icons/google-calendar.svg";
+        let k = hol.iconKey || "";
+        if (k === "halloween") return "../icons/holiday-halloween.svg";
+        if (k === "muertos") return "../icons/holiday-muertos.svg";
+        if (k === "christmas") return "../icons/holiday-christmas.svg";
+        if (k === "newyear") return "../icons/holiday-newyear.svg";
+        if (k === "flag") return "../icons/holiday-flag.svg";
+        if (k === "love") return "../icons/holiday-heart.svg";
+        return "../icons/google-calendar.svg";
+    }
+
     function getMexicanHoliday(dateStr) {
         if (!dateStr) return null;
         let parts = dateStr.split("-");
@@ -298,45 +491,46 @@ Item {
         let m = parseInt(parts[1], 10);
         let d = parseInt(parts[2], 10);
 
-        // Fixed Mexican Holidays & Observances
+        // Fixed Mexican Holidays & Observances (in English matching Google Calendar)
         let fixed = {
-            "1-1": { name: "Año Nuevo", isOfficial: true, desc: "Descanso obligatorio nacional (LFT)" },
-            "1-6": { name: "Día de Reyes", isOfficial: false, desc: "Tradición mexicana de Reyes Magos y Rosca" },
-            "2-2": { name: "Día de la Candelaria", isOfficial: false, desc: "Tradición de tamales y bendición del Niño Dios" },
-            "2-5": { name: "Día de la Constitución", isOfficial: false, desc: "Aniversario de la Constitución Política de 1917" },
-            "2-14": { name: "Día del Amor y la Amistad", isOfficial: false, desc: "Celebración tradicional de San Valentín" },
-            "2-24": { name: "Día de la Bandera", isOfficial: false, desc: "Conmemoración del Lábaro Patrio" },
-            "3-8": { name: "Día de la Mujer", isOfficial: false, desc: "Día Internacional de la Mujer" },
-            "3-18": { name: "Expropiación Petrolera", isOfficial: false, desc: "Decreto de nacionalización de la industria petrolera de 1938" },
-            "3-21": { name: "Natalicio de Benito Juárez", isOfficial: false, desc: "Aniversario del Benemérito de las Américas" },
-            "4-30": { name: "Día del Niño", isOfficial: false, desc: "Celebración y festivales infantiles en México" },
-            "5-1": { name: "Día del Trabajo", isOfficial: true, desc: "Descanso obligatorio nacional (LFT)" },
-            "5-5": { name: "Batalla de Puebla", isOfficial: false, desc: "Victoria del ejército mexicano en Puebla de 1862" },
-            "5-10": { name: "Día de las Madres", isOfficial: false, desc: "Celebración nacional a las madres mexicanas" },
-            "5-15": { name: "Día del Maestro", isOfficial: false, desc: "Reconocimiento a docentes y educadores" },
-            "9-13": { name: "Día de los Niños Héroes", isOfficial: false, desc: "Defensa del Castillo de Chapultepec de 1847" },
-            "9-15": { name: "Grito de Dolores", isOfficial: false, desc: "Víspera del Día de la Independencia y tradicional Grito" },
-            "9-16": { name: "Día de la Independencia", isOfficial: true, desc: "Descanso obligatorio nacional (LFT) - Fiesta Patria" },
-            "10-12": { name: "Día de la Raza", isOfficial: false, desc: "Encuentro de Dos Mundos y diversidad cultural" },
-            "10-31": { name: "Halloween", isOfficial: false, desc: "Noche de Brujas y víspera de Todos los Santos" },
-            "11-1": { name: "Día de Todos los Santos", isOfficial: false, desc: "Día de los Angelitos y tradición de Día de Muertos" },
-            "11-2": { name: "Día de Muertos", isOfficial: false, desc: "Patrimonio Cultural Inmaterial de México y ofrendas a Fieles Difuntos" },
-            "11-20": { name: "Revolución Mexicana", isOfficial: false, desc: "Aniversario del inicio de la Revolución de 1910" },
-            "12-12": { name: "Día de la Virgen de Guadalupe", isOfficial: false, desc: "Máxima tradición religiosa y popular en México" },
-            "12-24": { name: "Nochebuena", isOfficial: false, desc: "Víspera de Navidad y cenas familiares" },
-            "12-25": { name: "Navidad", isOfficial: true, desc: "Descanso obligatorio nacional (LFT)" },
-            "12-28": { name: "Día de los Santos Inocentes", isOfficial: false, desc: "Tradición popular de bromas inocentes" },
-            "12-31": { name: "Fin de Año", isOfficial: false, desc: "Víspera y brindis de bienvenida al Año Nuevo" }
+            "1-1": { name: "New Year's Day", isOfficial: true, desc: "National Public Holiday (Federal Labor Law)", iconKey: "newyear" },
+            "1-6": { name: "Three Kings' Day (Día de Reyes)", isOfficial: false, desc: "Traditional Mexican celebration of the Magi and Rosca de Reyes", iconKey: "calendar" },
+            "2-2": { name: "Candlemas (Día de la Candelaria)", isOfficial: false, desc: "Traditional Tamales Feast & Blessing of the Christ Child", iconKey: "calendar" },
+            "2-5": { name: "Constitution Day", isOfficial: false, desc: "Anniversary of Mexico's 1917 Political Constitution", iconKey: "flag" },
+            "2-14": { name: "Valentine's Day", isOfficial: false, desc: "Celebration of Love & Friendship", iconKey: "love" },
+            "2-24": { name: "Flag Day", isOfficial: false, desc: "National celebration honoring the Mexican Flag", iconKey: "flag" },
+            "3-8": { name: "International Women's Day", isOfficial: false, desc: "Global celebration of women's rights and achievements", iconKey: "love" },
+            "3-18": { name: "Oil Expropriation Day", isOfficial: false, desc: "Commemoration of the 1938 Petroleum Nationalization", iconKey: "flag" },
+            "3-21": { name: "Benito Juárez's Birthday", isOfficial: false, desc: "Anniversary of the Great Reformer of Mexico", iconKey: "flag" },
+            "4-30": { name: "Children's Day (Día del Niño)", isOfficial: false, desc: "Festivities honoring children across Mexico", iconKey: "newyear" },
+            "5-1": { name: "Labor Day", isOfficial: true, desc: "National Public Holiday (Federal Labor Law)", iconKey: "calendar" },
+            "5-5": { name: "Cinco de Mayo / Battle of Puebla", isOfficial: false, desc: "Historic Mexican victory in Puebla (1862)", iconKey: "flag" },
+            "5-10": { name: "Mother's Day", isOfficial: false, desc: "National celebration honoring mothers across Mexico", iconKey: "love" },
+            "5-15": { name: "Teacher's Day", isOfficial: false, desc: "National tribute recognizing teachers and educators", iconKey: "calendar" },
+            "9-13": { name: "Heroic Cadets Day (Niños Héroes)", isOfficial: false, desc: "Defense of Chapultepec Castle (1847)", iconKey: "flag" },
+            "9-15": { name: "Cry of Dolores (El Grito)", isOfficial: false, desc: "Independence Eve & traditional Cry of Freedom", iconKey: "flag" },
+            "9-16": { name: "Independence Day", isOfficial: true, desc: "National Public Holiday (Federal Labor Law) · Fiesta Patria", iconKey: "flag" },
+            "10-12": { name: "Columbus Day (Día de la Raza)", isOfficial: false, desc: "Meeting of Two Worlds and Cultural Diversity", iconKey: "flag" },
+            "10-31": { name: "Halloween", isOfficial: false, desc: "All Hallows' Eve celebration", iconKey: "halloween" },
+            "11-1": { name: "All Saints' Day", isOfficial: false, desc: "Día de los Angelitos · Day of the Dead celebration", iconKey: "muertos" },
+            "11-2": { name: "Day of the Dead (Día de Muertos)", isOfficial: false, desc: "UNESCO Intangible Cultural Heritage of Humanity", iconKey: "muertos" },
+            "11-20": { name: "Revolution Day", isOfficial: false, desc: "Anniversary of the 1910 Mexican Revolution", iconKey: "flag" },
+            "12-12": { name: "Day of the Virgin of Guadalupe", isOfficial: false, desc: "Patron Saint of Mexico and beloved cultural tradition", iconKey: "love" },
+            "12-24": { name: "Christmas Eve (Nochebuena)", isOfficial: false, desc: "Holiday family gathering and celebration", iconKey: "christmas" },
+            "12-25": { name: "Christmas Day", isOfficial: true, desc: "National Public Holiday (Federal Labor Law)", iconKey: "christmas" },
+            "12-28": { name: "Holy Innocents' Day", isOfficial: false, desc: "Traditional day of good-humored jokes and pranks", iconKey: "newyear" },
+            "12-31": { name: "New Year's Eve", isOfficial: false, desc: "Celebration welcoming the New Year", iconKey: "newyear" }
         };
 
         // Cambio de Poder Ejecutivo Federal cada 6 años (1 de octubre a partir de 2024: 2024, 2030, etc.)
         if (m === 10 && d === 1 && (y % 6 === 2024 % 6)) {
             return {
-                name: "Transmisión del Poder Ejecutivo",
+                name: "Inauguration Day",
                 isOfficial: true,
-                desc: "Descanso obligatorio nacional (LFT Art. 74 - cada 6 años)",
-                typeLabel: "Feriado Oficial LFT",
-                badgeColor: "#10b981"
+                desc: "National Public Holiday (Federal Labor Law - every 6 years)",
+                typeLabel: "Official Holiday",
+                badgeColor: "#10b981",
+                iconKey: "flag"
             };
         }
 
@@ -346,11 +540,12 @@ Item {
         let febMonday = (febFirstDay === 1) ? 1 : ((8 - febFirstDay) % 7 + 1);
         if (m === 2 && d === febMonday) {
             return {
-                name: "Día de la Constitución (Puente Oficial)",
+                name: "Constitution Day (Observed)",
                 isOfficial: true,
-                desc: "Descanso obligatorio LFT (1er lunes de febrero por el 5 de Feb)",
-                typeLabel: "Feriado Oficial LFT",
-                badgeColor: "#10b981"
+                desc: "National Public Holiday (1st Monday of February)",
+                typeLabel: "Official Holiday",
+                badgeColor: "#10b981",
+                iconKey: "flag"
             };
         }
 
@@ -360,11 +555,12 @@ Item {
         let marMonday3 = marMonday1 + 14;
         if (m === 3 && d === marMonday3) {
             return {
-                name: "Natalicio de Benito Juárez (Puente Oficial)",
+                name: "Benito Juárez Day (Observed)",
                 isOfficial: true,
-                desc: "Descanso obligatorio LFT (3er lunes de marzo por el 21 de Mar)",
-                typeLabel: "Feriado Oficial LFT",
-                badgeColor: "#10b981"
+                desc: "National Public Holiday (3rd Monday of March)",
+                typeLabel: "Official Holiday",
+                badgeColor: "#10b981",
+                iconKey: "flag"
             };
         }
 
@@ -374,11 +570,12 @@ Item {
         let novMonday3 = novMonday1 + 14;
         if (m === 11 && d === novMonday3) {
             return {
-                name: "Revolución Mexicana (Puente Oficial)",
+                name: "Revolution Day (Observed)",
                 isOfficial: true,
-                desc: "Descanso obligatorio LFT (3er lunes de noviembre por el 20 de Nov)",
-                typeLabel: "Feriado Oficial LFT",
-                badgeColor: "#10b981"
+                desc: "National Public Holiday (3rd Monday of November)",
+                typeLabel: "Official Holiday",
+                badgeColor: "#10b981",
+                iconKey: "flag"
             };
         }
 
@@ -403,11 +600,12 @@ Item {
         juevesSanto.setDate(easterDate.getDate() - 3);
         if (m === (juevesSanto.getMonth() + 1) && d === juevesSanto.getDate()) {
             return {
-                name: "Jueves Santo",
+                name: "Maundy Thursday (Jueves Santo)",
                 isOfficial: false,
-                desc: "Jueves de Semana Santa en México",
-                typeLabel: "Festividad Tradicional",
-                badgeColor: "#f59e0b"
+                desc: "Holy Week Observance in Mexico",
+                typeLabel: "Observance",
+                badgeColor: "#f59e0b",
+                iconKey: "calendar"
             };
         }
 
@@ -415,11 +613,12 @@ Item {
         viernesSanto.setDate(easterDate.getDate() - 2);
         if (m === (viernesSanto.getMonth() + 1) && d === viernesSanto.getDate()) {
             return {
-                name: "Viernes Santo",
+                name: "Good Friday (Viernes Santo)",
                 isOfficial: false,
-                desc: "Viernes de Semana Santa en México",
-                typeLabel: "Festividad Tradicional",
-                badgeColor: "#f59e0b"
+                desc: "Holy Week Observance in Mexico",
+                typeLabel: "Observance",
+                badgeColor: "#f59e0b",
+                iconKey: "calendar"
             };
         }
 
@@ -431,8 +630,9 @@ Item {
                 name: item.name,
                 isOfficial: item.isOfficial,
                 desc: item.desc,
-                typeLabel: item.isOfficial ? "Feriado Oficial LFT" : "Festividad Mexicana",
-                badgeColor: item.isOfficial ? "#10b981" : "#f59e0b"
+                typeLabel: item.isOfficial ? "Official Holiday" : "Observance",
+                badgeColor: item.isOfficial ? "#10b981" : "#f59e0b",
+                iconKey: item.iconKey || "calendar"
             };
         }
 
@@ -441,9 +641,9 @@ Item {
 
     function daySummaryText() {
         let hol = root.getMexicanHoliday(root.selectedDateStr);
-        let holPrefix = hol ? (hol.name + " • ") : "";
+        let prefix = hol ? (hol.name + " • ") : "";
 
-        if (!allReminders) return hol ? (hol.name + " • No scheduled events") : "No events scheduled";
+        if (!allReminders) return prefix ? (prefix + "No scheduled events") : "No events scheduled";
         let count = 0;
         let doneCount = 0;
         for (let i = 0; i < allReminders.length; i++) {
@@ -456,14 +656,14 @@ Item {
             }
         }
         if (count === 0) {
-            return hol ? (holPrefix + (selectedCategory === "All" ? "No scheduled events" : "No " + selectedCategory + " events"))
-                       : (selectedCategory === "All" ? "No scheduled events" : "No " + selectedCategory + " events");
+            return prefix ? (prefix + (selectedCategory === "All" ? "No scheduled events" : "No " + selectedCategory + " events"))
+                          : (selectedCategory === "All" ? "No scheduled events" : "No " + selectedCategory + " events");
         }
         let pending = count - doneCount;
         if (pending === 0) {
-            return holPrefix + (count === 1 ? "1 task completed" : count + " tasks completed");
+            return prefix + (count === 1 ? "1 task completed" : count + " tasks completed");
         }
-        return holPrefix + count + (count === 1 ? " event" : " events") + " • " + pending + " pending";
+        return prefix + count + (count === 1 ? " event" : " events") + " • " + pending + " pending";
     }
 
     // Detailed Popover Card with Full Calendar & Reminders
@@ -544,27 +744,6 @@ Item {
                             font.family: theme.fontFamily
                             font.pixelSize: 12
                             font.weight: Font.Medium
-                        }
-
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 5
-
-                            Rectangle {
-                                width: 5
-                                height: 5
-                                radius: 2.5
-                                color: theme.green
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            Text {
-                                text: "Uptime: " + root.uptimeStr
-                                color: theme.textMuted
-                                font.family: theme.fontFamily
-                                font.pixelSize: 10
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
                         }
                     }
 
@@ -922,7 +1101,7 @@ Item {
                                     id: addBtnRect
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: root.showAddForm ? 64 : 76
+                                    width: addBtnRow.implicitWidth + 18
                                     height: 24
                                     radius: 12
                                     color: root.showAddForm
@@ -934,6 +1113,7 @@ Item {
                                     border.width: 1
 
                                     Row {
+                                        id: addBtnRow
                                         anchors.centerIn: parent
                                         spacing: 4
 
@@ -961,8 +1141,14 @@ Item {
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: {
-                                            root.showAddForm = !root.showAddForm;
                                             if (root.showAddForm) {
+                                                root.resetForm();
+                                            } else {
+                                                root.editingReminderId = "";
+                                                root.showAddForm = true;
+                                                if (titleInput) titleInput.text = "";
+                                                addFormRect.formPhoto = "";
+                                                addFormRect.formNotes = "";
                                                 if (root.selectedCategory !== "All") {
                                                     addFormRect.formCat = root.selectedCategory;
                                                 }
@@ -979,19 +1165,19 @@ Item {
                                 spacing: 5
 
                                 Repeater {
-                                    model: ["All", "Colgate-Palmolive", "Projects", "School", "Personal", "Health", "Urgent"]
+                                    model: ["All"].concat(root.availableCategories)
                                     Rectangle {
                                         id: segPill
                                         property bool isAct: root.selectedCategory === modelData
                                         property color catCol: root.getCategoryColor(modelData)
-                                        width: segRow.implicitWidth + 14
+                                        width: segRow.implicitWidth + (modelData === "F1" ? 18 : (modelData === "Colgate-Palmolive" ? 18 : (modelData === "School" ? 16 : (modelData === "Sara" ? 16 : (modelData === "Marvel" ? 22 : 14)))))
                                         height: 22
                                         radius: 11
 
                                         color: {
                                             if (isAct) {
                                                 if (modelData === "All") return Qt.rgba(255, 255, 255, 0.18);
-                                                return Qt.rgba(catCol.r, catCol.g, catCol.b, 0.2);
+                                                return Qt.rgba(catCol.r, catCol.g, catCol.b, 0.22);
                                             }
                                             return segMa.containsMouse ? theme.surfaceHover : "transparent";
                                         }
@@ -1008,19 +1194,108 @@ Item {
                                         }
                                         border.width: 1
 
+                                        // F1 Active Red Pulse
+                                        Rectangle {
+                                            visible: modelData === "F1" && segPill.isAct
+                                            anchors.fill: parent
+                                            radius: parent.radius
+                                            color: "transparent"
+                                            border.color: "#E10600"
+                                            border.width: 1
+                                            opacity: 0.8
+                                            SequentialAnimation on opacity {
+                                                running: modelData === "F1" && segPill.isAct
+                                                loops: Animation.Infinite
+                                                NumberAnimation { from: 0.35; to: 1.0; duration: 900; easing.type: Easing.InOutSine }
+                                                NumberAnimation { from: 1.0; to: 0.35; duration: 900; easing.type: Easing.InOutSine }
+                                            }
+                                        }
+
+                                        // Sara Active Heart Pulse
+                                        Rectangle {
+                                            visible: modelData === "Sara" && segPill.isAct
+                                            anchors.fill: parent
+                                            radius: parent.radius
+                                            color: "transparent"
+                                            border.color: "#ff2d55"
+                                            border.width: 1
+                                            opacity: 0.8
+                                            SequentialAnimation on opacity {
+                                                running: modelData === "Sara" && segPill.isAct
+                                                loops: Animation.Infinite
+                                                NumberAnimation { from: 0.35; to: 1.0; duration: 900; easing.type: Easing.InOutSine }
+                                                NumberAnimation { from: 1.0; to: 0.35; duration: 900; easing.type: Easing.InOutSine }
+                                            }
+                                        }
+
                                         Row {
                                             id: segRow
                                             anchors.centerIn: parent
                                             spacing: 5
 
-                                            // Category Dot
-                                            Rectangle {
-                                                width: 5
-                                                height: 5
-                                                radius: 2.5
-                                                color: segPill.catCol
-                                                opacity: segPill.isAct ? 1.0 : 0.6
+                                            // Category Indicator (F1 SVG, CP SVG, Troyanos SVG, Heart SVG, Marvel SVG, or Dot)
+                                            Item {
+                                                width: modelData === "F1" ? 14 : (modelData === "Colgate-Palmolive" ? 13 : (modelData === "School" ? 11 : (modelData === "Sara" ? 12 : (modelData === "Marvel" ? 18 : 5))))
+                                                height: modelData === "F1" ? 10 : (modelData === "Colgate-Palmolive" ? 9 : (modelData === "School" ? 11 : (modelData === "Sara" ? 12 : (modelData === "Marvel" ? 8 : 5))))
                                                 anchors.verticalCenter: parent.verticalCenter
+
+                                                Rectangle {
+                                                    visible: modelData !== "F1" && modelData !== "Colgate-Palmolive" && modelData !== "School" && modelData !== "Sara" && modelData !== "Marvel"
+                                                    anchors.fill: parent
+                                                    radius: width / 2
+                                                    color: segPill.catCol
+                                                    opacity: segPill.isAct ? 1.0 : 0.6
+                                                }
+
+                                                Image {
+                                                    visible: modelData === "F1"
+                                                    anchors.fill: parent
+                                                    source: segPill.isAct ? "file:///home/ferram/.local/share/icons/f1-white.svg" : "file:///home/ferram/.local/share/icons/f1.svg"
+                                                    fillMode: Image.PreserveAspectFit
+                                                    smooth: true
+
+                                                    scale: 1.0
+                                                    SequentialAnimation on scale {
+                                                        running: modelData === "F1" && segPill.isAct
+                                                        loops: Animation.Infinite
+                                                        NumberAnimation { from: 0.90; to: 1.10; duration: 900; easing.type: Easing.InOutSine }
+                                                        NumberAnimation { from: 1.10; to: 0.90; duration: 900; easing.type: Easing.InOutSine }
+                                                    }
+                                                }
+
+                                                Image {
+                                                    visible: modelData === "Colgate-Palmolive"
+                                                    anchors.fill: parent
+                                                    source: "file:///home/ferram/.local/share/icons/cp.svg"
+                                                    fillMode: Image.PreserveAspectFit
+                                                    smooth: true
+                                                    opacity: segPill.isAct ? 1.0 : 0.75
+                                                }
+
+                                                Image {
+                                                    visible: modelData === "School"
+                                                    anchors.fill: parent
+                                                    source: "file:///home/ferram/.local/share/icons/troyanos.svg"
+                                                    fillMode: Image.PreserveAspectFit
+                                                    smooth: true
+                                                    opacity: segPill.isAct ? 1.0 : 0.75
+                                                }
+
+                                                Image {
+                                                    visible: modelData === "Sara"
+                                                    anchors.fill: parent
+                                                    source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
+                                                    fillMode: Image.PreserveAspectFit
+                                                    smooth: true
+                                                }
+
+                                                Image {
+                                                    visible: modelData === "Marvel"
+                                                    anchors.fill: parent
+                                                    source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                                    fillMode: Image.PreserveAspectFit
+                                                    smooth: true
+                                                }
                                             }
 
                                             Text {
@@ -1049,7 +1324,7 @@ Item {
                                 }
                             }
 
-                            // Inline Add Form (if showAddForm)
+                            // Inline Add / Edit Form (if showAddForm)
                             Rectangle {
                                 id: addFormRect
                                 visible: root.showAddForm
@@ -1061,6 +1336,8 @@ Item {
                                 border.width: 1
 
                                 property string formCat: "Colgate-Palmolive"
+                                property string formNotes: ""
+                                property string formPhoto: ""
                                 property bool titleError: false
 
                                 function doSave() {
@@ -1070,15 +1347,26 @@ Item {
                                         titleInput.forceActiveFocus();
                                         return;
                                     }
-                                    root.addReminder(
-                                        t,
-                                        root.selectedDateStr,
-                                        timeInput.text,
-                                        addFormRect.formCat,
-                                        ""
-                                    );
-                                    titleInput.text = "";
-                                    addFormRect.titleError = false;
+                                    if (root.editingReminderId !== "") {
+                                        root.editReminder(
+                                            root.editingReminderId,
+                                            t,
+                                            root.selectedDateStr,
+                                            timeInput.text,
+                                            addFormRect.formCat,
+                                            addFormRect.formNotes,
+                                            addFormRect.formPhoto
+                                        );
+                                    } else {
+                                        root.addReminder(
+                                            t,
+                                            root.selectedDateStr,
+                                            timeInput.text,
+                                            addFormRect.formCat,
+                                            addFormRect.formNotes,
+                                            addFormRect.formPhoto
+                                        );
+                                    }
                                 }
 
                                 Column {
@@ -1095,7 +1383,7 @@ Item {
                                         spacing: 4
 
                                         Text {
-                                            text: "Schedule Event • " + root.selectedDateStr
+                                            text: (root.editingReminderId !== "" ? "Edit Event • " : "Schedule Event • ") + root.selectedDateStr
                                             color: theme.frost
                                             font.family: theme.fontFamily
                                             font.pixelSize: 11
@@ -1150,8 +1438,7 @@ Item {
                                             Keys.onReturnPressed: addFormRect.doSave()
                                             Keys.onEnterPressed: addFormRect.doSave()
                                             Keys.onEscapePressed: {
-                                                root.showAddForm = false;
-                                                addFormRect.titleError = false;
+                                                root.resetForm();
                                             }
 
                                             Text {
@@ -1168,6 +1455,41 @@ Item {
                                             anchors.fill: parent
                                             z: -1
                                             onClicked: titleInput.forceActiveFocus()
+                                        }
+                                    }
+
+                                    // Optional Notes input
+                                    Rectangle {
+                                        width: parent.width
+                                        height: 26
+                                        radius: 6
+                                        color: theme.surface
+                                        border.color: notesInput.activeFocus ? theme.frost : theme.borderSubtle
+                                        border.width: 1
+
+                                        TextInput {
+                                            id: notesInput
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 8
+                                            anchors.rightMargin: 8
+                                            anchors.topMargin: 5
+                                            anchors.bottomMargin: 5
+                                            text: addFormRect.formNotes
+                                            color: theme.text
+                                            font.family: theme.fontFamily
+                                            font.pixelSize: 10
+                                            clip: true
+                                            selectByMouse: true
+                                            onTextChanged: addFormRect.formNotes = text
+
+                                            Text {
+                                                anchors.fill: parent
+                                                visible: !parent.text
+                                                text: "Optional note, location, or details..."
+                                                color: theme.textDim
+                                                font.family: theme.fontFamily
+                                                font.pixelSize: 10
+                                            }
                                         }
                                     }
 
@@ -1268,12 +1590,12 @@ Item {
                                             anchors.verticalCenter: parent.verticalCenter
 
                                             Repeater {
-                                                model: ["Colgate-Palmolive", "Projects", "School", "Personal", "Health", "Urgent"]
+                                                model: root.availableCategories
                                                 Rectangle {
                                                     id: formCatPill
                                                     property bool sel: addFormRect.formCat === modelData
                                                     property color catCol: root.getCategoryColor(modelData)
-                                                    width: formCatTxt.implicitWidth + 12
+                                                    width: formCatTxt.implicitWidth + (modelData === "F1" ? 22 : (modelData === "Colgate-Palmolive" ? 22 : (modelData === "School" ? 20 : (modelData === "Sara" ? 20 : (modelData === "Marvel" ? 26 : 14)))))
                                                     height: 22
                                                     radius: 11
 
@@ -1281,14 +1603,71 @@ Item {
                                                     border.color: sel ? catCol : theme.borderSubtle
                                                     border.width: 1
 
-                                                    Text {
-                                                        id: formCatTxt
+                                                    Row {
                                                         anchors.centerIn: parent
-                                                        text: modelData
-                                                        color: parent.sel ? parent.catCol : (fCatMa.containsMouse ? theme.textSub : theme.textMuted)
-                                                        font.family: theme.fontFamily
-                                                        font.pixelSize: 9
-                                                        font.weight: parent.sel ? Font.Bold : Font.Normal
+                                                        spacing: 4
+
+                                                        Image {
+                                                            visible: modelData === "F1"
+                                                            width: 12
+                                                            height: 9
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            source: formCatPill.sel ? "file:///home/ferram/.local/share/icons/f1-white.svg" : "file:///home/ferram/.local/share/icons/f1.svg"
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
+                                                        }
+
+                                                        Image {
+                                                            visible: modelData === "Colgate-Palmolive"
+                                                            width: 12
+                                                            height: 8
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            source: "file:///home/ferram/.local/share/icons/cp.svg"
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
+                                                            opacity: formCatPill.sel ? 1.0 : 0.75
+                                                        }
+
+                                                        Image {
+                                                            visible: modelData === "School"
+                                                            width: 10
+                                                            height: 10
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            source: "file:///home/ferram/.local/share/icons/troyanos.svg"
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
+                                                            opacity: formCatPill.sel ? 1.0 : 0.75
+                                                        }
+
+                                                        Image {
+                                                            visible: modelData === "Sara"
+                                                            width: 11
+                                                            height: 11
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
+                                                        }
+
+                                                        Image {
+                                                            visible: modelData === "Marvel"
+                                                            width: 16
+                                                            height: 8
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
+                                                        }
+
+                                                        Text {
+                                                            id: formCatTxt
+                                                            text: modelData
+                                                            color: formCatPill.sel ? formCatPill.catCol : (fCatMa.containsMouse ? theme.textSub : theme.textMuted)
+                                                            font.family: theme.fontFamily
+                                                            font.pixelSize: 9
+                                                            font.weight: formCatPill.sel ? Font.Bold : Font.Normal
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                        }
                                                     }
 
                                                     MouseArea {
@@ -1298,6 +1677,209 @@ Item {
                                                         cursorShape: Qt.PointingHandCursor
                                                         onClicked: addFormRect.formCat = modelData
                                                     }
+                                                }
+                                            }
+
+                                            // "+ Add Category" button / inline input
+                                            Rectangle {
+                                                id: addCatButton
+                                                property bool editing: false
+                                                width: editing ? 110 : 22
+                                                height: 22
+                                                radius: 11
+                                                color: editing ? theme.surface : (addCatMa.containsMouse ? theme.surfaceHover : "transparent")
+                                                border.color: editing ? theme.frost : (addCatMa.containsMouse ? theme.borderGlow : theme.borderSubtle)
+                                                border.width: 1
+                                                clip: true
+
+                                                Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+                                                Row {
+                                                    anchors.centerIn: parent
+                                                    visible: !addCatButton.editing
+                                                    Text {
+                                                        text: "+"
+                                                        color: theme.frost
+                                                        font.family: theme.fontFamily
+                                                        font.pixelSize: 12
+                                                        font.weight: Font.Bold
+                                                    }
+                                                }
+
+                                                Row {
+                                                    anchors.fill: parent
+                                                    anchors.leftMargin: 6
+                                                    anchors.rightMargin: 4
+                                                    visible: addCatButton.editing
+                                                    spacing: 4
+
+                                                    TextInput {
+                                                        id: newCatInput
+                                                        width: parent.width - 20
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        color: theme.text
+                                                        font.family: theme.fontFamily
+                                                        font.pixelSize: 9
+                                                        clip: true
+                                                        selectByMouse: true
+
+                                                        Keys.onReturnPressed: commitNewCat()
+                                                        Keys.onEnterPressed: commitNewCat()
+                                                        Keys.onEscapePressed: {
+                                                            addCatButton.editing = false;
+                                                            newCatInput.text = "";
+                                                        }
+
+                                                        function commitNewCat() {
+                                                            let name = newCatInput.text.trim();
+                                                            if (name) {
+                                                                root.addNewCategory(name);
+                                                                addFormRect.formCat = name;
+                                                                newCatInput.text = "";
+                                                                addCatButton.editing = false;
+                                                            }
+                                                        }
+
+                                                        Text {
+                                                            anchors.fill: parent
+                                                            visible: !parent.text
+                                                            text: "Category..."
+                                                            color: theme.textDim
+                                                            font.family: theme.fontFamily
+                                                            font.pixelSize: 9
+                                                        }
+                                                    }
+
+                                                    Text {
+                                                        text: "✔"
+                                                        color: theme.frost
+                                                        font.pixelSize: 9
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        MouseArea {
+                                                            anchors.fill: parent
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: newCatInput.commitNewCat()
+                                                        }
+                                                    }
+                                                }
+
+                                                MouseArea {
+                                                    id: addCatMa
+                                                    anchors.fill: parent
+                                                    visible: !addCatButton.editing
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        addCatButton.editing = true;
+                                                        Qt.callLater(() => newCatInput.forceActiveFocus());
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Photo attachment row (Attach / Change / Remove photo)
+                                    Row {
+                                        width: parent.width
+                                        spacing: 8
+                                        anchors.verticalCenterOffset: 0
+
+                                        Rectangle {
+                                            height: 24
+                                            width: photoBtnRow.implicitWidth + 16
+                                            radius: 6
+                                            color: photoBtnMa.containsMouse ? theme.surfaceHover : theme.surface
+                                            border.color: addFormRect.formPhoto ? theme.blue : theme.borderSubtle
+                                            border.width: 1
+
+                                            Row {
+                                                id: photoBtnRow
+                                                anchors.centerIn: parent
+                                                spacing: 5
+
+                                                Text {
+                                                    text: "󰄄"
+                                                    font.family: "GeistMono Nerd Font Propo"
+                                                    font.pixelSize: 12
+                                                    color: addFormRect.formPhoto ? theme.blue : theme.textSub
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+                                                Text {
+                                                    text: addFormRect.formPhoto ? "Change Photo" : "Attach Photo"
+                                                    font.family: theme.fontFamily
+                                                    font.pixelSize: 10
+                                                    color: addFormRect.formPhoto ? theme.blue : theme.textSub
+                                                    font.weight: Font.Medium
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+                                            }
+
+                                            MouseArea {
+                                                id: photoBtnMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    photoPickerProc.running = false;
+                                                    photoPickerProc.running = true;
+                                                }
+                                            }
+                                        }
+
+                                        // Photo Preview & Clear Chip
+                                        Row {
+                                            visible: addFormRect.formPhoto !== ""
+                                            spacing: 6
+                                            anchors.verticalCenter: parent.verticalCenter
+
+                                            Rectangle {
+                                                width: 24
+                                                height: 24
+                                                radius: 4
+                                                clip: true
+                                                color: "black"
+                                                border.color: theme.borderSubtle
+                                                border.width: 1
+
+                                                Image {
+                                                    anchors.fill: parent
+                                                    source: addFormRect.formPhoto ? (addFormRect.formPhoto.startsWith("http") || addFormRect.formPhoto.startsWith("file://") ? addFormRect.formPhoto : ("file://" + addFormRect.formPhoto)) : ""
+                                                    fillMode: Image.PreserveAspectCrop
+                                                }
+                                            }
+
+                                            Text {
+                                                text: {
+                                                    let p = addFormRect.formPhoto || "";
+                                                    return p.substring(p.lastIndexOf("/") + 1) || "photo";
+                                                }
+                                                color: theme.textMuted
+                                                font.family: theme.fontFamily
+                                                font.pixelSize: 9
+                                                elide: Text.ElideRight
+                                                width: Math.min(120, parent.parent.width - 160)
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+
+                                            Rectangle {
+                                                width: 18
+                                                height: 18
+                                                radius: 9
+                                                color: removePhotoMa.containsMouse ? theme.red : Qt.rgba(255, 255, 255, 0.08)
+                                                anchors.verticalCenter: parent.verticalCenter
+
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "✕"
+                                                    font.pixelSize: 8
+                                                    color: removePhotoMa.containsMouse ? "#ffffff" : theme.textMuted
+                                                }
+                                                MouseArea {
+                                                    id: removePhotoMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: addFormRect.formPhoto = ""
                                                 }
                                             }
                                         }
@@ -1329,22 +1911,19 @@ Item {
                                                 anchors.fill: parent
                                                 hoverEnabled: true
                                                 cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    root.showAddForm = false;
-                                                    addFormRect.titleError = false;
-                                                }
+                                                onClicked: root.resetForm()
                                             }
                                         }
 
                                         Rectangle {
-                                            width: 76
+                                            width: root.editingReminderId !== "" ? 84 : 76
                                             height: 24
                                             radius: 6
                                             color: saveMa.containsMouse ? theme.text : theme.frost
 
                                             Text {
                                                 anchors.centerIn: parent
-                                                text: "Save Event"
+                                                text: root.editingReminderId !== "" ? "Update" : "Save Event"
                                                 color: theme.bgDark
                                                 font.family: theme.fontFamily
                                                 font.pixelSize: 10
@@ -1370,15 +1949,166 @@ Item {
 
                                 property var dayItems: root.remindersForSelectedDate()
 
-                                // Mexican Holiday Festive Card (Distinguished banner for official/cultural holidays)
+                                // Formula 1 Grand Prix Thematic Card (Google Calendar style with F1 SVG, Red Color & Speed Animation)
+                                Rectangle {
+                                    id: f1EventCard
+                                    visible: !!root.selectedF1Event && (root.selectedCategory === "All" || root.selectedCategory === "F1")
+                                    width: parent.width
+                                    radius: 8
+                                    implicitHeight: f1Row.implicitHeight + 20
+                                    color: Qt.rgba(225/255, 6/255, 0/255, 0.16)
+                                    border.color: Qt.rgba(225/255, 6/255, 0/255, 0.60)
+                                    border.width: 1
+                                    clip: true
+
+                                    // Continuous Red Neon Racing Breathing Glow Animation
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        radius: parent.radius
+                                        color: "transparent"
+                                        border.color: "#E10600"
+                                        border.width: 1.5
+                                        opacity: 0.70
+
+                                        SequentialAnimation on opacity {
+                                            loops: Animation.Infinite
+                                            running: f1EventCard.visible
+                                            NumberAnimation { from: 0.25; to: 0.95; duration: 1100; easing.type: Easing.InOutSine }
+                                            NumberAnimation { from: 0.95; to: 0.25; duration: 1100; easing.type: Easing.InOutSine }
+                                        }
+                                    }
+
+                                    // Formula 1 Left Racing Stripe Bar
+                                    Rectangle {
+                                        anchors.left: parent.left
+                                        anchors.top: parent.top
+                                        anchors.bottom: parent.bottom
+                                        width: 4
+                                        color: "#E10600"
+                                        radius: 2
+                                    }
+
+                                    // Official Round / Race Tag in top-right corner
+                                    Rectangle {
+                                        id: roundBadge
+                                        anchors.top: parent.top
+                                        anchors.right: parent.right
+                                        anchors.margins: 10
+                                        z: 2
+                                        height: 18
+                                        width: roundTxt.implicitWidth + 10
+                                        radius: 4
+                                        color: "#E10600"
+
+                                        Text {
+                                            id: roundTxt
+                                            anchors.centerIn: parent
+                                            text: (root.selectedF1Event && root.selectedF1Event.round) ? root.selectedF1Event.round.toUpperCase() : "F1"
+                                            color: "#ffffff"
+                                            font.family: theme.fontFamily
+                                            font.pixelSize: 8
+                                            font.weight: Font.Bold
+                                        }
+                                    }
+
+                                    RowLayout {
+                                        id: f1Row
+                                        anchors.left: parent.left
+                                        anchors.right: roundBadge.left
+                                        anchors.rightMargin: 8
+                                        anchors.top: parent.top
+                                        anchors.margins: 10
+                                        spacing: 10
+
+                                        // Official F1 SVG Emblem Container with animated breathing scale
+                                        Rectangle {
+                                            Layout.preferredWidth: 42
+                                            Layout.preferredHeight: 38
+                                            radius: 8
+                                            color: Qt.rgba(225/255, 6/255, 0/255, 0.22)
+                                            border.color: Qt.rgba(225/255, 6/255, 0/255, 0.65)
+                                            border.width: 1
+
+                                            Image {
+                                                id: f1SvgIcon
+                                                anchors.centerIn: parent
+                                                source: "file:///home/ferram/.local/share/icons/f1.svg"
+                                                sourceSize.width: 32
+                                                sourceSize.height: 22
+                                                width: 28
+                                                height: 18
+                                                smooth: true
+                                                fillMode: Image.PreserveAspectFit
+
+                                                scale: 1.0
+                                                SequentialAnimation on scale {
+                                                    loops: Animation.Infinite
+                                                    running: f1EventCard.visible
+                                                    NumberAnimation { from: 0.94; to: 1.08; duration: 1100; easing.type: Easing.InOutSine }
+                                                    NumberAnimation { from: 1.08; to: 0.94; duration: 1100; easing.type: Easing.InOutSine }
+                                                }
+                                            }
+                                        }
+
+                                        // F1 Race Information
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 3
+
+                                            Text {
+                                                text: root.selectedF1Event ? root.selectedF1Event.raceName : ""
+                                                color: "#ffffff"
+                                                font.family: theme.fontFamily
+                                                font.pixelSize: 12
+                                                font.weight: Font.Bold
+                                                Layout.fillWidth: true
+                                                elide: Text.ElideRight
+                                            }
+
+                                            Text {
+                                                text: {
+                                                    if (!root.selectedF1Event) return "";
+                                                    let s = root.selectedF1Event.session || "Grand Prix";
+                                                    if (root.selectedF1Event.circuit) s += " • " + root.selectedF1Event.circuit;
+                                                    if (root.selectedF1Event.location) s += " (" + root.selectedF1Event.location + ")";
+                                                    return s;
+                                                }
+                                                color: Qt.rgba(255, 255, 255, 0.85)
+                                                font.family: theme.fontFamily
+                                                font.pixelSize: 10
+                                                Layout.fillWidth: true
+                                                wrapMode: Text.WordWrap
+                                            }
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.playF1Sound()
+                                    }
+                                }
+
+                                // Mexican Holiday Festive Card (Google Calendar style with festive thematic SVG)
                                 Rectangle {
                                     visible: !!root.selectedHoliday
                                     width: parent.width
-                                    radius: theme.radiusSmall
+                                    radius: 8
                                     implicitHeight: holidayRow.implicitHeight + 20
                                     color: root.selectedHoliday ? (root.selectedHoliday.isOfficial ? Qt.rgba(16/255, 185/255, 129/255, 0.14) : Qt.rgba(245/255, 158/255, 11/255, 0.12)) : "transparent"
                                     border.color: root.selectedHoliday ? (root.selectedHoliday.isOfficial ? Qt.rgba(16/255, 185/255, 129/255, 0.5) : Qt.rgba(245/255, 158/255, 11/255, 0.45)) : "transparent"
                                     border.width: 1
+                                    clip: true
+
+                                    // Google Calendar Left Accent Strip
+                                    Rectangle {
+                                        anchors.left: parent.left
+                                        anchors.top: parent.top
+                                        anchors.bottom: parent.bottom
+                                        width: 4
+                                        color: root.selectedHoliday && root.selectedHoliday.isOfficial ? "#10b981" : "#fbbf24"
+                                        radius: 2
+                                    }
 
                                     RowLayout {
                                         id: holidayRow
@@ -1388,64 +2118,40 @@ Item {
                                         anchors.margins: 10
                                         spacing: 10
 
-                                        // Monochrome calendar emblem keeps every observance visually consistent.
+                                        // Google Calendar Thematic Holiday Emblem
                                         Rectangle {
-                                            Layout.preferredWidth: 36
-                                            Layout.preferredHeight: 36
-                                            radius: 8
-                                            color: "#f4f4f5"
-                                            border.color: Qt.rgba(0, 0, 0, 0.16)
+                                            Layout.preferredWidth: 38
+                                            Layout.preferredHeight: 38
+                                            radius: 10
+                                            color: Qt.rgba(255, 255, 255, 0.08)
+                                            border.color: Qt.rgba(255, 255, 255, 0.16)
                                             border.width: 1
 
                                             Image {
                                                 anchors.centerIn: parent
-                                                source: "../icons/holiday.svg"
-                                                sourceSize.width: 18
-                                                sourceSize.height: 18
-                                                width: 18
-                                                height: 18
+                                                source: root.getHolidayIcon(root.selectedHoliday)
+                                                sourceSize.width: 26
+                                                sourceSize.height: 26
+                                                width: 26
+                                                height: 26
                                                 smooth: true
+                                                fillMode: Image.PreserveAspectFit
                                             }
                                         }
 
-                                        // Holiday Title, Type Badge & Description
+                                        // Holiday Title & Description
                                         ColumnLayout {
                                             Layout.fillWidth: true
                                             spacing: 3
 
-                                            RowLayout {
+                                            Text {
+                                                text: root.selectedHoliday ? root.selectedHoliday.name : ""
+                                                color: theme.text
+                                                font.family: theme.fontFamily
+                                                font.pixelSize: 12
+                                                font.weight: Font.Bold
                                                 Layout.fillWidth: true
-                                                spacing: 6
-
-                                                Text {
-                                                    text: root.selectedHoliday ? root.selectedHoliday.name : ""
-                                                    color: theme.text
-                                                    font.family: theme.fontFamily
-                                                    font.pixelSize: 12
-                                                    font.weight: Font.Bold
-                                                    Layout.fillWidth: true
-                                                    elide: Text.ElideRight
-                                                }
-
-                                                // Distinctive Pill Badge
-                                                Rectangle {
-                                                    radius: 4
-                                                    Layout.preferredHeight: 18
-                                                    Layout.preferredWidth: holidayTagTxt.implicitWidth + 10
-                                                    color: root.selectedHoliday && root.selectedHoliday.isOfficial ? Qt.rgba(16/255, 185/255, 129/255, 0.3) : Qt.rgba(245/255, 158/255, 11/255, 0.28)
-                                                    border.color: root.selectedHoliday && root.selectedHoliday.isOfficial ? "#34d399" : "#fbbf24"
-                                                    border.width: 1
-
-                                                    Text {
-                                                        id: holidayTagTxt
-                                                        anchors.centerIn: parent
-                                                        text: root.selectedHoliday ? (root.selectedHoliday.isOfficial ? "OFICIAL LFT" : "FESTIVO MX") : ""
-                                                        color: root.selectedHoliday && root.selectedHoliday.isOfficial ? "#34d399" : "#fbbf24"
-                                                        font.family: theme.fontFamily
-                                                        font.pixelSize: 9
-                                                        font.weight: Font.Bold
-                                                    }
-                                                }
+                                                elide: Text.ElideRight
                                             }
 
                                             Text {
@@ -1487,7 +2193,7 @@ Item {
                                             }
 
                                             Text {
-                                                text: root.selectedHoliday ? "Día festivo • Sin tareas programadas" : "No reminders for this day"
+                                                text: root.selectedHoliday ? "Holiday • No scheduled tasks" : "No reminders for this day"
                                                 color: theme.textSub
                                                 font.family: theme.fontFamily
                                                 font.pixelSize: 11
@@ -1517,71 +2223,121 @@ Item {
                                     }
                                 }
 
-                                // Task Cards
+                                // Google Calendar Style Event Cards
                                 Repeater {
                                     model: parent.dayItems
                                     Rectangle {
                                         id: remCard
-                                        property color catCol: root.getCategoryColor(modelData.category)
+                                        property color catCol: root.getCategoryColor(modelData.category, modelData.title)
+                                        property bool hasPhoto: !!(modelData.photo && modelData.photo.trim().length > 0)
+                                        property string catLow: (modelData.category || "").toLowerCase()
+                                        property string titleLow: (modelData.title || "").toLowerCase()
+                                        property bool isSara: catLow === "sara" || titleLow.indexOf("sara") !== -1
+                                        property bool isMarvel: catLow === "marvel" || titleLow.indexOf("doomsday") !== -1 || titleLow.indexOf("marvel") !== -1
                                         width: dayDetailCol.width
-                                        height: 52
-                                        radius: theme.radiusSmall
-                                        color: modelData.done
-                                            ? Qt.rgba(0, 0, 0, 0.25)
-                                            : (cardMa.containsMouse ? theme.surfaceHover : Qt.rgba(255,255,255,0.03))
-                                        border.color: modelData.done
-                                            ? theme.borderSubtle
-                                            : (cardMa.containsMouse ? remCard.catCol : Qt.rgba(remCard.catCol.r, remCard.catCol.g, remCard.catCol.b, 0.15))
+                                        height: hasPhoto ? 58 : 50
+                                        radius: 8
+                                        color: cardMa.containsMouse
+                                            ? Qt.rgba(remCard.catCol.r, remCard.catCol.g, remCard.catCol.b, 0.18)
+                                            : Qt.rgba(remCard.catCol.r, remCard.catCol.g, remCard.catCol.b, 0.08)
+                                        border.color: cardMa.containsMouse
+                                            ? remCard.catCol
+                                            : Qt.rgba(remCard.catCol.r, remCard.catCol.g, remCard.catCol.b, 0.30)
                                         border.width: 1
                                         clip: true
 
                                         Behavior on color { ColorAnimation { duration: 150 } }
                                         Behavior on border.color { ColorAnimation { duration: 150 } }
 
-                                        // Glowing accent strip
+                                        // Google Calendar Left Accent Bar
                                         Rectangle {
                                             anchors.left: parent.left
                                             anchors.top: parent.top
                                             anchors.bottom: parent.bottom
                                             width: 4
                                             color: remCard.catCol
-                                            opacity: modelData.done ? 0.3 : (cardMa.containsMouse ? 1.0 : 0.8)
-                                            Behavior on opacity { NumberAnimation { duration: 150 } }
+                                            radius: 2
+                                        }
+
+                                        // F1 Dynamic Red Racing Pulse Animation
+                                        Rectangle {
+                                            visible: modelData.category === "F1"
+                                            anchors.fill: parent
+                                            radius: parent.radius
+                                            color: "transparent"
+                                            border.color: "#E10600"
+                                            border.width: 1.5
+                                            opacity: 0.65
+
+                                            SequentialAnimation on opacity {
+                                                loops: Animation.Infinite
+                                                running: modelData.category === "F1"
+                                                NumberAnimation { from: 0.25; to: 0.85; duration: 1000; easing.type: Easing.InOutSine }
+                                                NumberAnimation { from: 0.85; to: 0.25; duration: 1000; easing.type: Easing.InOutSine }
+                                            }
+                                        }
+
+                                        // Sara Soft Romantic Pulse Animation
+                                        Rectangle {
+                                            visible: remCard.isSara
+                                            anchors.fill: parent
+                                            radius: parent.radius
+                                            color: "transparent"
+                                            border.color: "#ff2d55"
+                                            border.width: 1.5
+                                            opacity: 0.65
+
+                                            SequentialAnimation on opacity {
+                                                loops: Animation.Infinite
+                                                running: remCard.isSara
+                                                NumberAnimation { from: 0.25; to: 0.85; duration: 1100; easing.type: Easing.InOutSine }
+                                                NumberAnimation { from: 0.85; to: 0.25; duration: 1100; easing.type: Easing.InOutSine }
+                                            }
+                                        }
+
+                                        // Marvel Energetic Crimson Pulse Animation
+                                        Rectangle {
+                                            visible: remCard.isMarvel
+                                            anchors.fill: parent
+                                            radius: parent.radius
+                                            color: "transparent"
+                                            border.color: "#ed1d24"
+                                            border.width: 1.5
+                                            opacity: 0.65
+
+                                            SequentialAnimation on opacity {
+                                                loops: Animation.Infinite
+                                                running: remCard.isMarvel
+                                                NumberAnimation { from: 0.25; to: 0.85; duration: 1100; easing.type: Easing.InOutSine }
+                                                NumberAnimation { from: 0.85; to: 0.25; duration: 1100; easing.type: Easing.InOutSine }
+                                            }
                                         }
 
                                         Row {
                                             anchors.left: parent.left
-                                            anchors.right: delBtn.left
+                                            anchors.right: actionsRow.left
                                             anchors.verticalCenter: parent.verticalCenter
-                                            anchors.leftMargin: 14
-                                            anchors.rightMargin: 10
-                                            spacing: 12
+                                            anchors.leftMargin: 12
+                                            anchors.rightMargin: 8
+                                            spacing: 10
 
-                                            // Checkbox Squircle
+                                            // Event Photo Thumbnail (if attached)
                                             Rectangle {
-                                                width: 20
-                                                height: 20
+                                                visible: remCard.hasPhoto
+                                                width: 40
+                                                height: 40
                                                 radius: 6
-                                                color: modelData.done ? remCard.catCol : (chkMa.containsMouse ? Qt.rgba(remCard.catCol.r, remCard.catCol.g, remCard.catCol.b, 0.15) : "transparent")
-                                                border.color: modelData.done ? remCard.catCol : (chkMa.containsMouse ? remCard.catCol : theme.borderSubtle)
-                                                border.width: 1.5
+                                                clip: true
+                                                color: Qt.rgba(0, 0, 0, 0.45)
+                                                border.color: Qt.rgba(255, 255, 255, 0.14)
+                                                border.width: 1
                                                 anchors.verticalCenter: parent.verticalCenter
 
-                                                Text {
-                                                    visible: modelData.done
-                                                    anchors.centerIn: parent
-                                                    text: "✓"
-                                                    color: theme.bgDark
-                                                    font.pixelSize: 12
-                                                    font.weight: Font.Bold
-                                                }
-
-                                                MouseArea {
-                                                    id: chkMa
+                                                Image {
                                                     anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.toggleReminder(modelData.id)
+                                                    source: remCard.hasPhoto ? (modelData.photo.startsWith("http") || modelData.photo.startsWith("file://")) ? modelData.photo : ("file://" + modelData.photo) : ""
+                                                    fillMode: Image.PreserveAspectCrop
+                                                    asynchronous: true
                                                 }
                                             }
 
@@ -1589,36 +2345,35 @@ Item {
                                             Column {
                                                 anchors.verticalCenter: parent.verticalCenter
                                                 spacing: 3
-                                                width: parent.width - 32
+                                                width: parent.width - (remCard.hasPhoto ? 50 : 0)
 
                                                 Text {
                                                     width: parent.width
                                                     text: modelData.title
-                                                    color: modelData.done ? theme.textDim : theme.text
+                                                    color: theme.text
                                                     font.family: theme.fontFamily
-                                                    font.pixelSize: 13
-                                                    font.weight: modelData.done ? Font.Normal : Font.DemiBold
-                                                    font.strikeout: modelData.done
+                                                    font.pixelSize: 12
+                                                    font.weight: Font.DemiBold
                                                     elide: Text.ElideRight
                                                 }
 
                                                 Row {
                                                     spacing: 6
-                                                    
+
                                                     Row {
                                                         spacing: 4
                                                         Text {
                                                             text: "⏱"
                                                             color: remCard.catCol
                                                             font.pixelSize: 10
-                                                            opacity: 0.8
+                                                            opacity: 0.9
                                                             anchors.verticalCenter: parent.verticalCenter
                                                         }
                                                         Text {
                                                             text: modelData.time
                                                             color: theme.textSub
                                                             font.family: theme.fontFamily
-                                                            font.pixelSize: 10
+                                                            font.pixelSize: 11
                                                             font.weight: Font.Medium
                                                             anchors.verticalCenter: parent.verticalCenter
                                                         }
@@ -1630,55 +2385,162 @@ Item {
                                                         font.pixelSize: 10
                                                     }
 
+                                                    Row {
+                                                        spacing: 4
+                                                        anchors.verticalCenter: parent.verticalCenter
+
+                                                        Image {
+                                                            visible: modelData.category === "F1"
+                                                            width: 14
+                                                            height: 10
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            source: "file:///home/ferram/.local/share/icons/f1.svg"
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
+                                                        }
+
+                                                        Image {
+                                                            visible: modelData.category === "Colgate-Palmolive"
+                                                            width: 13
+                                                            height: 9
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            source: "file:///home/ferram/.local/share/icons/cp.svg"
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
+                                                        }
+
+                                                        Image {
+                                                            visible: modelData.category === "School"
+                                                            width: 11
+                                                            height: 11
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            source: "file:///home/ferram/.local/share/icons/troyanos.svg"
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
+                                                        }
+
+                                                        Image {
+                                                            visible: remCard.isSara
+                                                            width: 12
+                                                            height: 12
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
+                                                        }
+
+                                                        Image {
+                                                            visible: remCard.isMarvel
+                                                            width: 20
+                                                            height: 9
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
+                                                        }
+
+                                                        Text {
+                                                            text: remCard.isSara ? (modelData.category === "Personal" ? "Sara" : modelData.category) : (remCard.isMarvel ? (modelData.category === "Personal" ? "Marvel" : modelData.category) : modelData.category)
+                                                            color: remCard.catCol
+                                                            font.family: theme.fontFamily
+                                                            font.pixelSize: 10
+                                                            font.weight: Font.Bold
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                        }
+                                                    }
+
                                                     Text {
-                                                        text: modelData.category
-                                                        color: remCard.catCol
-                                                        font.family: theme.fontFamily
+                                                        visible: !!(modelData.notes && modelData.notes.trim().length > 0)
+                                                        text: "• 󰍨"
+                                                        color: theme.textDim
+                                                        font.family: "GeistMono Nerd Font Propo"
                                                         font.pixelSize: 10
-                                                        font.weight: Font.Bold
-                                                        opacity: 0.9
+                                                    }
+
+                                                    Text {
+                                                        visible: remCard.hasPhoto
+                                                        text: "󰄄"
+                                                        color: theme.blue
+                                                        font.family: "GeistMono Nerd Font Propo"
+                                                        font.pixelSize: 10
+                                                        opacity: 0.85
                                                     }
                                                 }
                                             }
                                         }
 
-                                        // Delete Button
-                                        Rectangle {
-                                            id: delBtn
+                                        // Actions Row (Edit & Delete buttons on hover)
+                                        Row {
+                                            id: actionsRow
                                             anchors.right: parent.right
-                                            anchors.rightMargin: 10
+                                            anchors.rightMargin: 8
                                             anchors.verticalCenter: parent.verticalCenter
-                                            width: 26
-                                            height: 26
-                                            radius: 13
-                                            color: delMa.containsMouse ? theme.red : "transparent"
-                                            border.color: delMa.containsMouse ? theme.red : (cardMa.containsMouse ? theme.borderSubtle : "transparent")
-                                            border.width: 1
+                                            spacing: 4
                                             opacity: cardMa.containsMouse ? 1.0 : 0.0
-                                            Behavior on opacity { NumberAnimation { duration: 150 } }
+                                            Behavior on opacity { NumberAnimation { duration: 140 } }
 
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: "✕"
-                                                color: delMa.containsMouse ? theme.text : theme.textMuted
-                                                font.pixelSize: 11
-                                                font.weight: Font.Bold
+                                            // Edit Button
+                                            Rectangle {
+                                                width: 24
+                                                height: 24
+                                                radius: 12
+                                                color: editMa.containsMouse ? Qt.rgba(255, 255, 255, 0.18) : Qt.rgba(255, 255, 255, 0.08)
+                                                border.color: editMa.containsMouse ? theme.frost : theme.borderSubtle
+                                                border.width: 1
+
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "󰏫"
+                                                    font.family: "GeistMono Nerd Font Propo"
+                                                    font.pixelSize: 11
+                                                    color: editMa.containsMouse ? "#ffffff" : theme.textSub
+                                                }
+
+                                                MouseArea {
+                                                    id: editMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.startEdit(modelData)
+                                                }
                                             }
 
-                                            MouseArea {
-                                                id: delMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.deleteReminder(modelData.id)
+                                            // Delete Button
+                                            Rectangle {
+                                                id: delBtn
+                                                width: 24
+                                                height: 24
+                                                radius: 12
+                                                color: delMa.containsMouse ? theme.red : Qt.rgba(255, 255, 255, 0.08)
+                                                border.color: delMa.containsMouse ? theme.red : theme.borderSubtle
+                                                border.width: 1
+
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "✕"
+                                                    font.pixelSize: 10
+                                                    font.weight: Font.Bold
+                                                    color: delMa.containsMouse ? "#ffffff" : theme.textMuted
+                                                }
+
+                                                MouseArea {
+                                                    id: delMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.deleteReminder(modelData.id)
+                                                }
                                             }
                                         }
 
+                                        // Full Card click opens Edit mode
                                         MouseArea {
                                             id: cardMa
                                             anchors.fill: parent
                                             z: -1
                                             hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.startEdit(modelData)
                                         }
                                     }
                                 }
