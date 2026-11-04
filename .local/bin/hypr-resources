@@ -1,37 +1,84 @@
 #!/usr/bin/env python3
 import json
+import os
 import time
 from pathlib import Path
 
+CACHE_FILE = Path("/tmp/hypr_resources_cache.json")
+CACHE_TTL = 0.85  # Share telemetry across widgets if called within 850ms
 STATE_FILE = Path("/tmp/hypr_cpu_stat.tmp")
+
+# Fast path: Serve fresh cache if available
+try:
+    if CACHE_FILE.exists():
+        now = time.time()
+        mtime = CACHE_FILE.stat().st_mtime
+        if (now - mtime) < CACHE_TTL:
+            cached_text = CACHE_FILE.read_text().strip()
+            if cached_text:
+                print(cached_text)
+                exit(0)
+except Exception:
+    pass
 
 def get_cpu():
     try:
+        now = time.time()
         with open("/proc/stat", "r") as f:
             first = f.readline()
         parts = [int(x) for x in first.split()[1:]]
-        total = sum(parts)
+        # user, nice, system, idle, iowait, irq, softirq, steal
+        total = sum(parts[:8])
         idle = parts[3] + (parts[4] if len(parts) > 4 else 0)
         
-        prev_total, prev_idle = None, None
+        prev_time, prev_total, prev_idle, prev_pct = None, None, None, 0
         if STATE_FILE.exists():
             try:
                 txt = STATE_FILE.read_text().split()
-                if len(txt) == 2:
-                    prev_total, prev_idle = int(txt[0]), int(txt[1])
+                if len(txt) >= 3:
+                    prev_time = float(txt[0])
+                    prev_total = int(txt[1])
+                    prev_idle = int(txt[2])
+                    if len(txt) >= 4:
+                        prev_pct = int(txt[3])
             except Exception:
                 pass
         
-        STATE_FILE.write_text(f"{total} {idle}")
-        
-        if prev_total is not None and total > prev_total:
-            d_tot = total - prev_total
-            d_idl = idle - prev_idle
-            pct = round(100.0 * (d_tot - d_idl) / d_tot)
-            return max(0, min(100, pct))
+        pct = prev_pct
+        if prev_total is not None and total > prev_total and prev_time is not None:
+            dt = now - prev_time
+            # Require at least 400ms delta to prevent jiffy quantization spikes
+            if dt >= 0.4:
+                d_tot = total - prev_total
+                d_idl = idle - prev_idle
+                if d_tot > 0:
+                    raw_pct = round(100.0 * (d_tot - d_idl) / d_tot)
+                    pct = max(0, min(100, raw_pct))
+                    tmp_state = f"{STATE_FILE}.{os.getpid()}"
+                    Path(tmp_state).write_text(f"{now} {total} {idle} {pct}")
+                    os.replace(tmp_state, STATE_FILE)
+                    return pct
+
+        if prev_total is None:
+            time.sleep(0.06)
+            with open("/proc/stat", "r") as f:
+                first2 = f.readline()
+            parts2 = [int(x) for x in first2.split()[1:]]
+            total2 = sum(parts2[:8])
+            idle2 = parts2[3] + (parts2[4] if len(parts2) > 4 else 0)
+            d_tot = total2 - total
+            d_idl = idle2 - idle
+            if d_tot > 0:
+                raw_pct = round(100.0 * (d_tot - d_idl) / d_tot)
+                pct = max(0, min(100, raw_pct))
+            tmp_state = f"{STATE_FILE}.{os.getpid()}"
+            Path(tmp_state).write_text(f"{now + 0.06} {total2} {idle2} {pct}")
+            os.replace(tmp_state, STATE_FILE)
+            return pct
+
+        return pct
     except Exception:
-        pass
-    return 0
+        return 0
 
 def get_ram():
     try:
@@ -112,18 +159,17 @@ def get_freq():
 
 def get_thermald():
     try:
-        for p in Path("/proc").glob("[0-9]*"):
-            try:
-                cmdline = (p / "cmdline").read_bytes()
-                if b"thermald" in cmdline:
-                    return True
-            except Exception:
-                pass
+        if Path("/run/thermald/thermald.pid").exists():
+            return True
+        return os.path.exists("/proc/1") and os.system("pgrep -x thermald >/dev/null 2>&1") == 0
     except Exception:
-        pass
-    return False
+        return False
 
+CPU_INFO_CACHE = None
 def get_cpu_info():
+    global CPU_INFO_CACHE
+    if CPU_INFO_CACHE is not None:
+        return CPU_INFO_CACHE
     try:
         with open("/proc/cpuinfo") as f:
             for line in f:
@@ -132,10 +178,12 @@ def get_cpu_info():
                     c = c.replace("Intel(R) Core(TM) ", "").replace("Intel(R) ", "").replace("AMD Ryzen ", "Ryzen ")
                     c = c.split(" @ ")[0].strip()
                     short = " ".join(c.split()[:2]) if "Ultra" in c else c
-                    return short, c
+                    CPU_INFO_CACHE = (short, c)
+                    return CPU_INFO_CACHE
     except Exception:
         pass
-    return "Ultra 5", "Ultra 5 125H"
+    CPU_INFO_CACHE = ("Ultra 5", "Ultra 5 125H")
+    return CPU_INFO_CACHE
 
 def main():
     cpu = get_cpu()
@@ -146,7 +194,7 @@ def main():
     thermald_active = get_thermald()
     cpu_short, cpu_full = get_cpu_info()
     
-    print(json.dumps({
+    out = json.dumps({
         "cpu": cpu,
         "ram_pct": ram_pct,
         "ram_used": ram_used,
@@ -157,7 +205,16 @@ def main():
         "thermald": thermald_active,
         "cpu_name": cpu_short,
         "cpu_full": cpu_full
-    }))
+    })
+
+    try:
+        tmp_cache = f"{CACHE_FILE}.{os.getpid()}"
+        Path(tmp_cache).write_text(out)
+        os.replace(tmp_cache, CACHE_FILE)
+    except Exception:
+        pass
+
+    print(out)
 
 if __name__ == "__main__":
     main()

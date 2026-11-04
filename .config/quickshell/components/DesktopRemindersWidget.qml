@@ -253,6 +253,8 @@ Rectangle {
                                     radius: width / 2
                                     color: {
                                         if (parent.catLow === "projects") return "#10b981";
+                                        if (parent.catLow === "workshops" || parent.catLow === "workshop") return "#8b5cf6";
+                                        if (parent.catLow === "community") return "#06b6d4";
                                         if (parent.catLow === "free lance" || parent.catLow === "free-lance" || parent.catLow === "freelance") return "#06b6d4";
                                         if (parent.catLow === "gym") return "#eab308";
                                         if (parent.catLow === "family") return "#f43f5e";
@@ -276,6 +278,7 @@ Rectangle {
                                     fillMode: Image.PreserveAspectFit
                                     smooth: true
                                 }
+
 
                                 Image {
                                     visible: parent.isF1

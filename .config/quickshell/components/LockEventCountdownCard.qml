@@ -5,8 +5,9 @@ import "../theme"
 
 // ==============================================================================
 // LOCK EVENT COUNTDOWN CARD — 280x330 Apple Obsidian Liquid Glass
-// Sits directly next to LockCalendarCard in the lock screen control panel.
-// Target: "NSQK presenta Mosca" (2027-02-27 at 18:00).
+// Sits directly next to LockDoomsdayCountdownCard in the lock screen control panel.
+// Target: "NSQK presenta Mosca" (2027-02-27 at 20:00).
+// 5-segment liquid glass pill boxes: MONTHS : DAYS : HOURS : MIN : SEC
 // ==============================================================================
 Rectangle {
     id: root
@@ -21,7 +22,7 @@ Rectangle {
     readonly property string defaultPosterPath: "file://" + Quickshell.shellPath("assets/nsqk-mosca.jpg")
     property string posterPath: defaultPosterPath
 
-    implicitWidth: 280
+    implicitWidth: 310
     implicitHeight: 330
     radius: 16
     color: theme.popupBg
@@ -35,6 +36,7 @@ Rectangle {
     property string eventTimeLabel: "8:00 PM"
     property string eventLocation: "Auditorio Josefa · Live"
 
+    property int months: 0
     property int days: 0
     property int hours: 0
     property int minutes: 0
@@ -62,8 +64,7 @@ Rectangle {
             for (let i = 0; i < root.reminders.length; i++) {
                 let r = root.reminders[i];
                 let title = (r.title || "").toLowerCase();
-                // Specifically match the future Mosca concert reminder
-                if (title.indexOf("mosca") !== -1 || r.date === "2027-02-27") {
+                if (title.indexOf("mosca") !== -1 || title.indexOf("nsqk") !== -1 || r.date === "2027-02-27") {
                     if (r.date) {
                         let parts = r.date.split("-");
                         let y = parseInt(parts[0], 10);
@@ -98,9 +99,9 @@ Rectangle {
     function updateCountdown() {
         let target = resolveTargetDate();
         let now = new Date();
-        let diff = target.getTime() - now.getTime();
 
-        if (diff <= 0) {
+        if (target.getTime() <= now.getTime()) {
+            root.months = 0;
             root.days = 0;
             root.hours = 0;
             root.minutes = 0;
@@ -110,13 +111,33 @@ Rectangle {
         }
 
         root.eventPassed = false;
-        let totalSecs = Math.floor(diff / 1000);
-        root.days = Math.floor(totalSecs / 86400);
-        totalSecs %= 86400;
-        root.hours = Math.floor(totalSecs / 3600);
-        totalSecs %= 3600;
-        root.minutes = Math.floor(totalSecs / 60);
-        root.seconds = totalSecs % 60;
+
+        let yDiff = target.getFullYear() - now.getFullYear();
+        let mDiff = target.getMonth() - now.getMonth() + yDiff * 12;
+
+        let anchor = new Date(now.getTime());
+        anchor.setFullYear(now.getFullYear() + Math.floor((now.getMonth() + mDiff) / 12));
+        anchor.setMonth(((now.getMonth() + mDiff) % 12 + 12) % 12);
+
+        if (anchor.getTime() > target.getTime()) {
+            mDiff--;
+            anchor = new Date(now.getTime());
+            let targetMonthIndex = now.getMonth() + mDiff;
+            anchor.setFullYear(now.getFullYear() + Math.floor(targetMonthIndex / 12));
+            anchor.setMonth(((targetMonthIndex % 12) + 12) % 12);
+        }
+
+        let diffSecs = Math.floor((target.getTime() - anchor.getTime()) / 1000);
+        let sec = diffSecs % 60;
+        let min = Math.floor(diffSecs / 60) % 60;
+        let hr = Math.floor(diffSecs / 3600) % 24;
+        let dy = Math.floor(diffSecs / 86400);
+
+        root.months = Math.max(0, mDiff);
+        root.days = Math.max(0, dy);
+        root.hours = Math.max(0, hr);
+        root.minutes = Math.max(0, min);
+        root.seconds = Math.max(0, sec);
     }
 
     Timer {
@@ -182,27 +203,32 @@ Rectangle {
         }
     }
 
-    // ---- HEADER (matches LockCalendarCard layout: x: 16, y: 14) ----
+    // ---- HEADER: NSQK Logo & MOSCA Typography ----
     Row {
         id: header
         x: 16; y: 14
         width: parent.width - 32
+        spacing: 10
         z: 3
 
-        Text {
-            text: "NSQK"
-            color: theme.text
-            font.family: theme.fontFamily
-            font.pixelSize: 17
-            font.weight: Font.Bold
+        Image {
+            source: "file://" + Quickshell.shellPath("assets/nsqk-logo-white.png")
+            width: 44
+            height: 22
+            fillMode: Image.PreserveAspectFit
+            anchors.verticalCenter: parent.verticalCenter
+            smooth: true
         }
+
         Text {
-            leftPadding: 6
-            text: "Mosca"
-            color: theme.textDim
-            font.family: theme.fontFamily
-            font.pixelSize: 17
-            font.weight: Font.Medium
+            anchors.verticalCenter: parent.verticalCenter
+            text: "MOSCA"
+            color: "#ffffff"
+            font.family: root.iconFont
+            font.pixelSize: 18
+            font.weight: Font.Black
+            font.italic: true
+            font.letterSpacing: 2.5
         }
     }
 
@@ -218,34 +244,34 @@ Rectangle {
             text: "󰽰"
             font.family: root.iconFont
             font.pixelSize: 12
-            color: Qt.rgba(255, 255, 255, 0.50)
+            color: Qt.rgba(255, 255, 255, 0.65)
         }
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: "Third Studio Album"
+            text: "NSQK presenta Mosca · Live"
             color: Qt.rgba(255, 255, 255, 0.55)
             font.family: theme.fontFamily
-            font.pixelSize: 11
-            font.weight: Font.Normal
+            font.pixelSize: 10
+            font.weight: Font.Medium
         }
     }
 
-    // ---- MAIN COUNTDOWN (4 SEGMENTED GLASS PILLS) ----
+    // ---- MAIN COUNTDOWN (5 SEGMENTED LIQUID GLASS PILLS) ----
     Column {
         anchors.centerIn: parent
         anchors.verticalCenterOffset: 6
         spacing: 12
         z: 3
 
-        // 4 Segmented countdown units
+        // 5 Segmented countdown units
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 5
+            spacing: 3
 
-            // 1. DAYS
+            // 1. MONTHS
             Rectangle {
-                width: 55
+                width: 44
                 height: 54
                 radius: 10
                 color: Qt.rgba(255, 255, 255, 0.05)
@@ -258,10 +284,56 @@ Rectangle {
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.days.toString()
+                        text: root.pad2(root.months)
                         font.family: root.iconFont
-                        font.pixelSize: 19
+                        font.pixelSize: 18
                         font.weight: Font.Bold
+                        font.italic: true
+                        color: "#ffffff"
+                    }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "MONTH"
+                        font.family: theme.fontFamily
+                        font.pixelSize: 8
+                        font.weight: Font.Bold
+                        font.letterSpacing: 0.5
+                        color: Qt.rgba(255, 255, 255, 0.50)
+                    }
+                }
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: -4
+                text: ":"
+                font.family: root.iconFont
+                font.pixelSize: 13
+                font.weight: Font.Bold
+                color: Qt.rgba(255, 255, 255, 0.35)
+            }
+
+            // 2. DAYS
+            Rectangle {
+                width: 44
+                height: 54
+                radius: 10
+                color: Qt.rgba(255, 255, 255, 0.05)
+                border.width: 1
+                border.color: Qt.rgba(255, 255, 255, 0.09)
+
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 2
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: root.pad2(root.days)
+                        font.family: root.iconFont
+                        font.pixelSize: 18
+                        font.weight: Font.Bold
+                        font.italic: true
                         color: "#ffffff"
                     }
 
@@ -282,14 +354,14 @@ Rectangle {
                 anchors.verticalCenterOffset: -4
                 text: ":"
                 font.family: root.iconFont
-                font.pixelSize: 14
+                font.pixelSize: 13
                 font.weight: Font.Bold
                 color: Qt.rgba(255, 255, 255, 0.35)
             }
 
-            // 2. HOURS
+            // 3. HOURS
             Rectangle {
-                width: 53
+                width: 44
                 height: 54
                 radius: 10
                 color: Qt.rgba(255, 255, 255, 0.05)
@@ -304,8 +376,9 @@ Rectangle {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: root.pad2(root.hours)
                         font.family: root.iconFont
-                        font.pixelSize: 19
+                        font.pixelSize: 18
                         font.weight: Font.Bold
+                        font.italic: true
                         color: "#ffffff"
                     }
 
@@ -326,14 +399,14 @@ Rectangle {
                 anchors.verticalCenterOffset: -4
                 text: ":"
                 font.family: root.iconFont
-                font.pixelSize: 14
+                font.pixelSize: 13
                 font.weight: Font.Bold
                 color: Qt.rgba(255, 255, 255, 0.35)
             }
 
-            // 3. MINUTES
+            // 4. MINUTES
             Rectangle {
-                width: 53
+                width: 44
                 height: 54
                 radius: 10
                 color: Qt.rgba(255, 255, 255, 0.05)
@@ -348,8 +421,9 @@ Rectangle {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: root.pad2(root.minutes)
                         font.family: root.iconFont
-                        font.pixelSize: 19
+                        font.pixelSize: 18
                         font.weight: Font.Bold
+                        font.italic: true
                         color: "#ffffff"
                     }
 
@@ -370,14 +444,14 @@ Rectangle {
                 anchors.verticalCenterOffset: -4
                 text: ":"
                 font.family: root.iconFont
-                font.pixelSize: 14
+                font.pixelSize: 13
                 font.weight: Font.Bold
                 color: Qt.rgba(255, 255, 255, 0.35)
             }
 
-            // 4. SECONDS
+            // 5. SECONDS
             Rectangle {
-                width: 53
+                width: 44
                 height: 54
                 radius: 10
                 color: Qt.rgba(255, 255, 255, 0.05)
@@ -392,8 +466,9 @@ Rectangle {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: root.pad2(root.seconds)
                         font.family: root.iconFont
-                        font.pixelSize: 19
+                        font.pixelSize: 18
                         font.weight: Font.Bold
+                        font.italic: true
                         color: "#ffffff"
                     }
 
@@ -439,12 +514,12 @@ Rectangle {
 
             Column {
                 anchors.centerIn: parent
-                spacing: -1
+                spacing: -2
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "FEB"
-                    color: Qt.rgba(255, 255, 255, 0.70)
+                    color: root.accent
                     font.family: theme.fontFamily
                     font.pixelSize: 8
                     font.weight: Font.Bold
@@ -454,8 +529,8 @@ Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "27"
                     color: "#ffffff"
-                    font.family: theme.fontFamily
-                    font.pixelSize: 15
+                    font.family: root.iconFont
+                    font.pixelSize: 16
                     font.weight: Font.Bold
                 }
             }

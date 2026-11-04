@@ -21,13 +21,15 @@ CATEGORIES_FILE = DATA_DIR / "categories.json"
 DEFAULT_CATEGORIES = {
     "Personal": {"color": "#f97316", "icon": "user"},
     "Sara": {"color": "#ff2d55", "icon": "heart"},
-    "Marvel": {"color": "#ed1d24", "icon": "marvel"},
+    "Marvel": {"color": "#10b981", "icon": "marvel"},
     "Colgate-Palmolive": {"color": "#0067fe", "icon": "briefcase"},
-    "Projects": {"color": "#10b981", "icon": "folder"},
+    "Projects": {"color": "#14b8a6", "icon": "folder"},
     "Free Lance": {"color": "#06b6d4", "icon": "laptop"},
     "School": {"color": "#a855f7", "icon": "book"},
     "F1": {"color": "#E10600", "icon": "f1"},
     "Gym": {"color": "#eab308", "icon": "dumbbell"},
+    "Workshops": {"color": "#8b5cf6", "icon": "presentation"},
+    "Community": {"color": "#f59e0b", "icon": "users"},
     "Family": {"color": "#f43f5e", "icon": "home"},
     "Travel": {"color": "#38bdf8", "icon": "plane"}
 }

@@ -100,16 +100,18 @@ Item {
         "July", "August", "September", "October", "November", "December"
     ]
 
-    // Distinct Category Colors
+    // Distinct Category Colors (Every single category has a unique hex color, with Marvel as Doom Green #10b981)
     readonly property var categoryColors: ({
         "F1": "#E10600",
         "Colgate-Palmolive": "#0067fe",
-        "Projects": "#10b981",
+        "Projects": "#14b8a6",
         "Free Lance": "#06b6d4",
+        "Workshops": "#8b5cf6",
+        "Community": "#f59e0b",
         "School": "#a855f7",
         "Personal": "#f97316",
         "Sara": "#ff2d55",
-        "Marvel": "#ed1d24",
+        "Marvel": "#10b981",
         "Gym": "#eab308",
         "Family": "#f43f5e",
         "Travel": "#38bdf8"
@@ -120,10 +122,12 @@ Item {
         let c = (cat || "").toLowerCase();
         let t = (title || "").toLowerCase();
         if (c === "sara" || t.indexOf("sara") !== -1) return "#ff2d55";
-        if (c === "marvel" || t.indexOf("doomsday") !== -1 || t.indexOf("marvel") !== -1) return "#ed1d24";
+        if (c === "marvel" || t.indexOf("doomsday") !== -1 || t.indexOf("marvel") !== -1) return "#10b981";
         if (c === "f1") return "#E10600";
         if (c === "colgate-palmolive") return "#0067fe";
-        if (c === "projects") return "#10b981";
+        if (c === "projects") return "#14b8a6";
+        if (c === "workshops" || c === "workshop" || t.indexOf("workshop") !== -1) return "#8b5cf6";
+        if (c === "community" || t.indexOf("figma") !== -1 || t.indexOf("meetup") !== -1) return "#f59e0b";
         if (c === "free lance" || c === "free-lance" || c === "freelance") return "#06b6d4";
         if (c === "school") return "#a855f7";
         if (c === "personal") return "#f97316";
@@ -133,7 +137,7 @@ Item {
         return categoryColors[cat] || "#38bdf8";
     }
 
-    property var baseCategories: ["F1", "Colgate-Palmolive", "Projects", "Free Lance", "School", "Personal", "Sara", "Marvel", "Gym", "Family"]
+    property var baseCategories: ["F1", "Colgate-Palmolive", "Projects", "Free Lance", "Workshops", "Community", "School", "Personal", "Sara", "Marvel", "Gym", "Family", "Travel"]
     property var customCategories: []
     property var availableCategories: {
         let list = baseCategories.concat(customCategories);
@@ -235,6 +239,7 @@ Item {
     }
 
     property string selectedCategory: "All"
+    property bool filterDropdownOpen: false
     property bool showAddForm: false
     property string editingReminderId: ""
 
@@ -338,6 +343,8 @@ Item {
         addFormRect.formNotes = item.notes || "";
         addFormRect.formPhoto = item.photo || "";
         addFormRect.titleError = false;
+        addFormRect.showTimePicker = false;
+        addFormRect.formCatDropdownOpen = false;
         Qt.callLater(() => titleInput.forceActiveFocus());
     }
 
@@ -348,6 +355,8 @@ Item {
         addFormRect.formNotes = "";
         addFormRect.formPhoto = "";
         addFormRect.titleError = false;
+        addFormRect.showTimePicker = false;
+        addFormRect.formCatDropdownOpen = false;
     }
 
     function toggleReminder(remId) {
@@ -1159,166 +1168,261 @@ Item {
                                 }
                             }
 
-                            // Category Filter Segmented Pills (Flow Layout)
-                            Flow {
+                            // Category Filter Dropdown
+                            Column {
                                 width: parent.width
-                                spacing: 5
+                                spacing: 4
 
-                                Repeater {
-                                    model: ["All"].concat(root.availableCategories)
-                                    Rectangle {
-                                        id: segPill
-                                        property bool isAct: root.selectedCategory === modelData
-                                        property color catCol: root.getCategoryColor(modelData)
-                                        width: segRow.implicitWidth + (modelData === "F1" ? 18 : (modelData === "Colgate-Palmolive" ? 18 : (modelData === "School" ? 16 : (modelData === "Sara" ? 16 : (modelData === "Marvel" ? 22 : 14)))))
-                                        height: 22
-                                        radius: 11
+                                // Dropdown Button
+                                Rectangle {
+                                    id: filterDropBtn
+                                    width: parent.width
+                                    height: 30
+                                    radius: 7
+                                    color: filterDropMa.containsMouse ? theme.surfaceHover : theme.surface
+                                    border.color: root.filterDropdownOpen ? theme.frost : theme.borderSubtle
+                                    border.width: 1
 
-                                        color: {
-                                            if (isAct) {
-                                                if (modelData === "All") return Qt.rgba(255, 255, 255, 0.18);
-                                                return Qt.rgba(catCol.r, catCol.g, catCol.b, 0.22);
-                                            }
-                                            return segMa.containsMouse ? theme.surfaceHover : "transparent";
+                                    Row {
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 8
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 7
+
+                                        Text {
+                                            text: "󰈲"
+                                            font.family: "GeistMono Nerd Font Propo"
+                                            font.pixelSize: 11
+                                            color: root.selectedCategory === "All" ? theme.textDim : root.getCategoryColor(root.selectedCategory)
+                                            anchors.verticalCenter: parent.verticalCenter
                                         }
 
-                                        border.color: {
-                                            if (isAct) {
-                                                if (modelData === "All") return theme.frost;
-                                                return catCol;
-                                            }
-                                            if (segMa.containsMouse) {
-                                                return Qt.rgba(catCol.r, catCol.g, catCol.b, 0.4);
-                                            }
-                                            return theme.borderSubtle;
-                                        }
-                                        border.width: 1
+                                        Item {
+                                            visible: root.selectedCategory !== "All"
+                                            width: root.selectedCategory === "F1" ? 14 : (root.selectedCategory === "Colgate-Palmolive" ? 13 : (root.selectedCategory === "School" ? 12 : (root.selectedCategory === "Sara" ? 12 : (root.selectedCategory === "Marvel" ? 18 : 8))))
+                                            height: root.selectedCategory === "F1" ? 10 : (root.selectedCategory === "Colgate-Palmolive" ? 9 : (root.selectedCategory === "School" ? 12 : (root.selectedCategory === "Sara" ? 12 : (root.selectedCategory === "Marvel" ? 9 : 8))))
+                                            anchors.verticalCenter: parent.verticalCenter
 
-                                        // F1 Active Red Pulse
+                                            Image {
+                                                visible: root.selectedCategory === "F1"
+                                                anchors.fill: parent
+                                                source: "file:///home/ferram/.local/share/icons/f1.svg"
+                                                fillMode: Image.PreserveAspectFit
+                                                smooth: true
+                                            }
+                                            Image {
+                                                visible: root.selectedCategory === "Colgate-Palmolive"
+                                                anchors.fill: parent
+                                                source: "file:///home/ferram/.local/share/icons/cp.svg"
+                                                fillMode: Image.PreserveAspectFit
+                                                smooth: true
+                                            }
+                                            Image {
+                                                visible: root.selectedCategory === "School"
+                                                anchors.fill: parent
+                                                source: "file:///home/ferram/.local/share/icons/troyanos.svg"
+                                                fillMode: Image.PreserveAspectFit
+                                                smooth: true
+                                            }
+                                            Image {
+                                                visible: root.selectedCategory === "Sara"
+                                                anchors.fill: parent
+                                                source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
+                                                fillMode: Image.PreserveAspectFit
+                                                smooth: true
+                                            }
+                                            Image {
+                                                visible: root.selectedCategory === "Marvel"
+                                                anchors.fill: parent
+                                                source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                                fillMode: Image.PreserveAspectFit
+                                                smooth: true
+                                            }
+                                            Rectangle {
+                                                visible: root.selectedCategory !== "F1" && root.selectedCategory !== "Colgate-Palmolive" && root.selectedCategory !== "School" && root.selectedCategory !== "Sara" && root.selectedCategory !== "Marvel"
+                                                anchors.fill: parent
+                                                radius: width / 2
+                                                color: root.getCategoryColor(root.selectedCategory)
+                                            }
+                                        }
+
+                                        Text {
+                                            text: root.selectedCategory === "All" ? "Filter: All Categories" : ("Filter: " + root.selectedCategory)
+                                            color: root.selectedCategory === "All" ? theme.textSub : theme.text
+                                            font.family: theme.fontFamily
+                                            font.pixelSize: 10
+                                            font.weight: root.selectedCategory === "All" ? Font.Medium : Font.Bold
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                    }
+
+                                    // Right controls: Clear button (if filtered) + Chevron
+                                    Row {
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 8
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 6
+
                                         Rectangle {
-                                            visible: modelData === "F1" && segPill.isAct
-                                            anchors.fill: parent
-                                            radius: parent.radius
-                                            color: "transparent"
-                                            border.color: "#E10600"
-                                            border.width: 1
-                                            opacity: 0.8
-                                            SequentialAnimation on opacity {
-                                                running: modelData === "F1" && segPill.isAct
-                                                loops: Animation.Infinite
-                                                NumberAnimation { from: 0.35; to: 1.0; duration: 900; easing.type: Easing.InOutSine }
-                                                NumberAnimation { from: 1.0; to: 0.35; duration: 900; easing.type: Easing.InOutSine }
-                                            }
-                                        }
-
-                                        // Sara Active Heart Pulse
-                                        Rectangle {
-                                            visible: modelData === "Sara" && segPill.isAct
-                                            anchors.fill: parent
-                                            radius: parent.radius
-                                            color: "transparent"
-                                            border.color: "#ff2d55"
-                                            border.width: 1
-                                            opacity: 0.8
-                                            SequentialAnimation on opacity {
-                                                running: modelData === "Sara" && segPill.isAct
-                                                loops: Animation.Infinite
-                                                NumberAnimation { from: 0.35; to: 1.0; duration: 900; easing.type: Easing.InOutSine }
-                                                NumberAnimation { from: 1.0; to: 0.35; duration: 900; easing.type: Easing.InOutSine }
-                                            }
-                                        }
-
-                                        Row {
-                                            id: segRow
-                                            anchors.centerIn: parent
-                                            spacing: 5
-
-                                            // Category Indicator (F1 SVG, CP SVG, Troyanos SVG, Heart SVG, Marvel SVG, or Dot)
-                                            Item {
-                                                width: modelData === "F1" ? 14 : (modelData === "Colgate-Palmolive" ? 13 : (modelData === "School" ? 11 : (modelData === "Sara" ? 12 : (modelData === "Marvel" ? 18 : 5))))
-                                                height: modelData === "F1" ? 10 : (modelData === "Colgate-Palmolive" ? 9 : (modelData === "School" ? 11 : (modelData === "Sara" ? 12 : (modelData === "Marvel" ? 8 : 5))))
-                                                anchors.verticalCenter: parent.verticalCenter
-
-                                                Rectangle {
-                                                    visible: modelData !== "F1" && modelData !== "Colgate-Palmolive" && modelData !== "School" && modelData !== "Sara" && modelData !== "Marvel"
-                                                    anchors.fill: parent
-                                                    radius: width / 2
-                                                    color: segPill.catCol
-                                                    opacity: segPill.isAct ? 1.0 : 0.6
-                                                }
-
-                                                Image {
-                                                    visible: modelData === "F1"
-                                                    anchors.fill: parent
-                                                    source: segPill.isAct ? "file:///home/ferram/.local/share/icons/f1-white.svg" : "file:///home/ferram/.local/share/icons/f1.svg"
-                                                    fillMode: Image.PreserveAspectFit
-                                                    smooth: true
-
-                                                    scale: 1.0
-                                                    SequentialAnimation on scale {
-                                                        running: modelData === "F1" && segPill.isAct
-                                                        loops: Animation.Infinite
-                                                        NumberAnimation { from: 0.90; to: 1.10; duration: 900; easing.type: Easing.InOutSine }
-                                                        NumberAnimation { from: 1.10; to: 0.90; duration: 900; easing.type: Easing.InOutSine }
-                                                    }
-                                                }
-
-                                                Image {
-                                                    visible: modelData === "Colgate-Palmolive"
-                                                    anchors.fill: parent
-                                                    source: "file:///home/ferram/.local/share/icons/cp.svg"
-                                                    fillMode: Image.PreserveAspectFit
-                                                    smooth: true
-                                                    opacity: segPill.isAct ? 1.0 : 0.75
-                                                }
-
-                                                Image {
-                                                    visible: modelData === "School"
-                                                    anchors.fill: parent
-                                                    source: "file:///home/ferram/.local/share/icons/troyanos.svg"
-                                                    fillMode: Image.PreserveAspectFit
-                                                    smooth: true
-                                                    opacity: segPill.isAct ? 1.0 : 0.75
-                                                }
-
-                                                Image {
-                                                    visible: modelData === "Sara"
-                                                    anchors.fill: parent
-                                                    source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
-                                                    fillMode: Image.PreserveAspectFit
-                                                    smooth: true
-                                                }
-
-                                                Image {
-                                                    visible: modelData === "Marvel"
-                                                    anchors.fill: parent
-                                                    source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
-                                                    fillMode: Image.PreserveAspectFit
-                                                    smooth: true
-                                                }
-                                            }
+                                            visible: root.selectedCategory !== "All"
+                                            width: 16
+                                            height: 16
+                                            radius: 8
+                                            color: clearFMa.containsMouse ? Qt.rgba(255, 255, 255, 0.22) : Qt.rgba(255, 255, 255, 0.08)
+                                            anchors.verticalCenter: parent.verticalCenter
 
                                             Text {
-                                                text: modelData === "All" ? "All" : modelData
-                                                color: {
-                                                    if (segPill.isAct) {
-                                                        return modelData === "All" ? theme.text : segPill.catCol;
-                                                    }
-                                                    return segMa.containsMouse ? theme.textSub : theme.textMuted;
-                                                }
-                                                font.family: theme.fontFamily
-                                                font.pixelSize: 9
-                                                font.weight: segPill.isAct ? Font.Bold : Font.Normal
-                                                anchors.verticalCenter: parent.verticalCenter
+                                                anchors.centerIn: parent
+                                                text: "✕"
+                                                font.pixelSize: 7
+                                                color: theme.textMuted
+                                            }
+                                            MouseArea {
+                                                id: clearFMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.selectedCategory = "All"
                                             }
                                         }
 
-                                        MouseArea {
-                                            id: segMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.selectedCategory = modelData
+                                        Text {
+                                            text: root.filterDropdownOpen ? "▲" : "▼"
+                                            color: theme.textDim
+                                            font.pixelSize: 7
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: filterDropMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.filterDropdownOpen = !root.filterDropdownOpen
+                                    }
+                                }
+
+                                // Dropdown List Menu
+                                Rectangle {
+                                    visible: root.filterDropdownOpen
+                                    width: parent.width
+                                    implicitHeight: Math.min(210, filterListCol.implicitHeight + 10)
+                                    color: theme.bgDark
+                                    radius: 7
+                                    border.color: theme.borderGlow
+                                    border.width: 1
+                                    clip: true
+
+                                    Flickable {
+                                        anchors.fill: parent
+                                        anchors.margins: 4
+                                        contentHeight: filterListCol.implicitHeight
+                                        clip: true
+
+                                        Column {
+                                            id: filterListCol
+                                            width: parent.width
+                                            spacing: 2
+
+                                            Repeater {
+                                                model: ["All"].concat(root.availableCategories)
+                                                Rectangle {
+                                                    id: filterOptRect
+                                                    property bool isAct: root.selectedCategory === modelData
+                                                    property color catCol: root.getCategoryColor(modelData)
+                                                    width: parent.width
+                                                    height: 25
+                                                    radius: 4
+                                                    color: isAct ? Qt.rgba(catCol.r, catCol.g, catCol.b, 0.20) : (fOptMa.containsMouse ? theme.surfaceHover : "transparent")
+
+                                                    Row {
+                                                        anchors.left: parent.left
+                                                        anchors.leftMargin: 8
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        spacing: 7
+
+                                                        Item {
+                                                            width: modelData === "F1" ? 14 : (modelData === "Colgate-Palmolive" ? 13 : (modelData === "School" ? 12 : (modelData === "Sara" ? 12 : (modelData === "Marvel" ? 18 : 7))))
+                                                            height: modelData === "F1" ? 10 : (modelData === "Colgate-Palmolive" ? 9 : (modelData === "School" ? 12 : (modelData === "Sara" ? 12 : (modelData === "Marvel" ? 9 : 7))))
+                                                            anchors.verticalCenter: parent.verticalCenter
+
+                                                            Image {
+                                                                visible: modelData === "F1"
+                                                                anchors.fill: parent
+                                                                source: "file:///home/ferram/.local/share/icons/f1.svg"
+                                                                fillMode: Image.PreserveAspectFit
+                                                                smooth: true
+                                                            }
+                                                            Image {
+                                                                visible: modelData === "Colgate-Palmolive"
+                                                                anchors.fill: parent
+                                                                source: "file:///home/ferram/.local/share/icons/cp.svg"
+                                                                fillMode: Image.PreserveAspectFit
+                                                                smooth: true
+                                                            }
+                                                            Image {
+                                                                visible: modelData === "School"
+                                                                anchors.fill: parent
+                                                                source: "file:///home/ferram/.local/share/icons/troyanos.svg"
+                                                                fillMode: Image.PreserveAspectFit
+                                                                smooth: true
+                                                            }
+                                                            Image {
+                                                                visible: modelData === "Sara"
+                                                                anchors.fill: parent
+                                                                source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
+                                                                fillMode: Image.PreserveAspectFit
+                                                                smooth: true
+                                                            }
+                                                            Image {
+                                                                visible: modelData === "Marvel"
+                                                                anchors.fill: parent
+                                                                source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                                                fillMode: Image.PreserveAspectFit
+                                                                smooth: true
+                                                            }
+                                                            Rectangle {
+                                                                visible: modelData !== "F1" && modelData !== "Colgate-Palmolive" && modelData !== "School" && modelData !== "Sara" && modelData !== "Marvel"
+                                                                anchors.fill: parent
+                                                                radius: width / 2
+                                                                color: modelData === "All" ? theme.frost : filterOptRect.catCol
+                                                            }
+                                                        }
+
+                                                        Text {
+                                                            text: modelData === "All" ? "All Categories" : modelData
+                                                            color: filterOptRect.isAct ? (modelData === "All" ? theme.frost : filterOptRect.catCol) : (fOptMa.containsMouse ? theme.text : theme.textSub)
+                                                            font.family: theme.fontFamily
+                                                            font.pixelSize: 10
+                                                            font.weight: filterOptRect.isAct ? Font.Bold : Font.Normal
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                        }
+                                                    }
+
+                                                    Text {
+                                                        visible: filterOptRect.isAct
+                                                        anchors.right: parent.right
+                                                        anchors.rightMargin: 8
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        text: "✓"
+                                                        color: modelData === "All" ? theme.frost : filterOptRect.catCol
+                                                        font.pixelSize: 10
+                                                        font.weight: Font.Bold
+                                                    }
+
+                                                    MouseArea {
+                                                        id: fOptMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: {
+                                                            root.selectedCategory = modelData;
+                                                            root.filterDropdownOpen = false;
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1339,6 +1443,27 @@ Item {
                                 property string formNotes: ""
                                 property string formPhoto: ""
                                 property bool titleError: false
+                                property bool showTimePicker: false
+                                property bool formCatDropdownOpen: false
+                                property string timePickerMode: "hours"
+
+                                function getCurH24() {
+                                    let parts = (timeInput && timeInput.text) ? timeInput.text.split(":") : ["12", "00"];
+                                    return parseInt(parts[0], 10) || 0;
+                                }
+
+                                function getCurMin() {
+                                    let parts = (timeInput && timeInput.text) ? timeInput.text.split(":") : ["12", "00"];
+                                    return parseInt(parts[1], 10) || 0;
+                                }
+
+                                function setTime(h24, min) {
+                                    h24 = Math.max(0, Math.min(23, h24));
+                                    min = Math.max(0, Math.min(59, min));
+                                    let sH = h24 < 10 ? ("0" + h24) : ("" + h24);
+                                    let sM = min < 10 ? ("0" + min) : ("" + min);
+                                    if (timeInput) timeInput.text = sH + ":" + sM;
+                                }
 
                                 function doSave() {
                                     let t = titleInput.text.trim();
@@ -1493,64 +1618,537 @@ Item {
                                         }
                                     }
 
-                                    // Time and Category selector
+                                    // Invisible backing state for timeInput to preserve existing API compatibility
+                                    TextInput {
+                                        id: timeInput
+                                        visible: false
+                                        text: Qt.formatDateTime(new Date(Date.now() + 300000), "hh:mm")
+                                    }
+
+                                    // Time and Category Trigger Buttons
                                     Row {
                                         width: parent.width
                                         spacing: 8
 
-                                        // Time input with stepper buttons
-                                        Row {
-                                            spacing: 3
-                                            anchors.verticalCenter: parent.verticalCenter
+                                        // Android Clock Time Trigger Button
+                                        Rectangle {
+                                            id: timeBtnRect
+                                            width: 110
+                                            height: 32
+                                            radius: 6
+                                            color: timeBtnMa.containsMouse ? theme.surfaceHover : theme.surface
+                                            border.color: addFormRect.showTimePicker ? theme.frost : theme.borderSubtle
+                                            border.width: 1
 
-                                            Rectangle {
-                                                width: 58
-                                                height: 24
-                                                radius: 6
-                                                color: theme.surface
-                                                border.color: timeInput.activeFocus ? theme.frost : theme.borderSubtle
-                                                border.width: 1
+                                            Row {
+                                                anchors.centerIn: parent
+                                                spacing: 6
 
-                                                TextInput {
-                                                    id: timeInput
-                                                    anchors.fill: parent
-                                                    anchors.margins: 3
-                                                    text: Qt.formatDateTime(new Date(Date.now() + 300000), "hh:mm")
+                                                Text {
+                                                    text: "󱑎"
+                                                    font.family: "GeistMono Nerd Font Propo"
+                                                    font.pixelSize: 13
+                                                    color: addFormRect.showTimePicker ? theme.frost : theme.textSub
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+
+                                                Text {
+                                                    text: timeInput.text
+                                                    color: theme.text
+                                                    font.family: theme.fontFamily
+                                                    font.pixelSize: 12
+                                                    font.weight: Font.Bold
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+
+                                                Text {
+                                                    text: addFormRect.showTimePicker ? "▲" : "▼"
+                                                    font.pixelSize: 7
+                                                    color: theme.textDim
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+                                            }
+
+                                            MouseArea {
+                                                id: timeBtnMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    addFormRect.showTimePicker = !addFormRect.showTimePicker;
+                                                    if (addFormRect.showTimePicker) addFormRect.formCatDropdownOpen = false;
+                                                }
+                                            }
+                                        }
+
+                                        // Category Dropdown Button in Form
+                                        Rectangle {
+                                            id: formCatDropBtn
+                                            width: parent.width - 118
+                                            height: 32
+                                            radius: 6
+                                            color: fCatDropMa.containsMouse ? theme.surfaceHover : theme.surface
+                                            border.color: addFormRect.formCatDropdownOpen ? theme.frost : theme.borderSubtle
+                                            border.width: 1
+
+                                            Row {
+                                                anchors.left: parent.left
+                                                anchors.leftMargin: 8
+                                                anchors.right: parent.right
+                                                anchors.rightMargin: 8
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                spacing: 6
+
+                                                Item {
+                                                    width: addFormRect.formCat === "F1" ? 14 : (addFormRect.formCat === "Colgate-Palmolive" ? 13 : (addFormRect.formCat === "School" ? 12 : (addFormRect.formCat === "Sara" ? 12 : (addFormRect.formCat === "Marvel" ? 18 : 8))))
+                                                    height: addFormRect.formCat === "F1" ? 10 : (addFormRect.formCat === "Colgate-Palmolive" ? 9 : (addFormRect.formCat === "School" ? 12 : (addFormRect.formCat === "Sara" ? 12 : (addFormRect.formCat === "Marvel" ? 9 : 8))))
+                                                    anchors.verticalCenter: parent.verticalCenter
+
+                                                    Image {
+                                                        visible: addFormRect.formCat === "F1"
+                                                        anchors.fill: parent
+                                                        source: "file:///home/ferram/.local/share/icons/f1.svg"
+                                                        fillMode: Image.PreserveAspectFit
+                                                        smooth: true
+                                                    }
+                                                    Image {
+                                                        visible: addFormRect.formCat === "Colgate-Palmolive"
+                                                        anchors.fill: parent
+                                                        source: "file:///home/ferram/.local/share/icons/cp.svg"
+                                                        fillMode: Image.PreserveAspectFit
+                                                        smooth: true
+                                                    }
+                                                    Image {
+                                                        visible: addFormRect.formCat === "School"
+                                                        anchors.fill: parent
+                                                        source: "file:///home/ferram/.local/share/icons/troyanos.svg"
+                                                        fillMode: Image.PreserveAspectFit
+                                                        smooth: true
+                                                    }
+                                                    Image {
+                                                        visible: addFormRect.formCat === "Sara"
+                                                        anchors.fill: parent
+                                                        source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
+                                                        fillMode: Image.PreserveAspectFit
+                                                        smooth: true
+                                                    }
+                                                    Image {
+                                                        visible: addFormRect.formCat === "Marvel"
+                                                        anchors.fill: parent
+                                                        source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                                        fillMode: Image.PreserveAspectFit
+                                                        smooth: true
+                                                    }
+                                                    Rectangle {
+                                                        visible: addFormRect.formCat !== "F1" && addFormRect.formCat !== "Colgate-Palmolive" && addFormRect.formCat !== "School" && addFormRect.formCat !== "Sara" && addFormRect.formCat !== "Marvel"
+                                                        anchors.fill: parent
+                                                        radius: width / 2
+                                                        color: root.getCategoryColor(addFormRect.formCat)
+                                                    }
+                                                }
+
+                                                Text {
+                                                    width: parent.width - 34
+                                                    text: addFormRect.formCat
                                                     color: theme.text
                                                     font.family: theme.fontFamily
                                                     font.pixelSize: 11
                                                     font.weight: Font.DemiBold
-                                                    horizontalAlignment: TextInput.AlignHCenter
-                                                    selectByMouse: true
+                                                    elide: Text.ElideRight
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
 
-                                                    Keys.onUpPressed: root.adjustTime(15)
-                                                    Keys.onDownPressed: root.adjustTime(-15)
-                                                    Keys.onReturnPressed: addFormRect.doSave()
-                                                    Keys.onEnterPressed: addFormRect.doSave()
+                                                Text {
+                                                    text: addFormRect.formCatDropdownOpen ? "▲" : "▼"
+                                                    font.pixelSize: 7
+                                                    color: theme.textDim
+                                                    anchors.verticalCenter: parent.verticalCenter
                                                 }
                                             }
 
-                                            // Time stepper buttons (+ / -)
-                                            Column {
-                                                spacing: 2
-                                                anchors.verticalCenter: parent.verticalCenter
+                                            MouseArea {
+                                                id: fCatDropMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    addFormRect.formCatDropdownOpen = !addFormRect.formCatDropdownOpen;
+                                                    if (addFormRect.formCatDropdownOpen) addFormRect.showTimePicker = false;
+                                                }
+                                            }
+                                        }
+                                    }
 
+                                    // Android Material Radial Clock Picker Card
+                                    Rectangle {
+                                        id: androidClockCard
+                                        visible: addFormRect.showTimePicker
+                                        width: parent.width
+                                        implicitHeight: clockPickerCol.implicitHeight + 16
+                                        radius: 8
+                                        color: theme.surface
+                                        border.color: theme.borderGlow
+                                        border.width: 1
+
+                                        Column {
+                                            id: clockPickerCol
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            anchors.top: parent.top
+                                            anchors.margins: 8
+                                            spacing: 10
+
+                                            // 1. Digital Time Header (Hour chip : Minute chip + AM/PM toggle)
+                                            Row {
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                spacing: 8
+
+                                                // Hour Digital Chip
                                                 Rectangle {
-                                                    width: 16
-                                                    height: 11
-                                                    radius: 3
-                                                    color: tUpMa.containsMouse ? theme.surfaceHover : theme.surface
+                                                    width: 52
+                                                    height: 36
+                                                    radius: 6
+                                                    color: addFormRect.timePickerMode === "hours" ? Qt.rgba(theme.frost.r, theme.frost.g, theme.frost.b, 0.22) : theme.bgDark
+                                                    border.color: addFormRect.timePickerMode === "hours" ? theme.frost : theme.borderSubtle
+                                                    border.width: 1
+
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: {
+                                                            let h24 = addFormRect.getCurH24();
+                                                            let h12 = h24 % 12;
+                                                            if (h12 === 0) h12 = 12;
+                                                            return h12 < 10 ? ("0" + h12) : ("" + h12);
+                                                        }
+                                                        color: addFormRect.timePickerMode === "hours" ? theme.frost : theme.text
+                                                        font.family: theme.fontFamily
+                                                        font.pixelSize: 18
+                                                        font.weight: Font.Bold
+                                                    }
+
+                                                    MouseArea {
+                                                        anchors.fill: parent
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: addFormRect.timePickerMode = "hours"
+                                                    }
+                                                }
+
+                                                Text {
+                                                    text: ":"
+                                                    color: theme.textSub
+                                                    font.family: theme.fontFamily
+                                                    font.pixelSize: 18
+                                                    font.weight: Font.Bold
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+
+                                                // Minute Digital Chip
+                                                Rectangle {
+                                                    width: 52
+                                                    height: 36
+                                                    radius: 6
+                                                    color: addFormRect.timePickerMode === "minutes" ? Qt.rgba(theme.frost.r, theme.frost.g, theme.frost.b, 0.22) : theme.bgDark
+                                                    border.color: addFormRect.timePickerMode === "minutes" ? theme.frost : theme.borderSubtle
+                                                    border.width: 1
+
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: {
+                                                            let m = addFormRect.getCurMin();
+                                                            return m < 10 ? ("0" + m) : ("" + m);
+                                                        }
+                                                        color: addFormRect.timePickerMode === "minutes" ? theme.frost : theme.text
+                                                        font.family: theme.fontFamily
+                                                        font.pixelSize: 18
+                                                        font.weight: Font.Bold
+                                                    }
+
+                                                    MouseArea {
+                                                        anchors.fill: parent
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: addFormRect.timePickerMode = "minutes"
+                                                    }
+                                                }
+
+                                                // AM / PM Switcher
+                                                Column {
+                                                    spacing: 2
+                                                    anchors.verticalCenter: parent.verticalCenter
+
+                                                    // AM button
+                                                    Rectangle {
+                                                        property bool isAM: addFormRect.getCurH24() < 12
+                                                        width: 32
+                                                        height: 17
+                                                        radius: 4
+                                                        color: isAM ? theme.frost : theme.bgDark
+                                                        border.color: isAM ? theme.frost : theme.borderSubtle
+                                                        border.width: 1
+
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "AM"
+                                                            color: parent.isAM ? "#000000" : theme.textMuted
+                                                            font.family: theme.fontFamily
+                                                            font.pixelSize: 8
+                                                            font.weight: Font.Bold
+                                                        }
+                                                        MouseArea {
+                                                            anchors.fill: parent
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: {
+                                                                let h = addFormRect.getCurH24();
+                                                                if (h >= 12) addFormRect.setTime(h - 12, addFormRect.getCurMin());
+                                                            }
+                                                        }
+                                                    }
+
+                                                    // PM button
+                                                    Rectangle {
+                                                        property bool isPM: addFormRect.getCurH24() >= 12
+                                                        width: 32
+                                                        height: 17
+                                                        radius: 4
+                                                        color: isPM ? theme.frost : theme.bgDark
+                                                        border.color: isPM ? theme.frost : theme.borderSubtle
+                                                        border.width: 1
+
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "PM"
+                                                            color: parent.isPM ? "#000000" : theme.textMuted
+                                                            font.family: theme.fontFamily
+                                                            font.pixelSize: 8
+                                                            font.weight: Font.Bold
+                                                        }
+                                                        MouseArea {
+                                                            anchors.fill: parent
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: {
+                                                                let h = addFormRect.getCurH24();
+                                                                if (h < 12) addFormRect.setTime(h + 12, addFormRect.getCurMin());
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // 2. Android Radial Clock Face
+                                            Item {
+                                                width: 180
+                                                height: 180
+                                                anchors.horizontalCenter: parent.horizontalCenter
+
+                                                // Circular dial background
+                                                Rectangle {
+                                                    anchors.fill: parent
+                                                    radius: 90
+                                                    color: Qt.rgba(0, 0, 0, 0.45)
+                                                    border.color: theme.borderSubtle
+                                                    border.width: 1
+                                                }
+
+                                                // Center pivot pin
+                                                Rectangle {
+                                                    anchors.centerIn: parent
+                                                    width: 8
+                                                    height: 8
+                                                    radius: 4
+                                                    color: theme.frost
+                                                    z: 6
+                                                }
+
+                                                // Rotating Clock Hand Line
+                                                Rectangle {
+                                                    id: radialHand
+                                                    property real angleDeg: {
+                                                        let curH24 = addFormRect.getCurH24();
+                                                        let curM = addFormRect.getCurMin();
+                                                        if (addFormRect.timePickerMode === "hours") {
+                                                            let h12 = curH24 % 12;
+                                                            return h12 * 30; // 0..360 deg
+                                                        } else {
+                                                            return curM * 6; // 60 min -> 360 deg
+                                                        }
+                                                    }
+                                                    width: 2
+                                                    height: 60
+                                                    color: theme.frost
+                                                    transformOrigin: Item.Bottom
+                                                    x: 90 - 1
+                                                    y: 90 - 60
+                                                    rotation: angleDeg
+                                                    z: 2
+
+                                                    Behavior on rotation {
+                                                        RotationAnimation { duration: 160; direction: RotationAnimation.Shortest; easing.type: Easing.OutCubic }
+                                                    }
+                                                }
+
+                                                // Selection Bubble Circle at hand tip
+                                                Rectangle {
+                                                    property real angleRad: (radialHand.angleDeg - 90) * Math.PI / 180
+                                                    width: 26
+                                                    height: 26
+                                                    radius: 13
+                                                    color: theme.frost
+                                                    x: 90 + 60 * Math.cos(angleRad) - 13
+                                                    y: 90 + 60 * Math.sin(angleRad) - 13
+                                                    z: 3
+
+                                                    Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                                                    Behavior on y { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                                                }
+
+                                                // 12 Numbers around the dial
+                                                Repeater {
+                                                    model: 12
+                                                    Item {
+                                                        id: dialNumItem
+                                                        property int numVal: {
+                                                            if (addFormRect.timePickerMode === "hours") {
+                                                                return index === 0 ? 12 : index;
+                                                            } else {
+                                                                return index * 5;
+                                                            }
+                                                        }
+                                                        property string numLabel: {
+                                                            if (addFormRect.timePickerMode === "hours") {
+                                                                return "" + numVal;
+                                                            } else {
+                                                                return numVal < 10 ? ("0" + numVal) : ("" + numVal);
+                                                            }
+                                                        }
+                                                        property real deg: index * 30
+                                                        property real rad: (deg - 90) * Math.PI / 180
+                                                        property real posX: 90 + 60 * Math.cos(rad)
+                                                        property real posY: 90 + 60 * Math.sin(rad)
+                                                        property bool isSelected: {
+                                                            let curH24 = addFormRect.getCurH24();
+                                                            let curM = addFormRect.getCurMin();
+                                                            if (addFormRect.timePickerMode === "hours") {
+                                                                let h12 = curH24 % 12;
+                                                                if (h12 === 0) h12 = 12;
+                                                                return h12 === numVal;
+                                                            } else {
+                                                                return Math.round(curM / 5) * 5 % 60 === numVal;
+                                                            }
+                                                        }
+
+                                                        x: posX - 12
+                                                        y: posY - 12
+                                                        width: 24
+                                                        height: 24
+                                                        z: 5
+
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: dialNumItem.numLabel
+                                                            color: dialNumItem.isSelected ? "#000000" : theme.text
+                                                            font.family: theme.fontFamily
+                                                            font.pixelSize: 10
+                                                            font.weight: dialNumItem.isSelected ? Font.Bold : Font.DemiBold
+                                                        }
+                                                    }
+                                                }
+
+                                                // Interactive MouseArea for Clock Dial
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+
+                                                    function updateFromPos(mx, my, isRelease) {
+                                                        let dx = mx - 90;
+                                                        let dy = my - 90;
+                                                        let rad = Math.atan2(dy, dx);
+                                                        let deg = rad * 180 / Math.PI + 90;
+                                                        if (deg < 0) deg += 360;
+
+                                                        if (addFormRect.timePickerMode === "hours") {
+                                                            let step = Math.round(deg / 30) % 12;
+                                                            let h12 = (step === 0 ? 12 : step);
+                                                            let curH = addFormRect.getCurH24();
+                                                            let isPM = curH >= 12;
+                                                            let finalH = isPM ? (h12 === 12 ? 12 : h12 + 12) : (h12 === 12 ? 0 : h12);
+                                                            addFormRect.setTime(finalH, addFormRect.getCurMin());
+                                                            if (isRelease) {
+                                                                addFormRect.timePickerMode = "minutes";
+                                                            }
+                                                        } else {
+                                                            let step5 = Math.round(deg / 30) * 5 % 60;
+                                                            addFormRect.setTime(addFormRect.getCurH24(), step5);
+                                                        }
+                                                    }
+
+                                                    onPositionChanged: (mouse) => {
+                                                        if (pressed) updateFromPos(mouse.x, mouse.y, false);
+                                                    }
+                                                    onPressed: (mouse) => {
+                                                        updateFromPos(mouse.x, mouse.y, false);
+                                                    }
+                                                    onReleased: (mouse) => {
+                                                        updateFromPos(mouse.x, mouse.y, true);
+                                                    }
+                                                }
+                                            }
+
+                                            // 3. Preset chips & Quick Action Row
+                                            Row {
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                spacing: 5
+
+                                                Repeater {
+                                                    model: [":00", ":15", ":30", ":45"]
+                                                    Rectangle {
+                                                        width: 34
+                                                        height: 22
+                                                        radius: 11
+                                                        color: pChipMa.containsMouse ? theme.surfaceHover : theme.bgDark
+                                                        border.color: theme.borderSubtle
+                                                        border.width: 1
+
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: modelData
+                                                            color: theme.textSub
+                                                            font.family: theme.fontFamily
+                                                            font.pixelSize: 9
+                                                            font.weight: Font.DemiBold
+                                                        }
+                                                        MouseArea {
+                                                            id: pChipMa
+                                                            anchors.fill: parent
+                                                            hoverEnabled: true
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: {
+                                                                let m = parseInt(modelData.replace(":", ""), 10) || 0;
+                                                                addFormRect.setTime(addFormRect.getCurH24(), m);
+                                                                addFormRect.timePickerMode = "minutes";
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                // Stepper +15m
+                                                Rectangle {
+                                                    width: 40
+                                                    height: 22
+                                                    radius: 11
+                                                    color: step15Ma.containsMouse ? theme.surfaceHover : theme.bgDark
                                                     border.color: theme.borderSubtle
                                                     border.width: 1
 
                                                     Text {
                                                         anchors.centerIn: parent
-                                                        text: "▲"
-                                                        color: theme.textSub
-                                                        font.pixelSize: 6
+                                                        text: "+15m"
+                                                        color: theme.frost
+                                                        font.family: theme.fontFamily
+                                                        font.pixelSize: 9
+                                                        font.weight: Font.DemiBold
                                                     }
                                                     MouseArea {
-                                                        id: tUpMa
+                                                        id: step15Ma
                                                         anchors.fill: parent
                                                         hoverEnabled: true
                                                         cursorShape: Qt.PointingHandCursor
@@ -1558,220 +2156,234 @@ Item {
                                                     }
                                                 }
 
+                                                // Done Button
                                                 Rectangle {
-                                                    width: 16
-                                                    height: 11
-                                                    radius: 3
-                                                    color: tDownMa.containsMouse ? theme.surfaceHover : theme.surface
-                                                    border.color: theme.borderSubtle
-                                                    border.width: 1
-
-                                                    Text {
-                                                        anchors.centerIn: parent
-                                                        text: "▼"
-                                                        color: theme.textSub
-                                                        font.pixelSize: 6
-                                                    }
-                                                    MouseArea {
-                                                        id: tDownMa
-                                                        anchors.fill: parent
-                                                        hoverEnabled: true
-                                                        cursorShape: Qt.PointingHandCursor
-                                                        onClicked: root.adjustTime(-15)
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        // Category pills in form (Flow layout)
-                                        Flow {
-                                            width: parent.width - 90
-                                            spacing: 4
-                                            anchors.verticalCenter: parent.verticalCenter
-
-                                            Repeater {
-                                                model: root.availableCategories
-                                                Rectangle {
-                                                    id: formCatPill
-                                                    property bool sel: addFormRect.formCat === modelData
-                                                    property color catCol: root.getCategoryColor(modelData)
-                                                    width: formCatTxt.implicitWidth + (modelData === "F1" ? 22 : (modelData === "Colgate-Palmolive" ? 22 : (modelData === "School" ? 20 : (modelData === "Sara" ? 20 : (modelData === "Marvel" ? 26 : 14)))))
+                                                    width: 52
                                                     height: 22
                                                     radius: 11
-
-                                                    color: sel ? Qt.rgba(catCol.r, catCol.g, catCol.b, 0.22) : theme.surface
-                                                    border.color: sel ? catCol : theme.borderSubtle
+                                                    color: doneClockMa.containsMouse ? Qt.rgba(theme.frost.r, theme.frost.g, theme.frost.b, 0.35) : Qt.rgba(theme.frost.r, theme.frost.g, theme.frost.b, 0.2)
+                                                    border.color: theme.frost
                                                     border.width: 1
 
                                                     Row {
                                                         anchors.centerIn: parent
-                                                        spacing: 4
-
-                                                        Image {
-                                                            visible: modelData === "F1"
-                                                            width: 12
-                                                            height: 9
-                                                            anchors.verticalCenter: parent.verticalCenter
-                                                            source: formCatPill.sel ? "file:///home/ferram/.local/share/icons/f1-white.svg" : "file:///home/ferram/.local/share/icons/f1.svg"
-                                                            fillMode: Image.PreserveAspectFit
-                                                            smooth: true
-                                                        }
-
-                                                        Image {
-                                                            visible: modelData === "Colgate-Palmolive"
-                                                            width: 12
-                                                            height: 8
-                                                            anchors.verticalCenter: parent.verticalCenter
-                                                            source: "file:///home/ferram/.local/share/icons/cp.svg"
-                                                            fillMode: Image.PreserveAspectFit
-                                                            smooth: true
-                                                            opacity: formCatPill.sel ? 1.0 : 0.75
-                                                        }
-
-                                                        Image {
-                                                            visible: modelData === "School"
-                                                            width: 10
-                                                            height: 10
-                                                            anchors.verticalCenter: parent.verticalCenter
-                                                            source: "file:///home/ferram/.local/share/icons/troyanos.svg"
-                                                            fillMode: Image.PreserveAspectFit
-                                                            smooth: true
-                                                            opacity: formCatPill.sel ? 1.0 : 0.75
-                                                        }
-
-                                                        Image {
-                                                            visible: modelData === "Sara"
-                                                            width: 11
-                                                            height: 11
-                                                            anchors.verticalCenter: parent.verticalCenter
-                                                            source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
-                                                            fillMode: Image.PreserveAspectFit
-                                                            smooth: true
-                                                        }
-
-                                                        Image {
-                                                            visible: modelData === "Marvel"
-                                                            width: 16
-                                                            height: 8
-                                                            anchors.verticalCenter: parent.verticalCenter
-                                                            source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
-                                                            fillMode: Image.PreserveAspectFit
-                                                            smooth: true
-                                                        }
-
+                                                        spacing: 3
                                                         Text {
-                                                            id: formCatTxt
-                                                            text: modelData
-                                                            color: formCatPill.sel ? formCatPill.catCol : (fCatMa.containsMouse ? theme.textSub : theme.textMuted)
+                                                            text: "✓"
+                                                            color: theme.frost
+                                                            font.pixelSize: 9
+                                                            font.weight: Font.Bold
+                                                        }
+                                                        Text {
+                                                            text: "Done"
+                                                            color: theme.frost
                                                             font.family: theme.fontFamily
                                                             font.pixelSize: 9
-                                                            font.weight: formCatPill.sel ? Font.Bold : Font.Normal
-                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            font.weight: Font.Bold
                                                         }
                                                     }
-
                                                     MouseArea {
-                                                        id: fCatMa
+                                                        id: doneClockMa
                                                         anchors.fill: parent
                                                         hoverEnabled: true
                                                         cursorShape: Qt.PointingHandCursor
-                                                        onClicked: addFormRect.formCat = modelData
+                                                        onClicked: addFormRect.showTimePicker = false
                                                     }
                                                 }
                                             }
+                                        }
+                                    }
 
-                                            // "+ Add Category" button / inline input
-                                            Rectangle {
-                                                id: addCatButton
-                                                property bool editing: false
-                                                width: editing ? 110 : 22
-                                                height: 22
-                                                radius: 11
-                                                color: editing ? theme.surface : (addCatMa.containsMouse ? theme.surfaceHover : "transparent")
-                                                border.color: editing ? theme.frost : (addCatMa.containsMouse ? theme.borderGlow : theme.borderSubtle)
-                                                border.width: 1
-                                                clip: true
+                                    // Category Dropdown List Menu inside Form
+                                    Rectangle {
+                                        id: formCatDropPanel
+                                        visible: addFormRect.formCatDropdownOpen
+                                        width: parent.width
+                                        implicitHeight: Math.min(210, formCatListCol.implicitHeight + 12)
+                                        radius: 8
+                                        color: theme.surface
+                                        border.color: theme.borderGlow
+                                        border.width: 1
+                                        clip: true
 
-                                                Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                                        Flickable {
+                                            anchors.fill: parent
+                                            anchors.margins: 4
+                                            contentHeight: formCatListCol.implicitHeight
+                                            clip: true
 
-                                                Row {
-                                                    anchors.centerIn: parent
-                                                    visible: !addCatButton.editing
-                                                    Text {
-                                                        text: "+"
-                                                        color: theme.frost
-                                                        font.family: theme.fontFamily
-                                                        font.pixelSize: 12
-                                                        font.weight: Font.Bold
-                                                    }
-                                                }
+                                            Column {
+                                                id: formCatListCol
+                                                width: parent.width
+                                                spacing: 2
 
-                                                Row {
-                                                    anchors.fill: parent
-                                                    anchors.leftMargin: 6
-                                                    anchors.rightMargin: 4
-                                                    visible: addCatButton.editing
-                                                    spacing: 4
+                                                Repeater {
+                                                    model: root.availableCategories
+                                                    Rectangle {
+                                                        id: fCatItemRect
+                                                        property bool isSel: addFormRect.formCat === modelData
+                                                        property color catCol: root.getCategoryColor(modelData)
+                                                        width: parent.width
+                                                        height: 26
+                                                        radius: 4
+                                                        color: isSel ? Qt.rgba(catCol.r, catCol.g, catCol.b, 0.22) : (fCatItemMa.containsMouse ? theme.surfaceHover : "transparent")
 
-                                                    TextInput {
-                                                        id: newCatInput
-                                                        width: parent.width - 20
-                                                        anchors.verticalCenter: parent.verticalCenter
-                                                        color: theme.text
-                                                        font.family: theme.fontFamily
-                                                        font.pixelSize: 9
-                                                        clip: true
-                                                        selectByMouse: true
+                                                        Row {
+                                                            anchors.left: parent.left
+                                                            anchors.leftMargin: 8
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            spacing: 7
 
-                                                        Keys.onReturnPressed: commitNewCat()
-                                                        Keys.onEnterPressed: commitNewCat()
-                                                        Keys.onEscapePressed: {
-                                                            addCatButton.editing = false;
-                                                            newCatInput.text = "";
-                                                        }
+                                                            Item {
+                                                                width: modelData === "F1" ? 14 : (modelData === "Colgate-Palmolive" ? 13 : (modelData === "School" ? 12 : (modelData === "Sara" ? 12 : (modelData === "Marvel" ? 18 : 7))))
+                                                                height: modelData === "F1" ? 10 : (modelData === "Colgate-Palmolive" ? 9 : (modelData === "School" ? 12 : (modelData === "Sara" ? 12 : (modelData === "Marvel" ? 9 : 7))))
+                                                                anchors.verticalCenter: parent.verticalCenter
 
-                                                        function commitNewCat() {
-                                                            let name = newCatInput.text.trim();
-                                                            if (name) {
-                                                                root.addNewCategory(name);
-                                                                addFormRect.formCat = name;
-                                                                newCatInput.text = "";
-                                                                addCatButton.editing = false;
+                                                                Image {
+                                                                    visible: modelData === "F1"
+                                                                    anchors.fill: parent
+                                                                    source: "file:///home/ferram/.local/share/icons/f1.svg"
+                                                                    fillMode: Image.PreserveAspectFit
+                                                                    smooth: true
+                                                                }
+                                                                Image {
+                                                                    visible: modelData === "Colgate-Palmolive"
+                                                                    anchors.fill: parent
+                                                                    source: "file:///home/ferram/.local/share/icons/cp.svg"
+                                                                    fillMode: Image.PreserveAspectFit
+                                                                    smooth: true
+                                                                }
+                                                                Image {
+                                                                    visible: modelData === "School"
+                                                                    anchors.fill: parent
+                                                                    source: "file:///home/ferram/.local/share/icons/troyanos.svg"
+                                                                    fillMode: Image.PreserveAspectFit
+                                                                    smooth: true
+                                                                }
+                                                                Image {
+                                                                    visible: modelData === "Sara"
+                                                                    anchors.fill: parent
+                                                                    source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
+                                                                    fillMode: Image.PreserveAspectFit
+                                                                    smooth: true
+                                                                }
+                                                                Image {
+                                                                    visible: modelData === "Marvel"
+                                                                    anchors.fill: parent
+                                                                    source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                                                    fillMode: Image.PreserveAspectFit
+                                                                    smooth: true
+                                                                }
+                                                                Rectangle {
+                                                                    visible: modelData !== "F1" && modelData !== "Colgate-Palmolive" && modelData !== "School" && modelData !== "Sara" && modelData !== "Marvel"
+                                                                    anchors.fill: parent
+                                                                    radius: width / 2
+                                                                    color: fCatItemRect.catCol
+                                                                }
+                                                            }
+
+                                                            Text {
+                                                                text: modelData
+                                                                color: fCatItemRect.isSel ? fCatItemRect.catCol : (fCatItemMa.containsMouse ? theme.text : theme.textSub)
+                                                                font.family: theme.fontFamily
+                                                                font.pixelSize: 10
+                                                                font.weight: fCatItemRect.isSel ? Font.Bold : Font.Normal
+                                                                anchors.verticalCenter: parent.verticalCenter
                                                             }
                                                         }
 
                                                         Text {
-                                                            anchors.fill: parent
-                                                            visible: !parent.text
-                                                            text: "Category..."
-                                                            color: theme.textDim
-                                                            font.family: theme.fontFamily
-                                                            font.pixelSize: 9
+                                                            visible: fCatItemRect.isSel
+                                                            anchors.right: parent.right
+                                                            anchors.rightMargin: 8
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            text: "✓"
+                                                            color: fCatItemRect.catCol
+                                                            font.pixelSize: 10
+                                                            font.weight: Font.Bold
                                                         }
-                                                    }
 
-                                                    Text {
-                                                        text: "✔"
-                                                        color: theme.frost
-                                                        font.pixelSize: 9
-                                                        anchors.verticalCenter: parent.verticalCenter
                                                         MouseArea {
+                                                            id: fCatItemMa
                                                             anchors.fill: parent
+                                                            hoverEnabled: true
                                                             cursorShape: Qt.PointingHandCursor
-                                                            onClicked: newCatInput.commitNewCat()
+                                                            onClicked: {
+                                                                addFormRect.formCat = modelData;
+                                                                addFormRect.formCatDropdownOpen = false;
+                                                            }
                                                         }
                                                     }
                                                 }
 
-                                                MouseArea {
-                                                    id: addCatMa
-                                                    anchors.fill: parent
-                                                    visible: !addCatButton.editing
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: {
-                                                        addCatButton.editing = true;
-                                                        Qt.callLater(() => newCatInput.forceActiveFocus());
+                                                // Divider before "+ Add Category"
+                                                Rectangle {
+                                                    width: parent.width
+                                                    height: 1
+                                                    color: theme.borderSubtle
+                                                }
+
+                                                // Inline "+ Add Category" input
+                                                Row {
+                                                    width: parent.width
+                                                    height: 26
+                                                    spacing: 4
+
+                                                    Item { width: 4; height: 1 }
+
+                                                    TextInput {
+                                                        id: newCatFormInput
+                                                        width: parent.width - 40
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        color: theme.text
+                                                        font.family: theme.fontFamily
+                                                        font.pixelSize: 10
+                                                        clip: true
+                                                        selectByMouse: true
+
+                                                        function commitFormCat() {
+                                                            let name = newCatFormInput.text.trim();
+                                                            if (name) {
+                                                                root.addNewCategory(name);
+                                                                addFormRect.formCat = name;
+                                                                newCatFormInput.text = "";
+                                                                addFormRect.formCatDropdownOpen = false;
+                                                            }
+                                                        }
+
+                                                        Keys.onReturnPressed: commitFormCat()
+                                                        Keys.onEnterPressed: commitFormCat()
+
+                                                        Text {
+                                                            anchors.fill: parent
+                                                            visible: !parent.text
+                                                            text: "+ New Category..."
+                                                            color: theme.textDim
+                                                            font.family: theme.fontFamily
+                                                            font.pixelSize: 10
+                                                        }
+                                                    }
+
+                                                    Rectangle {
+                                                        width: 20
+                                                        height: 20
+                                                        radius: 10
+                                                        color: addCatSubmitMa.containsMouse ? theme.surfaceHover : "transparent"
+                                                        anchors.verticalCenter: parent.verticalCenter
+
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "✔"
+                                                            color: theme.frost
+                                                            font.pixelSize: 9
+                                                        }
+                                                        MouseArea {
+                                                            id: addCatSubmitMa
+                                                            anchors.fill: parent
+                                                            hoverEnabled: true
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: newCatFormInput.commitFormCat()
+                                                        }
                                                     }
                                                 }
                                             }
@@ -2234,6 +2846,7 @@ Item {
                                         property string titleLow: (modelData.title || "").toLowerCase()
                                         property bool isSara: catLow === "sara" || titleLow.indexOf("sara") !== -1
                                         property bool isMarvel: catLow === "marvel" || titleLow.indexOf("doomsday") !== -1 || titleLow.indexOf("marvel") !== -1
+                                        property bool isNSQK: titleLow.indexOf("nsqk") !== -1 || titleLow.indexOf("mosca") !== -1
                                         width: dayDetailCol.width
                                         height: hasPhoto ? 58 : 50
                                         radius: 8
@@ -2295,13 +2908,13 @@ Item {
                                             }
                                         }
 
-                                        // Marvel Energetic Crimson Pulse Animation
+                                        // Marvel Energetic Doctor Doom Green Pulse Animation
                                         Rectangle {
                                             visible: remCard.isMarvel
                                             anchors.fill: parent
                                             radius: parent.radius
                                             color: "transparent"
-                                            border.color: "#ed1d24"
+                                            border.color: "#10b981"
                                             border.width: 1.5
                                             opacity: 0.65
 
@@ -2435,6 +3048,16 @@ Item {
                                                             height: 9
                                                             anchors.verticalCenter: parent.verticalCenter
                                                             source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
+                                                        }
+
+                                                        Image {
+                                                            visible: remCard.isNSQK
+                                                            width: 26
+                                                            height: 13
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            source: "file://" + Quickshell.shellPath("assets/nsqk-logo-white.png")
                                                             fillMode: Image.PreserveAspectFit
                                                             smooth: true
                                                         }

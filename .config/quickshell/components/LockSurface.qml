@@ -1165,9 +1165,18 @@ Item {
                 active: root.revealed
             }
 
+            LockDoomsdayCountdownCard {
+                id: doomsdayCountdown
+                width: 280
+                height: parent.rowH
+                reminders: root.ctx.reminders
+                accent: "#10b981"
+                active: root.revealed
+            }
+
             LockEventCountdownCard {
                 id: eventCountdown
-                width: 280
+                width: 310
                 height: parent.rowH
                 reminders: root.ctx.reminders
                 accent: root.accent

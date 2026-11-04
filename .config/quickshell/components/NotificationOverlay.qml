@@ -26,13 +26,50 @@ PanelWindow {
     implicitHeight: Math.max(1, notifCol.childrenRect.height + 8)
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    visible: activeList.length > 0
+    visible: notifModel.count > 0
 
     Theme { id: theme }
 
-    property var activeList: []
+    ListModel {
+        id: notifModel
+    }
+
+    property var notifMap: ({})
     property var osdService: null
     property bool isDndOn: false
+
+    function getNotif(id) {
+        return notifMap[id] || null;
+    }
+
+    function removeNotifEntry(id) {
+        for (let i = 0; i < notifModel.count; i++) {
+            if (notifModel.get(i).notifId === id) {
+                notifModel.remove(i);
+                break;
+            }
+        }
+        delete notifMap[id];
+    }
+
+    function dismissNotif(id) {
+        let raw = notifMap[id];
+        removeNotifEntry(id);
+        if (raw) {
+            try { raw.dismiss(); } catch(e) {}
+        }
+    }
+
+    function remoteCloseNotif(id) {
+        for (let i = 0; i < notifCol.children.length; i++) {
+            let item = notifCol.children[i];
+            if (item && item.notifId === id && item.dismissCard) {
+                item.dismissCard();
+                return;
+            }
+        }
+        removeNotifEntry(id);
+    }
 
     Process {
         id: dndStatusProc
@@ -73,18 +110,6 @@ PanelWindow {
         }
     }
 
-    function dismissNotif(notif) {
-        if (!notif) return;
-        let arr = [];
-        for (let i = 0; i < notifWindow.activeList.length; i++) {
-            if (notifWindow.activeList[i] && notifWindow.activeList[i].id !== notif.id) {
-                arr.push(notifWindow.activeList[i]);
-            }
-        }
-        notifWindow.activeList = arr;
-        try { notif.dismiss(); } catch(e) {}
-    }
-
     NotificationServer {
         id: notifServer
         keepOnReload: true
@@ -92,7 +117,16 @@ PanelWindow {
         bodyMarkupSupported: true
         actionsSupported: true
         imageSupported: true
-        extraHints: ["x-kde-origin-name"]
+        extraHints: [
+            "x-kde-origin-name",
+            "origin",
+            "desktop-entry",
+            "x-origin",
+            "x-canonical-app-name",
+            "category",
+            "x-category",
+            "urgency"
+        ]
 
         onNotification: (notif) => {
             notif.tracked = true;
@@ -169,6 +203,17 @@ PanelWindow {
                 notifWindow.isDndOn = isAct;
             }
 
+            let notifBody = (notif.body || "").toLowerCase();
+            let notifDesktop = (notif.desktopEntry || "").toLowerCase();
+            let notifHintsStr = "";
+            try { if (notif.hints) notifHintsStr = JSON.stringify(notif.hints).toLowerCase(); } catch(e) {}
+
+            let isWhatsAppAlert = incomingApp.includes("whatsapp") || incomingSum.includes("whatsapp") ||
+                                  notifBody.includes("whatsapp") || notifDesktop.includes("whatsapp") ||
+                                  notifHintsStr.includes("whatsapp") || notifHintsStr.includes("web.whatsapp.com") ||
+                                  incomingApp.includes("whatsdesk") || incomingApp.includes("whatsie") ||
+                                  incomingApp.includes("zapzap") || incomingApp.includes("walc");
+
             // If Do Not Disturb is active, suppress non-essential notifications (e.g. social media, media, browsers)
             if (notifWindow.isDndOn && !isDndFeedback) {
                 let isSystemAlert = (notif.urgency === 2) ||
@@ -187,13 +232,14 @@ PanelWindow {
                     incomingApp.includes("formula") || incomingApp.includes("f1") || incomingSum.includes("f1") ||
                     incomingSum.includes("grand prix") || (notif.hints && (String(notif.hints.category || "") === "F1" || String(notif.hints["x-category"] || "") === "F1"));
 
-                if (!isSystemAlert && !isDevOrAgentAlert && !isCalendarOrF1Alert) {
+                let isCommunicationAlert = isWhatsAppAlert;
+
+                if (!isSystemAlert && !isDevOrAgentAlert && !isCalendarOrF1Alert && !isCommunicationAlert) {
                     try { notif.dismiss(); } catch(e) {}
                     return;
                 }
             }
 
-            let notifBody = (notif.body || "").toLowerCase();
             let notifCat = "";
             if (notif.hints) {
                 if (notif.hints.category) notifCat = String(notif.hints.category).toLowerCase();
@@ -208,39 +254,122 @@ PanelWindow {
                 notifWindow.playF1Sound();
             }
 
-            let arr = [];
-            let isSingleton = incomingApp.includes("bater") || incomingApp.includes("battery");
+            // Connect closed signal safely
+            try {
+                notif.closed.connect(() => {
+                    notifWindow.remoteCloseNotif(notif.id);
+                });
+            } catch(e) {}
 
-            for (let i = 0; i < notifWindow.activeList.length; i++) {
-                let existing = notifWindow.activeList[i];
-                if (!existing) continue;
+            let notifId = notif.id;
+            let appName = notif.appName || "";
+            let summary = notif.summary || "";
+            let bodyText = notif.body || "";
+            let urgency = (notif.urgency !== undefined ? notif.urgency : 1);
+            let appIcon = notif.appIcon || "";
+            let desktopEntry = notif.desktopEntry || "";
+            let expireTimeout = notif.expireTimeout || 0;
+            let notifImage = (notif.image && notif.image !== "") ? String(notif.image) : "";
+            let hints = notif.hints || {};
+            let actions = notif.actions || [];
 
-                // Replace duplicate if same id OR if same content OR singleton (volume/brightness/battery/hearing/headphones)
-                let existingApp = (existing.appName || "").toLowerCase();
-                let existingSum = (existing.summary || "").toLowerCase();
-                let isDuplicate = (existing.id === notif.id) ||
-                    (incomingSum.length > 0 && incomingSum === existingSum && incomingApp === existingApp) ||
-                    ((incomingApp.includes("hearing") || incomingSum.includes("headphone")) &&
-                     (existingApp.includes("hearing") || existingSum.includes("headphone")));
+            let incomingAppLower = appName.toLowerCase();
+            let incomingSumLower = summary.toLowerCase();
+            let isSingleton = incomingAppLower.includes("bater") || incomingAppLower.includes("battery");
+
+            // Cache raw notif object
+            notifWindow.notifMap[notifId] = notif;
+
+            // Check if there is an existing duplicate in notifModel
+            let duplicateIndex = -1;
+            for (let i = 0; i < notifModel.count; i++) {
+                let entry = notifModel.get(i);
+                if (!entry) continue;
+
+                let entryAppLower = (entry.appName || "").toLowerCase();
+                let entrySumLower = (entry.summary || "").toLowerCase();
+
+                let isDup = (entry.notifId === notifId) ||
+                    (incomingSumLower.length > 0 && incomingSumLower === entrySumLower && incomingAppLower === entryAppLower) ||
+                    ((incomingAppLower.includes("hearing") || incomingSumLower.includes("headphone")) &&
+                     (entryAppLower.includes("hearing") || entrySumLower.includes("headphone")));
 
                 let matchSingleton = isSingleton && (
-                    (incomingApp.includes("volume") && (existingApp.includes("volume") || existingSum.includes("volume"))) ||
-                    (incomingApp.includes("bright") && (existingApp.includes("bright") || existingSum.includes("bright"))) ||
-                    ((incomingApp.includes("bater") || incomingApp.includes("battery")) && (existingApp.includes("bater") || existingApp.includes("battery")))
+                    (incomingAppLower.includes("volume") && (entryAppLower.includes("volume") || entrySumLower.includes("volume"))) ||
+                    (incomingAppLower.includes("bright") && (entryAppLower.includes("bright") || entrySumLower.includes("bright"))) ||
+                    ((incomingAppLower.includes("bater") || incomingAppLower.includes("battery")) && (entryAppLower.includes("bater") || entryAppLower.includes("battery")))
                 );
 
-                if (isDuplicate || matchSingleton) {
-                    try { existing.dismiss(); } catch(e) {}
-                    continue;
+                if (isDup || matchSingleton) {
+                    duplicateIndex = i;
+                    break;
                 }
-                arr.push(existing);
             }
-            arr.unshift(notif); // Newest on top
-            if (arr.length > 4) {
-                let old = arr.pop();
-                try { old.dismiss(); } catch(e) {}
+
+            if (duplicateIndex !== -1) {
+                let oldId = notifModel.get(duplicateIndex).notifId;
+                if (oldId !== notifId && notifWindow.notifMap[oldId]) {
+                    try { notifWindow.notifMap[oldId].dismiss(); } catch(e) {}
+                    delete notifWindow.notifMap[oldId];
+                }
+                notifModel.remove(duplicateIndex);
             }
-            notifWindow.activeList = arr;
+
+            // Cap model count to 4 (remove oldest if >= 4)
+            while (notifModel.count >= 4) {
+                let lastIndex = notifModel.count - 1;
+                let lastId = notifModel.get(lastIndex).notifId;
+                let oldRaw = notifWindow.notifMap[lastId];
+                notifModel.remove(lastIndex);
+                if (oldRaw) {
+                    try { oldRaw.dismiss(); } catch(e) {}
+                    delete notifWindow.notifMap[lastId];
+                }
+            }
+
+            // Prepare safe serializable metadata for styling
+            let metaContextStr = (appName + " " + summary + " " + bodyText).toLowerCase();
+            if (appIcon) metaContextStr += " " + appIcon.toLowerCase();
+            if (desktopEntry) metaContextStr += " " + desktopEntry.toLowerCase();
+            let hintCategory = "";
+            if (hints) {
+                try {
+                    if (hints.category) hintCategory = String(hints.category);
+                    else if (hints["category"]) hintCategory = String(hints["category"]);
+                    else if (hints["x-category"]) hintCategory = String(hints["x-category"]);
+                } catch(e) {}
+                try {
+                    for (let k in hints) {
+                        if (k === "image-data" || k === "image_data" || k === "icon_data") continue;
+                        metaContextStr += " " + k + ":" + String(hints[k]).toLowerCase();
+                    }
+                } catch(e) {}
+                try { metaContextStr += " " + JSON.stringify(hints).toLowerCase(); } catch(e) {}
+            }
+            if (actions) {
+                try {
+                    for (let i = 0; i < actions.length; i++) {
+                        let act = actions[i];
+                        if (act) metaContextStr += " " + (act.identifier || "").toLowerCase() + " " + (act.text || "").toLowerCase();
+                    }
+                } catch(e) {}
+            }
+
+            // Insert new notification at top
+            notifModel.insert(0, {
+                notifId: notifId,
+                appName: appName,
+                summary: summary,
+                bodyText: bodyText,
+                urgency: urgency,
+                appIcon: appIcon,
+                desktopEntry: desktopEntry,
+                expireTimeout: expireTimeout,
+                notifImage: notifImage,
+                hintCategory: hintCategory,
+                metaContext: metaContextStr,
+                timeStr: Qt.formatTime(new Date(), "HH:mm")
+            });
         }
     }
 
@@ -250,12 +379,23 @@ PanelWindow {
         spacing: 8
 
         Repeater {
-            model: notifWindow.activeList
+            model: notifModel
 
             delegate: Item {
                 id: card
-                required property var modelData
-                readonly property var notifManager: notifWindow
+                required property int notifId
+                required property string appName
+                required property string summary
+                required property string bodyText
+                required property int urgency
+                required property string appIcon
+                required property string desktopEntry
+                required property int expireTimeout
+                required property string notifImage
+                required property string hintCategory
+                required property string metaContext
+                required property string timeStr
+
                 width: notifCol.width
                 implicitHeight: Math.max(68, contentRow.implicitHeight + 20)
                 height: implicitHeight
@@ -268,69 +408,68 @@ PanelWindow {
                     notifEntrance.start();
                 }
 
+                Component.onDestruction: {
+                    cardDismissAnim.stop();
+                    notifEntrance.stop();
+                }
+
+                function dismissCard() {
+                    if (cardDismissAnim.running) return;
+                    expireTimer.stop();
+                    cardDismissAnim.start();
+                }
+
                 ParallelAnimation {
                     id: notifEntrance
-                    NumberAnimation { target: card; property: "opacity"; from: 0.0; to: 1.0; duration: 750; easing.type: Easing.InOutQuart }
-                    NumberAnimation { target: card; property: "scale"; from: 0.95; to: 1.0; duration: 750; easing.type: Easing.InOutQuart }
-                    NumberAnimation { target: cardSlide; property: "x"; from: 24; to: 0; duration: 750; easing.type: Easing.InOutQuart }
+                    NumberAnimation { target: card; property: "opacity"; from: 0.0; to: 1.0; duration: 500; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: card; property: "scale"; from: 0.95; to: 1.0; duration: 500; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: cardSlide; property: "x"; from: 24; to: 0; duration: 500; easing.type: Easing.OutCubic }
                 }
 
-                property string appName: modelData ? (modelData.appName || "") : ""
-                property string summary: modelData ? (modelData.summary || "") : ""
-                property string bodyText: modelData ? (modelData.body || "") : ""
-                property int urgency: modelData ? modelData.urgency : 1
-
-                // Consolidated Metadata String for robust origin & app detection (Chromium, PWAs, Native)
-                property string metaContext: {
-                    let s = (appName + " " + summary + " " + bodyText).toLowerCase();
-                    if (modelData) {
-                        if (modelData.appIcon) s += " " + modelData.appIcon.toLowerCase();
-                        if (modelData.desktopEntry) s += " " + modelData.desktopEntry.toLowerCase();
-                        if (modelData.hints) {
-                            try {
-                                for (let k in modelData.hints) {
-                                    if (k === "image-data" || k === "image_data" || k === "icon_data") continue;
-                                    s += " " + k + ":" + String(modelData.hints[k]).toLowerCase();
-                                }
-                            } catch(e) {}
-                            try {
-                                s += " " + JSON.stringify(modelData.hints).toLowerCase();
-                            } catch(e) {}
-                        }
-                        if (modelData.actions) {
-                            try {
-                                for (let i = 0; i < modelData.actions.length; i++) {
-                                    let act = modelData.actions[i];
-                                    if (act) {
-                                        s += " " + (act.identifier || "").toLowerCase() + " " + (act.text || "").toLowerCase();
-                                    }
-                                }
-                            } catch(e) {}
-                        }
+                ParallelAnimation {
+                    id: cardDismissAnim
+                    NumberAnimation { target: card; property: "opacity"; to: 0.0; duration: 250; easing.type: Easing.InCubic }
+                    NumberAnimation { target: cardSlide; property: "x"; to: 28; duration: 250; easing.type: Easing.InCubic }
+                    NumberAnimation { target: card; property: "scale"; to: 0.95; duration: 250; easing.type: Easing.InCubic }
+                    onFinished: {
+                        notifWindow.dismissNotif(card.notifId);
                     }
-                    return s;
                 }
 
-                readonly property bool isWhatsApp: metaContext.includes("whatsapp") || metaContext.includes("web.whatsapp.com")
+                readonly property bool isWhatsApp: {
+                    let ctx = (metaContext || "").toLowerCase();
+                    return ctx.includes("whatsapp") ||
+                           ctx.includes("web.whatsapp.com") ||
+                           ctx.includes("whatsdesk") ||
+                           ctx.includes("whatsie") ||
+                           ctx.includes("zapzap") ||
+                           ctx.includes("walc");
+                }
                 readonly property bool isInstagram: metaContext.includes("instagram") || metaContext.includes("instagram.com")
-
-                Connections {
-                    target: card.modelData
-                    function onClosed() {
-                        if (card.notifManager && card.notifManager.dismissNotif) {
-                            card.notifManager.dismissNotif(card.modelData);
-                        }
-                    }
-                }
 
                 // Dynamic Color Resolution based on sender
                 property var palette: {
                     let lowerApp = (appName || "").toLowerCase();
                     let lowerSum = (summary || "").toLowerCase();
                     let lowerBody = (bodyText || "").toLowerCase();
-                    let appIconName = (modelData && modelData.appIcon) ? modelData.appIcon.toLowerCase() : "";
+                    let appIconName = (card.appIcon || "").toLowerCase();
                     let lowerIcon = appIconName;
                     let ctx = (card.metaContext || "").toLowerCase();
+
+                    // Do Not Disturb / No Molestar (Focus Purple / Violet)
+                    if (lowerApp.includes("disturb") || lowerApp.includes("molestar") || lowerApp.includes("dnd") ||
+                        lowerSum.includes("disturb") || lowerSum.includes("molestar") || lowerSum.includes("dnd") ||
+                        lowerIcon.includes("dnd")) {
+                        let isOff = lowerSum.includes("disable") || lowerSum.includes("desactivad") || lowerBody.includes("all") || lowerBody.includes("todas");
+                        return {
+                            primary: isOff ? "#94a3b8" : "#a855f7",
+                            secondary: isOff ? "#64748b" : "#7c3aed",
+                            accent: isOff ? "#cbd5e1" : "#c084fc",
+                            label: isOff ? "NO MOLESTAR: DESACTIVADO" : "NO MOLESTAR: ACTIVADO",
+                            isAntigravity: false,
+                            isNightLight: false
+                        };
+                    }
 
                     // Night Light / Sunset Mode (Warm Amber / Gold)
                     if (lowerApp.includes("night") || lowerSum.includes("night") ||
@@ -525,12 +664,6 @@ PanelWindow {
                             isNightLight: false,
                             isF1: true
                         };
-                    }
-                    // Formula 1 official SVG icon
-                    if (ctx.includes("formula 1") || ctx.includes("formula1") || ctx.includes("grand prix") ||
-                        ctx.includes("f1 tv") || ctx.includes("f1tv") ||
-                        /(?:^|[\s\-_/|(\[])f1(?:$|[\s\-_/|)\].:])/i.test(ctx)) {
-                        return "file:///home/ferram/.local/share/icons/f1.svg";
                     }
 
                     // Spider-Man (Marvel Vibrant Red & Electric Blue)
@@ -1083,15 +1216,7 @@ PanelWindow {
                     if (lowerApp.includes("remind") || lowerApp.includes("recordatorio") || lowerApp.includes("calendar") ||
                         lowerSum.includes("reminder") || lowerSum.includes("recordatorio") || lowerSum.includes("calendar")) {
 
-                        let hintCat = "";
-                        if (modelData && modelData.hints) {
-                            try {
-                                if (modelData.hints.category) hintCat = String(modelData.hints.category);
-                                else if (modelData.hints["category"]) hintCat = String(modelData.hints["category"]);
-                                else if (modelData.hints["x-category"]) hintCat = String(modelData.hints["x-category"]);
-                            } catch(e) {}
-                        }
-
+                        let hintCat = card.hintCategory || "";
                         let fullTxt = (hintCat + " " + lowerSum + " " + (card.bodyText || "").toLowerCase());
 
                         // Sara (Romantic Rose / Pink)
@@ -1106,12 +1231,12 @@ PanelWindow {
                             };
                         }
 
-                        // Marvel / Doomsday (Marvel Red)
+                        // Marvel / Doomsday (Doctor Doom Emerald Green)
                         if (fullTxt.includes("marvel") || fullTxt.includes("doomsday")) {
                             return {
-                                primary: "#ed1d24",
-                                secondary: "#b91c1c",
-                                accent: "#ef4444",
+                                primary: "#10b981",
+                                secondary: "#059669",
+                                accent: "#34d399",
                                 label: "REMINDERS • MARVEL",
                                 isAntigravity: false,
                                 isNightLight: false
@@ -1240,17 +1365,25 @@ PanelWindow {
 
                 // Icon Resolution (High quality vector & brand assets)
                 property string resolvedIcon: {
+                    let rawIcon = card.appIcon || "";
+                    let lowerIcon = rawIcon.toLowerCase();
+                    let lowerApp = (appName || "").toLowerCase();
+                    let lowerSum = (card.summary || "").toLowerCase();
+                    let lowerBody = (card.bodyText || "").toLowerCase();
+                    let ctx = (card.metaContext || "").toLowerCase();
+
+                    // Do Not Disturb / No Molestar official SVG icons
+                    if (lowerApp.includes("disturb") || lowerApp.includes("molestar") || lowerApp.includes("dnd") ||
+                        lowerSum.includes("disturb") || lowerSum.includes("molestar") || lowerSum.includes("dnd") ||
+                        lowerIcon.includes("dnd")) {
+                        let isOff = lowerSum.includes("disable") || lowerSum.includes("desactivad") || lowerBody.includes("all") || lowerBody.includes("todas");
+                        return isOff ? "file:///home/ferram/.local/share/icons/dnd-off.svg" : "file:///home/ferram/.local/share/icons/dnd-on.svg";
+                    }
+
                     if (palette.isAntigravity) {
                         return "/usr/share/pixmaps/antigravity.png";
                     }
-
-                    let rawIcon = modelData ? (modelData.appIcon || "") : "";
-                    let lowerIcon = rawIcon.toLowerCase();
-                    let lowerApp = (appName || "").toLowerCase();
-                    let lowerSum = (modelData && modelData.summary) ? modelData.summary.toLowerCase() : "";
-                    let lowerBody = (modelData && modelData.body) ? modelData.body.toLowerCase() : "";
-                    let ctx = (card.metaContext || "").toLowerCase();
-                    let desktopEntry = (modelData && modelData.desktopEntry) ? modelData.desktopEntry.toLowerCase() : "";
+                    let desktopEntry = (card.desktopEntry || "").toLowerCase();
 
                     // Devin official desktop logo
                     if (lowerApp.includes("devin") || desktopEntry.includes("devin") || lowerIcon.includes("devin") || ctx.includes("devin")) {
@@ -1555,8 +1688,8 @@ PanelWindow {
                         return "file:///home/ferram/.local/share/icons/battery.svg";
                     }
 
-                    if (modelData && modelData.image && modelData.image !== "") {
-                        return modelData.image;
+                    if (card.notifImage && card.notifImage !== "") {
+                        return card.notifImage;
                     }
 
                     if (rawIcon !== "") {
@@ -1577,20 +1710,66 @@ PanelWindow {
                     interval: {
                         let lowerApp = card.appName.toLowerCase();
                         if (lowerApp.includes("volume") || lowerApp.includes("bright")) return 1400;
-                        if (card.modelData && card.modelData.expireTimeout > 0) return card.modelData.expireTimeout;
-                        return 6500;
+                        let customTimeout = card.expireTimeout > 0 ? card.expireTimeout : 6500;
+                        return Math.max(5000, customTimeout);
                     }
                     running: true
-                    onTriggered: {
-                        if (card.notifManager) {
-                            card.notifManager.dismissNotif(card.modelData);
-                        }
-                    }
+                    onTriggered: card.dismissCard()
                 }
 
-                // 1. Moving LED Border Beam Layer (Continuous Perimeter Trace)
+                // 1. Moving LED Border Beam Layer (Perimeter-Uniform Velocity, Infinite Continuous Loop)
                 Item {
+                    id: borderBeamLayer
                     anchors.fill: parent
+                    opacity: 1.0
+
+                    property real beamProgress: 0.0
+
+                    function calcPerimeterAngle(p) {
+                        let w = Math.max(1, borderBeamLayer.width);
+                        let h = Math.max(1, borderBeamLayer.height);
+                        let perimeter = 2 * (w + h);
+                        let hw = w / 2;
+                        let hh = h / 2;
+                        let frac = p % 1.0;
+                        if (frac < 0) frac += 1.0;
+                        let dist = frac * perimeter;
+                        let x = 0;
+                        let y = 0;
+
+                        if (dist < hh) {
+                            x = hw;
+                            y = dist;
+                        } else if (dist < hh + w) {
+                            x = hw - (dist - hh);
+                            y = hh;
+                        } else if (dist < hh + w + h) {
+                            x = -hw;
+                            y = hh - (dist - (hh + w));
+                        } else if (dist < hh + 2 * w + h) {
+                            x = -hw + (dist - (hh + w + h));
+                            y = -hh;
+                        } else {
+                            x = hw;
+                            y = -hh + (dist - (hh + 2 * w + h));
+                        }
+
+                        let deg = Math.atan2(y, x) * 180 / Math.PI;
+                        if (deg < 0) deg += 360;
+                        return deg;
+                    }
+
+                    NumberAnimation {
+                        id: borderAnim
+                        target: borderBeamLayer
+                        property: "beamProgress"
+                        from: 0.0
+                        to: 1.0
+                        duration: 2600
+                        easing.type: Easing.Linear
+                        loops: Animation.Infinite
+                        running: card.visible
+                    }
 
                     Item {
                         id: rotHolder
@@ -1598,27 +1777,23 @@ PanelWindow {
                         visible: false
 
                         Item {
+                            id: rotItem
                             anchors.centerIn: parent
                             width: Math.max(parent.width, parent.height) * 2.2
                             height: width
-
-                            NumberAnimation on rotation {
-                                from: 0
-                                to: 360
-                                duration: 3200
-                                loops: Animation.Infinite
-                                running: card.visible
-                            }
+                            rotation: borderBeamLayer.calcPerimeterAngle(borderBeamLayer.beamProgress)
 
                             ConicalGradient {
                                 anchors.fill: parent
                                 angle: 0.0
                                 gradient: Gradient {
-                                    GradientStop { position: 0.0; color: card.palette.primary }
-                                    GradientStop { position: 0.07; color: card.palette.secondary }
-                                    GradientStop { position: 0.14; color: card.palette.accent }
-                                    GradientStop { position: 0.25; color: "transparent" }
-                                    GradientStop { position: 1.0; color: "transparent" }
+                                    GradientStop { position: 0.00; color: card.palette.primary }
+                                    GradientStop { position: 0.03; color: card.palette.primary }
+                                    GradientStop { position: 0.09; color: card.palette.secondary }
+                                    GradientStop { position: 0.16; color: card.palette.accent }
+                                    GradientStop { position: 0.28; color: "transparent" }
+                                    GradientStop { position: 0.98; color: "transparent" }
+                                    GradientStop { position: 1.00; color: card.palette.primary }
                                 }
                             }
                         }
@@ -1681,19 +1856,18 @@ PanelWindow {
                         onEntered: expireTimer.stop()
                         onExited: expireTimer.restart()
                         onClicked: {
-                            if (card.modelData) {
-                                if (card.modelData.actions && card.modelData.actions.length > 0) {
-                                    for (let i = 0; i < card.modelData.actions.length; i++) {
-                                        if (card.modelData.actions[i].identifier === "default") {
-                                            card.modelData.actions[i].invoke();
+                            let raw = notifWindow.getNotif(card.notifId);
+                            if (raw) {
+                                if (raw.actions && raw.actions.length > 0) {
+                                    for (let i = 0; i < raw.actions.length; i++) {
+                                        if (raw.actions[i].identifier === "default") {
+                                            try { raw.actions[i].invoke(); } catch(e) {}
                                             break;
                                         }
                                     }
                                 }
-                                if (card.notifManager) {
-                                    card.notifManager.dismissNotif(card.modelData);
-                                }
                             }
+                            card.dismissCard();
                         }
                     }
 
@@ -1768,7 +1942,7 @@ PanelWindow {
                                 Item { Layout.fillWidth: true }
 
                                 Text {
-                                    text: Qt.formatTime(new Date(), "HH:mm")
+                                    text: card.timeStr || Qt.formatTime(new Date(), "HH:mm")
                                     color: theme.textDim
                                     font.family: theme.fontFamily
                                     font.pixelSize: 9
@@ -1798,9 +1972,7 @@ PanelWindow {
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: {
-                                            if (card.notifManager) {
-                                                card.notifManager.dismissNotif(card.modelData);
-                                            }
+                                            card.dismissCard();
                                         }
                                     }
                                 }
