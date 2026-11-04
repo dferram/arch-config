@@ -33,6 +33,7 @@ Rectangle {
     property string slackingFormatted: "0s"
     property int slackingSeconds: 0
     property string currentClass: ""
+    property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
     property string currentCategory: "Other"
 
     // Ratios
@@ -71,8 +72,16 @@ Rectangle {
     Timer {
         interval: 5000
         repeat: true
-        running: root.visible && (root.parent ? root.parent.visible : true)
-        onTriggered: statsProc.running = true
+        running: root.isLive
+        onTriggered: {
+            if (root.isLive && !statsProc.running) statsProc.running = true;
+        }
+    }
+
+    onIsLiveChanged: {
+        if (isLive && !statsProc.running) {
+            statsProc.running = true;
+        }
     }
 
     Process {

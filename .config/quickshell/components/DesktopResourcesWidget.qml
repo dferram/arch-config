@@ -40,10 +40,12 @@ Rectangle {
         return (theme.blueLight != "" ? theme.blueLight : theme.cyan);
     }
 
+    property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
+
     Process {
         id: resProc
         command: ["/home/ferram/.local/bin/hypr-resources"]
-        running: true
+        running: root.isLive
         stdout: StdioCollector {
             onStreamFinished: {
                 let txt = text.trim();
@@ -74,9 +76,15 @@ Rectangle {
     Timer {
         interval: 1500
         repeat: true
-        running: true
+        running: root.isLive
         onTriggered: {
-            if (!resProc.running) resProc.running = true;
+            if (root.isLive && !resProc.running) resProc.running = true;
+        }
+    }
+
+    onIsLiveChanged: {
+        if (isLive && !resProc.running) {
+            resProc.running = true;
         }
     }
 

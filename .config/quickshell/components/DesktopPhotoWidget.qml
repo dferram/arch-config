@@ -33,6 +33,7 @@ Item {
 
     // Customization & Usability Options
     property bool recursive: true
+    property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
     property bool shuffle: true
     property int intervalSecs: 30
     property string fitMode: "crop" // "crop" (PreserveAspectCrop) or "fit" (PreserveAspectFit)
@@ -370,12 +371,12 @@ Item {
         }
     }
 
-    // Auto rotate every N seconds with subtle light animation
+    // Auto rotate every N seconds with subtle light animation (only when live and mounted)
     Timer {
         id: autoRotateTimer
         interval: Math.max(5000, root.intervalSecs * 1000)
         repeat: true
-        running: root.visible && (root.parent ? root.parent.visible : true) && root.totalPhotos > 1 && !root.selectorOpen && root.intervalSecs > 0
+        running: root.isLive && root.totalPhotos > 1 && !root.selectorOpen && root.intervalSecs > 0
         onTriggered: root.nextPhoto()
     }
 

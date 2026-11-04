@@ -109,10 +109,12 @@ Rectangle {
         }
     }
 
-    // Live 1-second countdown ticker (only ticks when widget is visible)
+    property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
+
+    // Live 1-second countdown ticker (only ticks when widget is mounted and visible)
     Timer {
         interval: 1000
-        running: root.visible
+        running: root.isLive
         repeat: true
         onTriggered: {
             if (root.remainingSecs > 0) {
@@ -136,12 +138,14 @@ Rectangle {
         }
     }
 
-    // Periodic refresh
+    // Periodic refresh (only when mounted and visible)
     Timer {
         interval: 300000
-        running: true
+        running: root.isLive
         repeat: true
-        onTriggered: f1Proc.running = true
+        onTriggered: {
+            if (root.isLive) f1Proc.running = true;
+        }
     }
 
     // =========================================================================

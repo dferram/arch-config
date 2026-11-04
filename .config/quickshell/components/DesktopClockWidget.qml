@@ -19,9 +19,11 @@ Rectangle {
     border.width: 1
     clip: true
 
+    property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
+
     SystemClock {
         id: sysClock
-        precision: SystemClock.Seconds
+        precision: root.isLive ? SystemClock.Seconds : SystemClock.Hours
     }
 
     property date now: sysClock.date

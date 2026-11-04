@@ -26,6 +26,7 @@ Rectangle {
     property string currentHumidity: "--%"
     property string currentWind: "-- km/h"
     property string weatherIcon: "󰖐"
+    property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
 
     function mapWeatherIcon(desc) {
         let d = (desc || "").toLowerCase();
@@ -70,13 +71,19 @@ Rectangle {
         }
     }
 
-    // Refresh every 20 minutes
+    // Refresh every 20 minutes (only when mounted and visible)
     Timer {
         interval: 1200000
         repeat: true
-        running: true
+        running: root.isLive
         onTriggered: {
-            if (!weatherProc.running) weatherProc.running = true;
+            if (root.isLive && !weatherProc.running) weatherProc.running = true;
+        }
+    }
+
+    onIsLiveChanged: {
+        if (isLive && !weatherProc.running) {
+            weatherProc.running = true;
         }
     }
 

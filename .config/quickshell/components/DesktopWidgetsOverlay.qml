@@ -314,7 +314,8 @@ PanelWindow {
         }
 
         // =====================================================================
-        // WIDGETS INSTANCES ON THE GRID
+        // WIDGETS INSTANCES ON THE GRID (LAZY-LOADED VIA LOADER)
+        // Widgets are only instantiated when mounted in gridMap (0 background overhead)
         // =====================================================================
 
         // 1. Clock Widget
@@ -323,8 +324,15 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "clock"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["clock"])
-            DesktopClockWidget {
+            Loader {
                 anchors.fill: parent
+                active: itemClock.visible
+                sourceComponent: Component {
+                    DesktopClockWidget {
+                        anchors.fill: parent
+                        isLive: itemClock.isLive
+                    }
+                }
             }
         }
 
@@ -334,8 +342,15 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "battery"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["battery"])
-            DesktopBatteryWidget {
+            Loader {
                 anchors.fill: parent
+                active: itemBattery.visible
+                sourceComponent: Component {
+                    DesktopBatteryWidget {
+                        anchors.fill: parent
+                        isLive: itemBattery.isLive
+                    }
+                }
             }
         }
 
@@ -345,8 +360,14 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "calendar"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["calendar"])
-            DesktopCalendarWidget {
+            Loader {
                 anchors.fill: parent
+                active: itemCalendar.visible
+                sourceComponent: Component {
+                    DesktopCalendarWidget {
+                        anchors.fill: parent
+                    }
+                }
             }
         }
 
@@ -356,8 +377,15 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "weather"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["weather"])
-            DesktopWeatherWidget {
+            Loader {
                 anchors.fill: parent
+                active: itemWeather.visible
+                sourceComponent: Component {
+                    DesktopWeatherWidget {
+                        anchors.fill: parent
+                        isLive: itemWeather.isLive
+                    }
+                }
             }
         }
 
@@ -367,8 +395,15 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "resources"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["resources"])
-            DesktopResourcesWidget {
+            Loader {
                 anchors.fill: parent
+                active: itemResources.visible
+                sourceComponent: Component {
+                    DesktopResourcesWidget {
+                        anchors.fill: parent
+                        isLive: itemResources.isLive
+                    }
+                }
             }
         }
 
@@ -378,8 +413,15 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "screentime"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["screentime"])
-            DesktopScreenTimeWidget {
+            Loader {
                 anchors.fill: parent
+                active: itemScreenTime.visible
+                sourceComponent: Component {
+                    DesktopScreenTimeWidget {
+                        anchors.fill: parent
+                        isLive: itemScreenTime.isLive
+                    }
+                }
             }
         }
 
@@ -389,8 +431,14 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "media"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["media"])
-            DesktopMediaWidget {
+            Loader {
                 anchors.fill: parent
+                active: itemMedia.visible
+                sourceComponent: Component {
+                    DesktopMediaWidget {
+                        anchors.fill: parent
+                    }
+                }
             }
         }
 
@@ -400,8 +448,15 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "reminders"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["reminders"])
-            DesktopRemindersWidget {
+            Loader {
                 anchors.fill: parent
+                active: itemReminders.visible
+                sourceComponent: Component {
+                    DesktopRemindersWidget {
+                        anchors.fill: parent
+                        isLive: itemReminders.isLive
+                    }
+                }
             }
         }
 
@@ -411,8 +466,14 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "notes"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["notes"])
-            DesktopNotesWidget {
+            Loader {
                 anchors.fill: parent
+                active: itemNotes.visible
+                sourceComponent: Component {
+                    DesktopNotesWidget {
+                        anchors.fill: parent
+                    }
+                }
             }
         }
 
@@ -422,9 +483,16 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "photo1"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["photo1"])
-            DesktopPhotoWidget {
+            Loader {
                 anchors.fill: parent
-                widgetId: "1"
+                active: itemPhoto1.visible
+                sourceComponent: Component {
+                    DesktopPhotoWidget {
+                        anchors.fill: parent
+                        widgetId: "1"
+                        isLive: itemPhoto1.isLive
+                    }
+                }
             }
         }
 
@@ -434,9 +502,16 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "photo2"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["photo2"])
-            DesktopPhotoWidget {
+            Loader {
                 anchors.fill: parent
-                widgetId: "2"
+                active: itemPhoto2.visible
+                sourceComponent: Component {
+                    DesktopPhotoWidget {
+                        anchors.fill: parent
+                        widgetId: "2"
+                        isLive: itemPhoto2.isLive
+                    }
+                }
             }
         }
 
@@ -446,9 +521,16 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "photo3"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["photo3"])
-            DesktopPhotoWidget {
+            Loader {
                 anchors.fill: parent
-                widgetId: "3"
+                active: itemPhoto3.visible
+                sourceComponent: Component {
+                    DesktopPhotoWidget {
+                        anchors.fill: parent
+                        widgetId: "3"
+                        isLive: itemPhoto3.isLive
+                    }
+                }
             }
         }
 
@@ -458,9 +540,16 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "photo4"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["photo4"])
-            DesktopPhotoWidget {
+            Loader {
                 anchors.fill: parent
-                widgetId: "4"
+                active: itemPhoto4.visible
+                sourceComponent: Component {
+                    DesktopPhotoWidget {
+                        anchors.fill: parent
+                        widgetId: "4"
+                        isLive: itemPhoto4.isLive
+                    }
+                }
             }
         }
 
@@ -470,9 +559,16 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "photo5"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["photo5"])
-            DesktopPhotoWidget {
+            Loader {
                 anchors.fill: parent
-                widgetId: "5"
+                active: itemPhoto5.visible
+                sourceComponent: Component {
+                    DesktopPhotoWidget {
+                        anchors.fill: parent
+                        widgetId: "5"
+                        isLive: itemPhoto5.isLive
+                    }
+                }
             }
         }
 
@@ -482,8 +578,15 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "f1"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["f1"])
-            DesktopF1Widget {
+            Loader {
                 anchors.fill: parent
+                active: itemF1.visible
+                sourceComponent: Component {
+                    DesktopF1Widget {
+                        anchors.fill: parent
+                        isLive: itemF1.isLive
+                    }
+                }
             }
         }
 
@@ -493,8 +596,15 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "nba"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["nba"])
-            DesktopNbaWidget {
+            Loader {
                 anchors.fill: parent
+                active: itemNba.visible
+                sourceComponent: Component {
+                    DesktopNbaWidget {
+                        anchors.fill: parent
+                        isLive: itemNba.isLive
+                    }
+                }
             }
         }
 
@@ -504,8 +614,15 @@ PanelWindow {
             overlay: desktopWindow
             widgetKey: "github"
             visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["github"])
-            DesktopGithubWidget {
+            Loader {
                 anchors.fill: parent
+                active: itemGithub.visible
+                sourceComponent: Component {
+                    DesktopGithubWidget {
+                        anchors.fill: parent
+                        isLive: itemGithub.isLive
+                    }
+                }
             }
         }
 

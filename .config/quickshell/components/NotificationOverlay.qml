@@ -567,7 +567,7 @@ PanelWindow {
                     }
 
                     // Antigravity IDE (Cosmic Cyan / Electric Blue / Cosmic Indigo)
-                    if (lowerApp.includes("antigravity") || ctx.includes("antigravity")) {
+                    if (lowerApp.includes("antigravity") || (ctx.includes("antigravity") && !lowerApp.includes("disturb") && !lowerSum.includes("disturb") && !lowerApp.includes("molestar"))) {
                         return {
                             primary: "#38bdf8",    // Electric Cyan
                             secondary: "#3b82f6",  // Antigravity Blue
@@ -1357,7 +1357,7 @@ PanelWindow {
                         primary: theme.blue,
                         secondary: theme.blueLight,
                         accent: theme.blueDeep,
-                        label: (appName || "NOTIFICATION").toUpperCase(),
+                        label: (appName ? appName.toUpperCase() : "NOTIFICATION"),
                         isAntigravity: false,
                         isNightLight: false
                     };

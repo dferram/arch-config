@@ -24,8 +24,8 @@ def set_dnd(enabled: bool):
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text("on" if enabled else "off")
 
-    title = "No Molestar: Activado" if enabled else "No Molestar: Desactivado"
-    msg = "Solo alertas del sistema" if enabled else "Todas las notificaciones activas"
+    title = "Do Not Disturb: Enabled" if enabled else "Do Not Disturb: Disabled"
+    msg = "System alerts only" if enabled else "All notifications active"
     icon = "/home/ferram/.local/share/icons/dnd-on.svg" if enabled else "/home/ferram/.local/share/icons/dnd-off.svg"
 
     try:

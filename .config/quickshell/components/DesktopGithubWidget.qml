@@ -37,6 +37,7 @@ Rectangle {
 
     // Hover state for interactive inspection
     property var hoveredDay: null
+    property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
 
     // Cascade entrance wave animation
     property real animPhase: 0.0
@@ -121,8 +122,10 @@ Rectangle {
     Timer {
         interval: 1800000
         repeat: true
-        running: true
-        onTriggered: root.refreshData(true)
+        running: root.isLive
+        onTriggered: {
+            if (root.isLive) root.refreshData(true);
+        }
     }
 
     // Specular top hairline highlight (Apple Sonoma aesthetic)

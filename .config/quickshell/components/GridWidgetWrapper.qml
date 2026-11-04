@@ -10,6 +10,8 @@ Item {
     required property string widgetKey
     default property alias content: innerContainer.children
 
+    readonly property bool isLive: wrapper.visible && !!(overlay && overlay.shouldBeVisible)
+
     readonly property var pos: (overlay && overlay.gridMap && overlay.gridMap[widgetKey]) ? overlay.gridMap[widgetKey] : { "col": 0, "row": 0, "colSpan": 1, "rowSpan": 1 }
     property int targetCol: (pos && pos.col !== undefined) ? pos.col : 0
     property int targetRow: (pos && pos.row !== undefined) ? pos.row : 0
@@ -269,6 +271,7 @@ Item {
         id: innerContainer
         anchors.fill: parent
         z: 1
+        readonly property bool isLive: wrapper.isLive
     }
 
     // Active Dragging Glow & Border (Sonoma style subtle accent halo)

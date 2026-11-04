@@ -21,6 +21,7 @@ Rectangle {
     readonly property var wrapper: (root.parent && root.parent.parent && root.parent.parent.startDrag) ? root.parent.parent : null
     property var monthReminders: []
     property int currentMonthCount: 0
+    property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
 
     readonly property string currentMonthPrefix: {
         let now = new Date();
@@ -71,9 +72,15 @@ Rectangle {
     Timer {
         interval: 30000
         repeat: true
-        running: true
+        running: root.isLive
         onTriggered: {
-            if (!readRemindersProc.running) readRemindersProc.running = true;
+            if (root.isLive && !readRemindersProc.running) readRemindersProc.running = true;
+        }
+    }
+
+    onIsLiveChanged: {
+        if (isLive && !readRemindersProc.running) {
+            readRemindersProc.running = true;
         }
     }
 

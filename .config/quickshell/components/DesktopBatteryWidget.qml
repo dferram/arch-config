@@ -49,11 +49,13 @@ Rectangle {
         return theme.green != "" ? theme.green : "#30d158";
     }
 
+    property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
+
     // Telemetry process from quickshell battery-details.py
     Process {
         id: sysfsProc
         command: ["python3", Quickshell.shellPath("scripts/battery-details.py")]
-        running: true
+        running: root.isLive
         stdout: StdioCollector {
             onTextChanged: {
                 let txt = text.trim();
@@ -71,8 +73,16 @@ Rectangle {
     Timer {
         interval: 10000
         repeat: true
-        running: true
-        onTriggered: sysfsProc.running = true
+        running: root.isLive
+        onTriggered: {
+            if (root.isLive) sysfsProc.running = true;
+        }
+    }
+
+    onIsLiveChanged: {
+        if (isLive && !sysfsProc.running) {
+            sysfsProc.running = true;
+        }
     }
 
     Column {

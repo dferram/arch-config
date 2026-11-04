@@ -26,12 +26,13 @@ Rectangle {
     property var activeGame: (games && games.length > selectedGameIndex) ? games[selectedGameIndex] : null
     property var eastStandings: []
     property var westStandings: []
+    property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
 
     // Fetch data process
     Process {
         id: nbaProc
         command: ["python3", Quickshell.shellPath("scripts/desktop-widgets-helper.py"), "nba-data"]
-        running: true
+        running: root.isLive
         stdout: StdioCollector {
             onStreamFinished: {
                 let txt = text.trim();
@@ -68,9 +69,17 @@ Rectangle {
     // Periodic refresh from ESPN API every 60 seconds
     Timer {
         interval: 60000
-        running: true
+        running: root.isLive
         repeat: true
-        onTriggered: nbaProc.running = true
+        onTriggered: {
+            if (root.isLive && !nbaProc.running) nbaProc.running = true;
+        }
+    }
+
+    onIsLiveChanged: {
+        if (isLive && !nbaProc.running) {
+            nbaProc.running = true;
+        }
     }
 
     // =========================================================================
