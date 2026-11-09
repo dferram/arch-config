@@ -17,6 +17,34 @@ Item {
     property int targetRow: (pos && pos.row !== undefined) ? pos.row : 0
     property int colSpan: (pos && pos.colSpan !== undefined) ? pos.colSpan : 1
     property int rowSpan: (pos && pos.rowSpan !== undefined) ? pos.rowSpan : 1
+    property int widgetWorkspace: (pos && pos.workspace !== undefined) ? pos.workspace : 1
+
+    readonly property bool isMounted: !!(overlay && overlay.gridMap && overlay.gridMap[widgetKey])
+    readonly property bool isCurrentWorkspace: (widgetWorkspace === (overlay ? overlay.currentWorkspaceId : 1))
+    readonly property bool shouldBeActive: isMounted && isCurrentWorkspace
+
+    visible: isMounted && (opacity > 0.001)
+
+    function moveToWorkspace(targetWs) {
+        if (!overlay) return;
+        let ws = parseInt(targetWs);
+        if (isNaN(ws) || ws < 1) return;
+        let m = Object.assign({}, overlay.gridMap);
+        let best = overlay.findBestFitSlot ? overlay.findBestFitSlot(wrapper.widgetKey, targetCol, targetRow, colSpan, rowSpan, ws) : { "col": targetCol, "row": targetRow, "valid": true };
+        m[wrapper.widgetKey] = {
+            "col": best.col,
+            "row": best.row,
+            "colSpan": wrapper.colSpan,
+            "rowSpan": wrapper.rowSpan,
+            "type": wrapper.widgetKey,
+            "workspace": ws
+        };
+        overlay.gridMap = m;
+        wrapper.targetCol = best.col;
+        wrapper.targetRow = best.row;
+        overlay.savePositions();
+        wrapper.menuOpen = false;
+    }
 
     onPosChanged: {
         if (!pos) return;
@@ -74,14 +102,14 @@ Item {
 
     // Elevation, scale and subtle opacity feedback when dragging
     scale: dragging ? 1.04 : 1.0
-    opacity: dragging ? 0.90 : 1.0
+    opacity: dragging ? 0.90 : (shouldBeActive ? 1.0 : 0.0)
     z: (dragging || resizing || menuOpen) ? 200 : 1
 
     Behavior on scale {
         NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
     }
     Behavior on opacity {
-        NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
     }
 
     // Hover handler for mouse detection across child items
@@ -98,13 +126,13 @@ Item {
 
         // Prevent expanding over another widget
         if (overlay && overlay.isSlotAvailable) {
-            while (c > 1 && !overlay.isSlotAvailable(wrapper.widgetKey, targetCol, targetRow, c, r)) {
+            while (c > 1 && !overlay.isSlotAvailable(wrapper.widgetKey, targetCol, targetRow, c, r, wrapper.widgetWorkspace)) {
                 c--;
             }
-            while (r > 1 && !overlay.isSlotAvailable(wrapper.widgetKey, targetCol, targetRow, c, r)) {
+            while (r > 1 && !overlay.isSlotAvailable(wrapper.widgetKey, targetCol, targetRow, c, r, wrapper.widgetWorkspace)) {
                 r--;
             }
-            if (!overlay.isSlotAvailable(wrapper.widgetKey, targetCol, targetRow, c, r)) {
+            if (!overlay.isSlotAvailable(wrapper.widgetKey, targetCol, targetRow, c, r, wrapper.widgetWorkspace)) {
                 c = wrapper.colSpan;
                 r = wrapper.rowSpan;
             }
@@ -125,6 +153,7 @@ Item {
             m[wrapper.widgetKey].colSpan = c;
             m[wrapper.widgetKey].rowSpan = r;
             m[wrapper.widgetKey].type = wrapper.widgetKey;
+            m[wrapper.widgetKey].workspace = wrapper.widgetWorkspace;
             overlay.gridMap = m;
             overlay.savePositions();
         }
@@ -163,7 +192,7 @@ Item {
 
         // Smart Snap: check collisions and find nearest free slot
         if (overlay.findBestFitSlot) {
-            let res = overlay.findBestFitSlot(wrapper.widgetKey, c, r, wrapper.colSpan, wrapper.rowSpan);
+            let res = overlay.findBestFitSlot(wrapper.widgetKey, c, r, wrapper.colSpan, wrapper.rowSpan, wrapper.widgetWorkspace);
             overlay.snapCol = res.col;
             overlay.snapRow = res.row;
             overlay.snapValid = res.valid;
@@ -194,7 +223,8 @@ Item {
                 "row": r,
                 "colSpan": wrapper.colSpan,
                 "rowSpan": wrapper.rowSpan,
-                "type": wrapper.widgetKey
+                "type": wrapper.widgetKey,
+                "workspace": wrapper.widgetWorkspace
             };
             overlay.gridMap = m;
             wrapper.targetCol = c;
@@ -272,6 +302,10 @@ Item {
         anchors.fill: parent
         z: 1
         readonly property bool isLive: wrapper.isLive
+        readonly property var wrapperRef: wrapper
+        function startDrag(mx, my) { wrapper.startDrag(mx, my); }
+        function updateDrag(dx, dy) { wrapper.updateDrag(dx, dy); }
+        function endDrag() { wrapper.endDrag(); }
     }
 
     // Active Dragging Glow & Border (Sonoma style subtle accent halo)
@@ -376,7 +410,7 @@ Item {
 
                     overlay.snapCol = wrapper.targetCol;
                     overlay.snapRow = wrapper.targetRow;
-                    overlay.snapValid = overlay.isSlotAvailable ? overlay.isSlotAvailable(wrapper.widgetKey, wrapper.targetCol, wrapper.targetRow, cols, rows) : true;
+                    overlay.snapValid = overlay.isSlotAvailable ? overlay.isSlotAvailable(wrapper.widgetKey, wrapper.targetCol, wrapper.targetRow, cols, rows, wrapper.widgetWorkspace) : true;
                     overlay.snapWidth = cols * overlay.cellWidth + (cols - 1) * overlay.gridGap;
                     overlay.snapHeight = rows * overlay.cellHeight + (rows - 1) * overlay.gridGap;
                 }
@@ -459,7 +493,7 @@ Item {
         id: contextMenu
         z: 80
         anchors.centerIn: parent
-        width: 170
+        width: 180
         height: menuCol.implicitHeight + 20
         radius: 14
         color: Qt.rgba(0.06, 0.06, 0.10, 0.96)
@@ -482,7 +516,7 @@ Item {
             id: menuCol
             anchors.centerIn: parent
             width: parent.width - 16
-            spacing: 4
+            spacing: 5
 
             // Header: Widget Title
             Row {
@@ -546,6 +580,66 @@ Item {
                         onClicked: {
                             wrapper.menuOpen = false;
                             wrapper.applyResize(modelData.c, modelData.r);
+                        }
+                    }
+                }
+            }
+
+            // Divider
+            Rectangle {
+                width: parent.width
+                height: 1
+                color: Qt.rgba(255, 255, 255, 0.08)
+            }
+
+            // Header: Workspace Selection
+            Row {
+                width: parent.width
+                spacing: 6
+                Item { width: 2; height: 1 }
+                Text {
+                    text: "WORKSPACE"
+                    color: theme.textDim
+                    font.family: theme.fontFamily
+                    font.pixelSize: 9
+                    font.weight: Font.Bold
+                    font.letterSpacing: 0.6
+                }
+            }
+
+            // Workspace buttons row (1, 2, 3, 4, 5)
+            Row {
+                width: parent.width
+                spacing: 4
+
+                Repeater {
+                    model: [1, 2, 3, 4, 5]
+                    delegate: Rectangle {
+                        width: Math.floor((menuCol.width - 16) / 5)
+                        height: 26
+                        radius: 6
+                        readonly property bool isCurrentWs: wrapper.widgetWorkspace === modelData
+                        color: wsHover.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : (isCurrentWs ? (theme.blueLight != "" ? theme.blueLight : "#0a84ff") : Qt.rgba(1, 1, 1, 0.06))
+                        border.color: isCurrentWs ? "#ffffff" : Qt.rgba(255, 255, 255, 0.10)
+                        border.width: 1
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.toString()
+                            font.family: theme.fontFamily
+                            font.pixelSize: 11
+                            font.weight: isCurrentWs ? Font.Bold : Font.Normal
+                            color: isCurrentWs ? "#ffffff" : theme.text
+                        }
+
+                        MouseArea {
+                            id: wsHover
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                wrapper.moveToWorkspace(modelData);
+                            }
                         }
                     }
                 }

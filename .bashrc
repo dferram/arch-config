@@ -5,6 +5,9 @@
 # If not running interactively, don't do anything
 [[ $- != *i* ]] && return
 
+# --- SSH Agent Socket ---
+export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/run/user/$UID}/ssh-agent.socket"
+
 # --- Bash Line Editor (Visual Suggestions & Color) ---
 source ~/.local/share/blesh/ble.sh
 

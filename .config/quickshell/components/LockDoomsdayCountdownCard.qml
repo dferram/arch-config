@@ -340,8 +340,8 @@ Item {
         // ---- MAIN COUNTDOWN (5-SEGMENT CLEAN WHITE REFERENCE STYLE) ----
         Column {
             anchors.centerIn: parent
-            anchors.verticalCenterOffset: 0
-            spacing: 14
+            anchors.verticalCenterOffset: 14
+            spacing: 16
             z: 3
             width: parent.width - 24
 
@@ -524,86 +524,6 @@ Item {
                         font.letterSpacing: 0.6
                         color: Qt.rgba(255, 255, 255, 0.75)
                     }
-                }
-            }
-        }
-
-        // ---- FOOTER STRIP ----
-        Rectangle {
-            id: footer
-            x: 12
-            width: parent.width - 24
-            height: 52
-            y: parent.height - height - 12
-            radius: 12
-            clip: true
-            color: Qt.rgba(0, 0, 0, 0.50)
-            border.width: 1
-            border.color: Qt.rgba(16, 185, 129, 0.20)
-            z: 3
-
-            // Date badge
-            Rectangle {
-                id: dateBadge
-                x: 8
-                anchors.verticalCenter: parent.verticalCenter
-                width: 36
-                height: 36
-                radius: 8
-                color: Qt.rgba(16, 185, 129, 0.12)
-                border.width: 1
-                border.color: Qt.rgba(16, 185, 129, 0.28)
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: -1
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "DEC"
-                        color: root.accent
-                        font.family: theme.fontFamily
-                        font.pixelSize: 9
-                        font.weight: Font.Bold
-                    }
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "16"
-                        color: "#ffffff"
-                        font.family: theme.fontFamily
-                        font.pixelSize: 15
-                        font.weight: Font.Bold
-                    }
-                }
-            }
-
-            // Details next to badge
-            Column {
-                anchors.left: dateBadge.right
-                anchors.leftMargin: 10
-                anchors.right: parent.right
-                anchors.rightMargin: 8
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 2
-
-                Text {
-                    text: "Wednesday, Dec 16 · " + root.eventTimeLabel
-                    color: "#ffffff"
-                    font.family: theme.fontFamily
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideRight
-                    width: parent.width
-                }
-
-                Text {
-                    text: root.eventLocation
-                    color: Qt.rgba(255, 255, 255, 0.65)
-                    font.family: theme.fontFamily
-                    font.pixelSize: 10
-                    elide: Text.ElideRight
-                    width: parent.width
                 }
             }
         }

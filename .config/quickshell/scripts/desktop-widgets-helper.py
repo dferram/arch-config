@@ -95,15 +95,27 @@ DEFAULT_NOTES = {
 }
 
 DEFAULT_GRID = {
-    "clock":     { "col": 0, "row": 0, "colSpan": 1, "rowSpan": 1, "type": "clock" },
-    "battery":   { "col": 1, "row": 0, "colSpan": 1, "rowSpan": 1, "type": "battery" },
-    "calendar":  { "col": 0, "row": 1, "colSpan": 1, "rowSpan": 1, "type": "calendar" },
-    "weather":   { "col": 1, "row": 1, "colSpan": 1, "rowSpan": 1, "type": "weather" },
-    "resources": { "col": 0, "row": 2, "colSpan": 1, "rowSpan": 1, "type": "resources" },
-    "reminders": { "col": 1, "row": 2, "colSpan": 1, "rowSpan": 1, "type": "reminders" },
-    "media":     { "col": 0, "row": 3, "colSpan": 2, "rowSpan": 1, "type": "media" },
-    "photo1":    { "col": 2, "row": 0, "colSpan": 2, "rowSpan": 2, "type": "photo1" },
-    "notes":     { "col": 4, "row": 0, "colSpan": 2, "rowSpan": 1, "type": "notes" }
+    # Workspace 1: Daily Essentials & Productivity
+    "clock":      { "col": 0, "row": 0, "colSpan": 1, "rowSpan": 1, "type": "clock",      "workspace": 1 },
+    "battery":    { "col": 1, "row": 0, "colSpan": 1, "rowSpan": 1, "type": "battery",    "workspace": 1 },
+    "calendar":   { "col": 0, "row": 1, "colSpan": 1, "rowSpan": 1, "type": "calendar",   "workspace": 1 },
+    "reminders":  { "col": 1, "row": 1, "colSpan": 1, "rowSpan": 1, "type": "reminders",  "workspace": 1 },
+    "notes":      { "col": 0, "row": 2, "colSpan": 1, "rowSpan": 1, "type": "notes",      "workspace": 1 },
+    "screentime": { "col": 1, "row": 2, "colSpan": 1, "rowSpan": 1, "type": "screentime", "workspace": 1 },
+    "photo1":     { "col": 4, "row": 0, "colSpan": 2, "rowSpan": 2, "type": "photo1",     "workspace": 1 },
+    "photo2":     { "col": 4, "row": 2, "colSpan": 2, "rowSpan": 2, "type": "photo2",     "workspace": 1 },
+
+    # Workspace 2: Cinematic Premiere & Concert Countdowns
+    "doomsday":   { "col": 1, "row": 1, "colSpan": 2, "rowSpan": 1, "type": "doomsday",   "workspace": 2 },
+    "nsqk":       { "col": 3, "row": 1, "colSpan": 2, "rowSpan": 1, "type": "nsqk",       "workspace": 2 },
+    "photo5":     { "col": 2, "row": 2, "colSpan": 2, "rowSpan": 2, "type": "photo5",     "workspace": 2 },
+
+    # Workspace 3: Sports, Developer & Media Hub
+    "f1":         { "col": 1, "row": 0, "colSpan": 2, "rowSpan": 1, "type": "f1",         "workspace": 3 },
+    "nba":        { "col": 3, "row": 0, "colSpan": 2, "rowSpan": 1, "type": "nba",        "workspace": 3 },
+    "github":     { "col": 1, "row": 1, "colSpan": 2, "rowSpan": 2, "type": "github",     "workspace": 3 },
+    "photo3":     { "col": 3, "row": 1, "colSpan": 2, "rowSpan": 2, "type": "photo3",     "workspace": 3 },
+    "photo4":     { "col": 1, "row": 3, "colSpan": 2, "rowSpan": 1, "type": "photo4",     "workspace": 3 }
 }
 
 def get_wayland_env():

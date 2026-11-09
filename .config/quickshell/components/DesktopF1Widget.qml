@@ -17,7 +17,16 @@ Rectangle {
     border.width: 0
     clip: true
 
-    readonly property var wrapper: (root.parent && root.parent.parent && root.parent.parent.startDrag) ? root.parent.parent : null
+    function findWrapper() {
+        let p = root.parent;
+        while (p) {
+            if (p.overlay !== undefined && p.startDrag !== undefined) return p;
+            if (p.wrapperRef !== undefined) return p.wrapperRef;
+            p = p.parent;
+        }
+        return null;
+    }
+    readonly property var wrapper: findWrapper()
     readonly property string f1WhitePng: Quickshell.shellPath("icons/f1-white.png")
     readonly property string f1Png: Quickshell.shellPath("icons/f1.png")
 
@@ -171,6 +180,7 @@ Rectangle {
         anchors.leftMargin: 16
         anchors.rightMargin: 16
         spacing: 10
+        z: 1
 
         // 1. Header: F1 Logo Badge + Race Details + Countdown Pill
         RowLayout {
@@ -728,9 +738,75 @@ Rectangle {
                     id: driverCardHover
                     anchors.fill: parent
                     hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    z: -1
-                    onClicked: root.nextDriver()
+                    cursorShape: isDragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+                    z: 0
+
+                    property real startScreenX: 0
+                    property real startScreenY: 0
+                    property bool isDragging: false
+
+                    onPressed: (mouse) => {
+                        if (mouse.button !== Qt.LeftButton) return;
+                        let w = root.wrapper || root.findWrapper();
+                        let target = (w && w.parent) ? w.parent : null;
+                        if (target) {
+                            let pt = driverCardHover.mapToItem(target, mouse.x, mouse.y);
+                            startScreenX = pt.x;
+                            startScreenY = pt.y;
+                        } else {
+                            startScreenX = mouse.x;
+                            startScreenY = mouse.y;
+                        }
+                        isDragging = false;
+                    }
+
+                    onPositionChanged: (mouse) => {
+                        if (!pressed || (mouse.buttons & Qt.LeftButton) === 0) {
+                            if (isDragging) {
+                                isDragging = false;
+                                let w = root.wrapper || root.findWrapper();
+                                if (w) w.endDrag();
+                            }
+                            return;
+                        }
+                        let w = root.wrapper || root.findWrapper();
+                        let target = (w && w.parent) ? w.parent : null;
+                        let curX = mouse.x;
+                        let curY = mouse.y;
+                        if (target) {
+                            let pt = driverCardHover.mapToItem(target, mouse.x, mouse.y);
+                            curX = pt.x;
+                            curY = pt.y;
+                        }
+                        let dx = curX - startScreenX;
+                        let dy = curY - startScreenY;
+
+                        if (!isDragging && Math.hypot(dx, dy) > 5) {
+                            isDragging = true;
+                            if (w) w.startDrag(mouse.x, mouse.y);
+                        }
+                        if (isDragging && w) {
+                            w.updateDrag(dx, dy);
+                        }
+                    }
+
+                    onReleased: (mouse) => {
+                        let w = root.wrapper || root.findWrapper();
+                        if (isDragging) {
+                            isDragging = false;
+                            if (w) w.endDrag();
+                        } else if (mouse.button === Qt.LeftButton) {
+                            root.nextDriver();
+                        }
+                    }
+
+                    onCanceled: {
+                        if (isDragging) {
+                            isDragging = false;
+                            let w = root.wrapper || root.findWrapper();
+                            if (w) w.endDrag();
+                        }
+                    }
                 }
             }
         }
@@ -740,9 +816,9 @@ Rectangle {
     MouseArea {
         id: bgDragArea
         anchors.fill: parent
-        z: -2
+        z: 0
         hoverEnabled: true
-        cursorShape: isDragging ? Qt.ClosedHandCursor : Qt.ArrowCursor
+        cursorShape: isDragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
         property real startScreenX: 0
@@ -755,9 +831,16 @@ Rectangle {
                 return;
             }
             if (mouse.button !== Qt.LeftButton) return;
-            let canvasPt = mapToItem(root.wrapper ? root.wrapper.parent : root.parent, mouse.x, mouse.y);
-            startScreenX = canvasPt.x;
-            startScreenY = canvasPt.y;
+            let w = root.wrapper || root.findWrapper();
+            let target = (w && w.parent) ? w.parent : null;
+            if (target) {
+                let pt = bgDragArea.mapToItem(target, mouse.x, mouse.y);
+                startScreenX = pt.x;
+                startScreenY = pt.y;
+            } else {
+                startScreenX = mouse.x;
+                startScreenY = mouse.y;
+            }
             isDragging = false;
         }
 
@@ -765,27 +848,37 @@ Rectangle {
             if (!bgDragArea.pressed || (mouse.buttons & Qt.LeftButton) === 0) {
                 if (isDragging) {
                     isDragging = false;
-                    if (root.wrapper) root.wrapper.endDrag();
+                    let w = root.wrapper || root.findWrapper();
+                    if (w) w.endDrag();
                 }
                 return;
             }
-            let canvasPt = mapToItem(root.wrapper ? root.wrapper.parent : root.parent, mouse.x, mouse.y);
-            let dx = canvasPt.x - startScreenX;
-            let dy = canvasPt.y - startScreenY;
-
-            if (!isDragging && Math.hypot(dx, dy) > 4) {
-                isDragging = true;
-                if (root.wrapper) root.wrapper.startDrag(mouse.x, mouse.y);
+            let w = root.wrapper || root.findWrapper();
+            let target = (w && w.parent) ? w.parent : null;
+            let curX = mouse.x;
+            let curY = mouse.y;
+            if (target) {
+                let pt = bgDragArea.mapToItem(target, mouse.x, mouse.y);
+                curX = pt.x;
+                curY = pt.y;
             }
-            if (isDragging && root.wrapper) {
-                root.wrapper.updateDrag(dx, dy);
+            let dx = curX - startScreenX;
+            let dy = curY - startScreenY;
+
+            if (!isDragging && Math.hypot(dx, dy) > 5) {
+                isDragging = true;
+                if (w) w.startDrag(mouse.x, mouse.y);
+            }
+            if (isDragging && w) {
+                w.updateDrag(dx, dy);
             }
         }
 
         onReleased: (mouse) => {
+            let w = root.wrapper || root.findWrapper();
             if (isDragging) {
                 isDragging = false;
-                if (root.wrapper) root.wrapper.endDrag();
+                if (w) w.endDrag();
             } else if (mouse.button === Qt.LeftButton) {
                 Quickshell.execDetached(["xdg-open", "https://www.formula1.com/en/racing/2026.html"]);
             }
@@ -794,7 +887,8 @@ Rectangle {
         onCanceled: {
             if (isDragging) {
                 isDragging = false;
-                if (root.wrapper) root.wrapper.endDrag();
+                let w = root.wrapper || root.findWrapper();
+                if (w) w.endDrag();
             }
         }
     }

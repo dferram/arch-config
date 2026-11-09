@@ -21,6 +21,16 @@ Rectangle {
     border.width: 1
     clip: true
 
+    function findWrapper() {
+        let p = root.parent;
+        while (p) {
+            if (p.overlay !== undefined && p.startDrag !== undefined) return p;
+            if (p.wrapperRef !== undefined) return p.wrapperRef;
+            p = p.parent;
+        }
+        return null;
+    }
+    readonly property var wrapper: findWrapper()
     readonly property var overlay: (root.parent && root.parent.parent && root.parent.parent.overlay) ? root.parent.parent.overlay : desktopWindow
     property string noteTitle: "Quick Notes"
     property string noteContent: ""

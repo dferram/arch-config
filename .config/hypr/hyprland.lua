@@ -155,27 +155,28 @@ enabled = true,
 },
 })
 
--- Cinematic and floaty curves (very visible difference)
-hl.curve("cinematic",  { type = "bezier", points = { {0.75, 0.0}, {0.25, 1.0} } }) -- easeInOutQuart, slow start and end
-hl.curve("smoothOut",  { type = "bezier", points = { {0.1, 0.9}, {0.2, 1.0} } })
+-- Silky, floaty curves with gentle organic cushion (fluid, relaxed, zero stiffness)
+hl.curve("fluidDecel", { type = "bezier", points = { {0.05, 0.9}, {0.1, 1.02} } })  -- Organic cushion with microscopic soft landing
+hl.curve("fluidGlide", { type = "bezier", points = { {0.25, 1.0}, {0.35, 1.0} } })  -- Silky smooth gliding deceleration
+hl.curve("smoothFlow", { type = "bezier", points = { {0.25, 0.95}, {0.15, 1.0} } })
 hl.curve("linear",     { type = "bezier", points = { {0.0, 0.0}, {1.0, 1.0} } })
 
--- Animations: Cinematic, floaty, deliberate
-hl.animation({ leaf = "windows",          enabled = true, speed = 8.5, bezier = "cinematic", style = "popin 90%" })
-hl.animation({ leaf = "windowsIn",        enabled = true, speed = 8.5, bezier = "cinematic", style = "popin 90%" })
-hl.animation({ leaf = "windowsOut",       enabled = true, speed = 8.5, bezier = "cinematic", style = "popin 90%" })
-hl.animation({ leaf = "windowsMove",      enabled = true, speed = 8.5, bezier = "cinematic" })
-hl.animation({ leaf = "fadeIn",           enabled = true, speed = 8.0, bezier = "cinematic" })
-hl.animation({ leaf = "fadeOut",          enabled = true, speed = 8.0, bezier = "cinematic" })
-hl.animation({ leaf = "fadeSwitch",       enabled = true, speed = 8.0, bezier = "cinematic" })
-hl.animation({ leaf = "border",           enabled = true, speed = 10.0, bezier = "cinematic" })
+-- Animations: Graceful, cinematic & buttery smooth (relaxed pacing without stiffness)
+hl.animation({ leaf = "windows",          enabled = true, speed = 7.5, bezier = "fluidDecel", style = "popin 65%" })
+hl.animation({ leaf = "windowsIn",        enabled = true, speed = 7.5, bezier = "fluidDecel", style = "popin 65%" })
+hl.animation({ leaf = "windowsOut",       enabled = true, speed = 6.0, bezier = "fluidGlide", style = "popin 70%" })
+hl.animation({ leaf = "windowsMove",      enabled = true, speed = 7.0, bezier = "fluidDecel" })
+hl.animation({ leaf = "fadeIn",           enabled = true, speed = 6.0, bezier = "fluidGlide" })
+hl.animation({ leaf = "fadeOut",          enabled = true, speed = 5.0, bezier = "fluidGlide" })
+hl.animation({ leaf = "fadeSwitch",       enabled = true, speed = 5.5, bezier = "fluidGlide" })
+hl.animation({ leaf = "border",           enabled = true, speed = 7.0, bezier = "fluidGlide" })
 hl.animation({ leaf = "borderangle",      enabled = true, speed = 80.0, bezier = "linear", style = "loop" })
-hl.animation({ leaf = "layers",           enabled = true, speed = 8.0, bezier = "cinematic" })
-hl.animation({ leaf = "layersIn",         enabled = true, speed = 8.0, bezier = "cinematic", style = "fade" })
-hl.animation({ leaf = "layersOut",        enabled = true, speed = 8.0, bezier = "cinematic", style = "fade" })
-hl.animation({ leaf = "workspaces",       enabled = true, speed = 9.0, bezier = "cinematic", style = "slide" })
-hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 9.0, bezier = "cinematic", style = "slidevert" })
-hl.animation({ leaf = "zoomFactor",       enabled = true, speed = 8.5, bezier = "cinematic" })
+hl.animation({ leaf = "layers",           enabled = true, speed = 6.5, bezier = "fluidGlide" })
+hl.animation({ leaf = "layersIn",         enabled = true, speed = 5.8, bezier = "fluidGlide", style = "fade" })
+hl.animation({ leaf = "layersOut",        enabled = true, speed = 4.5, bezier = "fluidGlide", style = "fade" })
+hl.animation({ leaf = "workspaces",       enabled = true, speed = 7.8, bezier = "smoothFlow", style = "slide" })
+hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 7.8, bezier = "smoothFlow", style = "slidevert" })
+hl.animation({ leaf = "zoomFactor",       enabled = true, speed = 7.0, bezier = "fluidGlide" })
 
 -- Ref https://wiki.hypr.land/Configuring/Basics/Workspace-Rules/
 -- "Smart gaps" / "No gaps when only"

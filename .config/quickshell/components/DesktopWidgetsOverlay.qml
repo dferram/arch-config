@@ -33,10 +33,14 @@ PanelWindow {
         right: 0
     }
 
-    // Monitor & Workspace Logic: widgets displayed on ALL workspaces
+    // Monitor & Workspace Logic: widgets displayed per-workspace (Android style)
     property var modelData: null
     screen: modelData
     readonly property string screenName: (modelData && modelData.name) ? modelData.name : ""
+
+    property var hyprMonitor: modelData ? Hyprland.monitorFor(modelData) : null
+    property var monitorActiveWorkspace: hyprMonitor ? hyprMonitor.activeWorkspace : null
+    property int currentWorkspaceId: monitorActiveWorkspace ? monitorActiveWorkspace.id : (screenName.indexOf("eDP") !== -1 ? 1 : 6)
     
     property bool enabled: true
     readonly property bool shouldBeVisible: enabled
@@ -68,16 +72,19 @@ PanelWindow {
     property bool showGridGuide: false
     property bool showAddGallery: false
 
-    // Collision Detection API: strictly prevents widgets from overlapping
-    function isSlotAvailable(excludeKey, col, row, colSpan, rowSpan) {
+    // Collision Detection API: strictly prevents widgets from overlapping within the same workspace
+    function isSlotAvailable(excludeKey, col, row, colSpan, rowSpan, targetWs) {
         if (col < 0 || row < 0 || col + colSpan > gridCols || row + rowSpan > gridRows) {
             return false;
         }
         let m = gridMap;
         if (!m) return true;
+        let ws = (targetWs !== undefined) ? targetWs : desktopWindow.currentWorkspaceId;
         for (let k in m) {
             if (k === excludeKey) continue;
             let other = m[k];
+            let otherWs = (other.workspace !== undefined) ? other.workspace : 1;
+            if (otherWs !== ws) continue; // Different workspace: no collision
             let oc = other.col || 0;
             let or = other.row || 0;
             let ow = other.colSpan || 1;
@@ -93,16 +100,17 @@ PanelWindow {
         return true;
     }
 
-    function findBestFitSlot(excludeKey, preferCol, preferRow, colSpan, rowSpan) {
-        if (isSlotAvailable(excludeKey, preferCol, preferRow, colSpan, rowSpan)) {
+    function findBestFitSlot(excludeKey, preferCol, preferRow, colSpan, rowSpan, targetWs) {
+        let ws = (targetWs !== undefined) ? targetWs : desktopWindow.currentWorkspaceId;
+        if (isSlotAvailable(excludeKey, preferCol, preferRow, colSpan, rowSpan, ws)) {
             return { "col": preferCol, "row": preferRow, "valid": true };
         }
-        // Search outwards for the closest free slot that fits without collision
+        // Search outwards for the closest free slot on that workspace that fits without collision
         let bestDist = 999999;
         let bestCol = -1, bestRow = -1;
         for (let r = 0; r <= gridRows - rowSpan; r++) {
             for (let c = 0; c <= gridCols - colSpan; c++) {
-                if (isSlotAvailable(excludeKey, c, r, colSpan, rowSpan)) {
+                if (isSlotAvailable(excludeKey, c, r, colSpan, rowSpan, ws)) {
                     let d = Math.hypot(c - preferCol, r - preferRow);
                     if (d < bestDist) {
                         bestDist = d;
@@ -181,48 +189,16 @@ PanelWindow {
     }
 
     function addWidgetKey(key, type, defW, defH) {
+        let ws = desktopWindow.currentWorkspaceId;
         let m = Object.assign({}, desktopWindow.gridMap);
-        let occupied = {};
-        for (let k in m) {
-            let item = m[k];
-            let cw = item.colSpan || 1;
-            let rw = item.rowSpan || 1;
-            for (let c = item.col; c < item.col + cw; c++) {
-                for (let r = item.row; r < item.row + rw; r++) {
-                    occupied[c + "," + r] = true;
-                }
-            }
-        }
-        let foundCol = 0, foundRow = 0;
-        let placed = false;
-        for (let r = 0; r <= desktopWindow.gridRows - defH; r++) {
-            for (let c = 0; c <= desktopWindow.gridCols - defW; c++) {
-                let collision = false;
-                for (let dc = 0; dc < defW; dc++) {
-                    for (let dr = 0; dr < defH; dr++) {
-                        if (occupied[(c + dc) + "," + (r + dr)]) {
-                            collision = true;
-                            break;
-                        }
-                    }
-                    if (collision) break;
-                }
-                if (!collision) {
-                    foundCol = c;
-                    foundRow = r;
-                    placed = true;
-                    break;
-                }
-            }
-            if (placed) break;
-        }
-
+        let best = findBestFitSlot(key, 0, 0, defW, defH, ws);
         m[key] = {
-            "col": foundCol,
-            "row": foundRow,
+            "col": best.col,
+            "row": best.row,
             "colSpan": defW,
             "rowSpan": defH,
-            "type": type
+            "type": type,
+            "workspace": ws
         };
         desktopWindow.gridMap = m;
         desktopWindow.savePositions();
@@ -323,10 +299,9 @@ PanelWindow {
             id: itemClock
             overlay: desktopWindow
             widgetKey: "clock"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["clock"])
             Loader {
                 anchors.fill: parent
-                active: itemClock.visible
+                active: itemClock.opacity > 0.001
                 sourceComponent: Component {
                     DesktopClockWidget {
                         anchors.fill: parent
@@ -341,10 +316,9 @@ PanelWindow {
             id: itemBattery
             overlay: desktopWindow
             widgetKey: "battery"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["battery"])
             Loader {
                 anchors.fill: parent
-                active: itemBattery.visible
+                active: itemBattery.opacity > 0.001
                 sourceComponent: Component {
                     DesktopBatteryWidget {
                         anchors.fill: parent
@@ -359,10 +333,9 @@ PanelWindow {
             id: itemCalendar
             overlay: desktopWindow
             widgetKey: "calendar"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["calendar"])
             Loader {
                 anchors.fill: parent
-                active: itemCalendar.visible
+                active: itemCalendar.opacity > 0.001
                 sourceComponent: Component {
                     DesktopCalendarWidget {
                         anchors.fill: parent
@@ -376,10 +349,9 @@ PanelWindow {
             id: itemWeather
             overlay: desktopWindow
             widgetKey: "weather"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["weather"])
             Loader {
                 anchors.fill: parent
-                active: itemWeather.visible
+                active: itemWeather.opacity > 0.001
                 sourceComponent: Component {
                     DesktopWeatherWidget {
                         anchors.fill: parent
@@ -394,10 +366,9 @@ PanelWindow {
             id: itemResources
             overlay: desktopWindow
             widgetKey: "resources"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["resources"])
             Loader {
                 anchors.fill: parent
-                active: itemResources.visible
+                active: itemResources.opacity > 0.001
                 sourceComponent: Component {
                     DesktopResourcesWidget {
                         anchors.fill: parent
@@ -412,10 +383,9 @@ PanelWindow {
             id: itemScreenTime
             overlay: desktopWindow
             widgetKey: "screentime"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["screentime"])
             Loader {
                 anchors.fill: parent
-                active: itemScreenTime.visible
+                active: itemScreenTime.opacity > 0.001
                 sourceComponent: Component {
                     DesktopScreenTimeWidget {
                         anchors.fill: parent
@@ -430,10 +400,9 @@ PanelWindow {
             id: itemMedia
             overlay: desktopWindow
             widgetKey: "media"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["media"])
             Loader {
                 anchors.fill: parent
-                active: itemMedia.visible
+                active: itemMedia.opacity > 0.001
                 sourceComponent: Component {
                     DesktopMediaWidget {
                         anchors.fill: parent
@@ -447,10 +416,9 @@ PanelWindow {
             id: itemReminders
             overlay: desktopWindow
             widgetKey: "reminders"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["reminders"])
             Loader {
                 anchors.fill: parent
-                active: itemReminders.visible
+                active: itemReminders.opacity > 0.001
                 sourceComponent: Component {
                     DesktopRemindersWidget {
                         anchors.fill: parent
@@ -465,10 +433,9 @@ PanelWindow {
             id: itemNotes
             overlay: desktopWindow
             widgetKey: "notes"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["notes"])
             Loader {
                 anchors.fill: parent
-                active: itemNotes.visible
+                active: itemNotes.opacity > 0.001
                 sourceComponent: Component {
                     DesktopNotesWidget {
                         anchors.fill: parent
@@ -482,10 +449,9 @@ PanelWindow {
             id: itemPhoto1
             overlay: desktopWindow
             widgetKey: "photo1"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["photo1"])
             Loader {
                 anchors.fill: parent
-                active: itemPhoto1.visible
+                active: itemPhoto1.opacity > 0.001
                 sourceComponent: Component {
                     DesktopPhotoWidget {
                         anchors.fill: parent
@@ -501,10 +467,9 @@ PanelWindow {
             id: itemPhoto2
             overlay: desktopWindow
             widgetKey: "photo2"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["photo2"])
             Loader {
                 anchors.fill: parent
-                active: itemPhoto2.visible
+                active: itemPhoto2.opacity > 0.001
                 sourceComponent: Component {
                     DesktopPhotoWidget {
                         anchors.fill: parent
@@ -520,10 +485,9 @@ PanelWindow {
             id: itemPhoto3
             overlay: desktopWindow
             widgetKey: "photo3"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["photo3"])
             Loader {
                 anchors.fill: parent
-                active: itemPhoto3.visible
+                active: itemPhoto3.opacity > 0.001
                 sourceComponent: Component {
                     DesktopPhotoWidget {
                         anchors.fill: parent
@@ -539,10 +503,9 @@ PanelWindow {
             id: itemPhoto4
             overlay: desktopWindow
             widgetKey: "photo4"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["photo4"])
             Loader {
                 anchors.fill: parent
-                active: itemPhoto4.visible
+                active: itemPhoto4.opacity > 0.001
                 sourceComponent: Component {
                     DesktopPhotoWidget {
                         anchors.fill: parent
@@ -558,10 +521,9 @@ PanelWindow {
             id: itemPhoto5
             overlay: desktopWindow
             widgetKey: "photo5"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["photo5"])
             Loader {
                 anchors.fill: parent
-                active: itemPhoto5.visible
+                active: itemPhoto5.opacity > 0.001
                 sourceComponent: Component {
                     DesktopPhotoWidget {
                         anchors.fill: parent
@@ -577,10 +539,9 @@ PanelWindow {
             id: itemF1
             overlay: desktopWindow
             widgetKey: "f1"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["f1"])
             Loader {
                 anchors.fill: parent
-                active: itemF1.visible
+                active: itemF1.opacity > 0.001
                 sourceComponent: Component {
                     DesktopF1Widget {
                         anchors.fill: parent
@@ -595,10 +556,9 @@ PanelWindow {
             id: itemNba
             overlay: desktopWindow
             widgetKey: "nba"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["nba"])
             Loader {
                 anchors.fill: parent
-                active: itemNba.visible
+                active: itemNba.opacity > 0.001
                 sourceComponent: Component {
                     DesktopNbaWidget {
                         anchors.fill: parent
@@ -613,14 +573,47 @@ PanelWindow {
             id: itemGithub
             overlay: desktopWindow
             widgetKey: "github"
-            visible: !!(desktopWindow.gridMap && desktopWindow.gridMap["github"])
             Loader {
                 anchors.fill: parent
-                active: itemGithub.visible
+                active: itemGithub.opacity > 0.001
                 sourceComponent: Component {
                     DesktopGithubWidget {
                         anchors.fill: parent
                         isLive: itemGithub.isLive
+                    }
+                }
+            }
+        }
+
+        // 17. Avengers: Doomsday Premiere Countdown
+        GridWidgetWrapper {
+            id: itemDoomsday
+            overlay: desktopWindow
+            widgetKey: "doomsday"
+            Loader {
+                anchors.fill: parent
+                active: itemDoomsday.opacity > 0.001
+                sourceComponent: Component {
+                    DesktopDoomsdayWidget {
+                        anchors.fill: parent
+                        isLive: itemDoomsday.isLive
+                    }
+                }
+            }
+        }
+
+        // 18. NSQK: Mosca Tour Concert Countdown
+        GridWidgetWrapper {
+            id: itemNsqk
+            overlay: desktopWindow
+            widgetKey: "nsqk"
+            Loader {
+                anchors.fill: parent
+                active: itemNsqk.opacity > 0.001
+                sourceComponent: Component {
+                    DesktopNsqkWidget {
+                        anchors.fill: parent
+                        isLive: itemNsqk.isLive
                     }
                 }
             }
@@ -889,6 +882,8 @@ PanelWindow {
                                 { "key": "f1",        "name": "Formula 1",    "icon": "󰀝", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "nba",       "name": "NBA Hub",      "icon": "󰊪", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "github",    "name": "GitHub Wall",  "icon": "󰊤", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "doomsday",  "name": "Doomsday",     "icon": "󰋑", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "nsqk",      "name": "NSQK Tour",    "icon": "󰎈", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "photo1",    "name": "Photos (1)",   "icon": "󰄀", "span": "2x2", "c": 2, "r": 2 },
                                 { "key": "photo2",    "name": "Photos (2)",   "icon": "󰄀", "span": "2x2", "c": 2, "r": 2 },
                                 { "key": "photo3",    "name": "Photos (3)",   "icon": "󰄀", "span": "2x2", "c": 2, "r": 2 },
@@ -901,6 +896,7 @@ PanelWindow {
                                 height: 64
                                 radius: 10
                                 readonly property bool isAdded: !!(desktopWindow.gridMap && desktopWindow.gridMap[modelData.key])
+                                readonly property int widgetWs: isAdded ? ((desktopWindow.gridMap[modelData.key].workspace !== undefined) ? desktopWindow.gridMap[modelData.key].workspace : 1) : 0
                                 color: isAdded ? (cardHover.containsMouse ? Qt.rgba(1, 0.2, 0.2, 0.18) : Qt.rgba(1, 1, 1, 0.05)) : (cardHover.containsMouse ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.28) : Qt.rgba(1, 1, 1, 0.08))
                                 border.color: isAdded ? (cardHover.containsMouse ? "#ff453a" : Qt.rgba(255, 255, 255, 0.12)) : (cardHover.containsMouse ? theme.blue : Qt.rgba(255, 255, 255, 0.18))
                                 border.width: 1
@@ -931,7 +927,7 @@ PanelWindow {
 
                                     Text {
                                         anchors.horizontalCenter: parent.horizontalCenter
-                                        text: isAdded ? (cardHover.containsMouse ? "󰅖 Remove Widget" : "󰄬 Active on Desktop") : ("󰐕 Add (" + modelData.span + ")")
+                                        text: isAdded ? (cardHover.containsMouse ? "󰅖 Remove Widget" : ("󰄬 Active (WS " + widgetWs + ")")) : ("󰐕 Add (" + modelData.span + ")")
                                         color: isAdded ? (cardHover.containsMouse ? "#ff453a" : theme.textDim) : theme.blueLight
                                         font.family: theme.fontFamily
                                         font.pixelSize: 9

@@ -249,7 +249,7 @@ Rectangle {
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: "NSQK presenta Mosca · Live"
+            text: "NSQK presenta Mosca"
             color: Qt.rgba(255, 255, 255, 0.55)
             font.family: theme.fontFamily
             font.pixelSize: 10

@@ -16,7 +16,16 @@ Item {
 
     readonly property real radius: 20
 
-    readonly property var wrapper: (root.parent && root.parent.parent && root.parent.parent.startDrag) ? root.parent.parent : null
+    function findWrapper() {
+        let p = root.parent;
+        while (p) {
+            if (p.overlay !== undefined && p.startDrag !== undefined) return p;
+            if (p.wrapperRef !== undefined) return p.wrapperRef;
+            p = p.parent;
+        }
+        return null;
+    }
+    readonly property var wrapper: findWrapper()
 
     property string albumName: "Photos"
     property string currentPhoto: ""
