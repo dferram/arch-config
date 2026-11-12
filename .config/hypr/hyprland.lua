@@ -110,7 +110,7 @@ gaps_out = 8,
 border_size = 2,
 
 col = {
-    active_border   = { colors = {'rgba(42a0bfee)', 'rgba(7fc4dbee)'}, angle = 45 },
+    active_border   = { colors = {'rgba(2781d4ee)', 'rgba(72b6f3ee)'}, angle = 45 },
     inactive_border = "rgba(151a2455)",
 },
 
@@ -465,6 +465,7 @@ hl.bind("XF86MonBrightnessDown",hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-br
 hl.bind(mainMod .. " + equal",         hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-volume up"),      { locked = true, repeating = true })
 hl.bind(mainMod .. " + minus",         hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-volume down"),    { locked = true, repeating = true })
 hl.bind(mainMod .. " + m",             hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-volume mute"),    { locked = true, repeating = true })
+hl.bind(mainMod .. " + F8",            hl.dsp.exec_cmd("/home/ferram/.local/bin/headphone-jack-autoswitch toggle"), { locked = true })
 hl.bind(mainMod .. " + SHIFT + equal", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-brightness up"),   { locked = true, repeating = true })
 hl.bind(mainMod .. " + SHIFT + minus", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-brightness down"), { locked = true, repeating = true })
 

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
 headphone-jack-autoswitch:
-Monitors hardware 3.5mm headphone jack events and Bluetooth/USB audio connections.
-Automatically switches audio routing between Headphones and Speakers, and enforces
-a safe 40% volume level whenever headphones are connected to protect human hearing.
+Monitors audio devices (3.5mm jack, Bluetooth, USB) and provides instant switching
+between Headphones and Internal Speakers on Intel SOF / Realtek ALC256 Huawei hardware.
+Can be run as a background service or invoked directly (e.g. via CLI or keybinding).
 """
 
 import subprocess
 import time
 import sys
-import select
+import os
 import threading
+from pathlib import Path
 
 CARD = "0"
 CARD_NAME = "alsa_card.pci-0000_00_1f.3-platform-skl_hda_dsp_generic"
@@ -21,40 +22,73 @@ SPEAKER_SINK = f"{CARD_NAME.replace('alsa_card.', 'alsa_output.')}.HiFi__Speaker
 
 last_notify_time = 0
 
-import os
-from pathlib import Path
+def get_env():
+    env = os.environ.copy()
+    if "XDG_RUNTIME_DIR" not in env:
+        env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
+    if "WAYLAND_DISPLAY" not in env:
+        runtime = Path(env["XDG_RUNTIME_DIR"])
+        sockets = sorted(runtime.glob("wayland-[0-9]*"))
+        if sockets:
+            env["WAYLAND_DISPLAY"] = sockets[0].name
+        else:
+            env["WAYLAND_DISPLAY"] = "wayland-1"
+    return env
 
 def run_cmd(args):
     try:
-        env = os.environ.copy()
-        if "XDG_RUNTIME_DIR" not in env:
-            env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
-        if "WAYLAND_DISPLAY" not in env:
-            runtime = Path(env["XDG_RUNTIME_DIR"])
-            sockets = sorted(runtime.glob("wayland-[0-9]*"))
-            if sockets:
-                env["WAYLAND_DISPLAY"] = sockets[0].name
-            else:
-                env["WAYLAND_DISPLAY"] = "wayland-1"
-        subprocess.run(args, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+        subprocess.run(args, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=get_env())
     except Exception:
         pass
 
-def notify_headphones_connected(vol_str="15%"):
+def run_cmd_async(args):
+    try:
+        subprocess.Popen(
+            args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+            env=get_env()
+        )
+    except Exception:
+        pass
+
+def notify_headphones_connected(vol_str="35%"):
     global last_notify_time
     now = time.time()
-    if now - last_notify_time < 3.0:
+    if now - last_notify_time < 1.0:
+        return
+    last_notify_time = now
+
+    icon_path = "/home/ferram/.local/share/icons/headphones.svg"
+    icon = f"file://{icon_path}" if os.path.exists(icon_path) else "audio-headphones-symbolic"
+
+    run_cmd([
+        "notify-send", "-a", "Headphones",
+        "-i", icon,
+        "-t", "2500",
+        "-h", "string:x-canonical-private-synchronous:audio_output",
+        "-h", "string:synchronous:audio_output",
+        "Headphones Connected",
+        f"Audio routed to Headphones • Volume {vol_str}"
+    ])
+
+def notify_speaker_activated():
+    global last_notify_time
+    now = time.time()
+    if now - last_notify_time < 1.0:
         return
     last_notify_time = now
 
     run_cmd([
-        "notify-send", "-a", "Headphones",
-        "-i", "file:///home/ferram/.local/share/icons/headphones.svg",
+        "notify-send", "-a", "Speakers",
+        "-i", "audio-speakers-symbolic",
         "-t", "2500",
-        "-h", "string:x-canonical-private-synchronous:headphones_connected",
-        "-h", "string:synchronous:headphones_connected",
-        "Headphones Connected",
-        f"Audio routed • Volume {vol_str}"
+        "-h", "string:x-canonical-private-synchronous:audio_output",
+        "-h", "string:synchronous:audio_output",
+        "Speakers Activated",
+        "Audio routed to laptop speakers"
     ])
 
 def is_headphone_plugged():
@@ -71,9 +105,20 @@ def is_headphone_plugged():
         pass
     return False
 
+def get_current_profile():
+    try:
+        out = subprocess.check_output(["pactl", "list", "cards"], stderr=subprocess.DEVNULL).decode()
+        for line in out.splitlines():
+            if "Active Profile:" in line:
+                return line.split(":", 1)[1].strip()
+    except Exception:
+        pass
+    return ""
+
 def switch_to_headphones():
-    print("[headphone-jack-autoswitch] Headphones plugged in -> Switching to Headphones", flush=True)
-    run_cmd(["amixer", "-c", CARD, "sset", "Auto-Mute Mode", "Enabled"])
+    print("[headphone-jack-autoswitch] Switching to Headphones", flush=True)
+    # Ensure Auto-Mute is Disabled so ALSA doesn't mute headphones
+    run_cmd(["amixer", "-c", CARD, "sset", "Auto-Mute Mode", "Disabled"])
     run_cmd(["pactl", "set-card-profile", CARD_NAME, HEADPHONES_PROFILE])
     time.sleep(0.15)
     run_cmd(["pactl", "set-default-sink", HEADPHONES_SINK])
@@ -82,10 +127,9 @@ def switch_to_headphones():
     run_cmd(["amixer", "-c", CARD, "sset", "Master", "unmute"])
     run_cmd(["amixer", "-c", CARD, "sset", "Speaker", "mute"])
 
-    # Use boosted loudness & clarity profile
-    run_cmd(["easyeffects", "-l", "Huawei MateBook - Max Loudness & Clarity"])
+    # Load EasyEffects profile asynchronously without blocking
+    run_cmd_async(["easyeffects", "-l", "Huawei MateBook - Max Loudness & Clarity"])
 
-    # Set volume to a clear, audible 35% on wired headphones
     time.sleep(0.15)
     run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "35"])
     notify_headphones_connected("35%")
@@ -106,12 +150,12 @@ def get_external_headphone_sink():
 def switch_to_speaker():
     ext = get_external_headphone_sink()
     if ext:
-        print(f"[headphone-jack-autoswitch] Wired jack unplugged, but external {ext} active -> Keeping {ext}", flush=True)
+        print(f"[headphone-jack-autoswitch] External {ext} active -> Keeping {ext}", flush=True)
         run_cmd(["pactl", "set-default-sink", ext])
         return
 
-    print("[headphone-jack-autoswitch] Headphones unplugged -> Switching to Speakers", flush=True)
-    run_cmd(["amixer", "-c", CARD, "sset", "Auto-Mute Mode", "Enabled"])
+    print("[headphone-jack-autoswitch] Switching to Speakers", flush=True)
+    run_cmd(["amixer", "-c", CARD, "sset", "Auto-Mute Mode", "Disabled"])
     run_cmd(["pactl", "set-card-profile", CARD_NAME, SPEAKER_PROFILE])
     time.sleep(0.15)
     run_cmd(["pactl", "set-default-sink", SPEAKER_SINK])
@@ -120,8 +164,16 @@ def switch_to_speaker():
 
     # Enable hardware DRC for laptop speaker protection
     run_cmd(["amixer", "-c", CARD, "sset", "Post Mixer Analog Playback DRC switch", "on"])
-    # Switch EasyEffects back to laptop speaker boost profile
-    run_cmd(["easyeffects", "-l", "Huawei MateBook - Max Loudness & Clarity"])
+    # Switch EasyEffects back asynchronously
+    run_cmd_async(["easyeffects", "-l", "Huawei MateBook - Max Loudness & Clarity"])
+    notify_speaker_activated()
+
+def toggle():
+    prof = get_current_profile()
+    if "Headphones" in prof:
+        switch_to_speaker()
+    else:
+        switch_to_headphones()
 
 def monitor_bluetooth_and_usb():
     """Listens for new Bluetooth or external USB headphone connections and enforces safe 40% volume."""
@@ -134,7 +186,8 @@ def monitor_bluetooth_and_usb():
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 text=True,
-                bufsize=1
+                bufsize=1,
+                env=get_env()
             )
             for raw_line in proc.stdout:
                 line = raw_line.strip().lower()
@@ -146,7 +199,6 @@ def monitor_bluetooth_and_usb():
                             parts = sline.split()
                             if len(parts) >= 2:
                                 sname = parts[1]
-                                # Only match external Bluetooth or USB devices (internal PCI 3.5mm jack is handled by switch_to_headphones)
                                 is_external_hp = ("bluez" in sname.lower() or "usb" in sname.lower()) and ("speaker" not in sname.lower())
                                 if is_external_hp:
                                     active_sinks.add(sname)
@@ -154,11 +206,10 @@ def monitor_bluetooth_and_usb():
                                         known_external_sinks.add(sname)
                                         print(f"[headphone-jack-autoswitch] Detected new external headphone sink: {sname} -> Routing sound and setting volume to 40%", flush=True)
                                         run_cmd(["pactl", "set-default-sink", sname])
-                                        run_cmd(["easyeffects", "-l", "Perfect EQ"])
+                                        run_cmd_async(["easyeffects", "-l", "Perfect EQ"])
                                         time.sleep(0.25)
                                         run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "40"])
                                         notify_headphones_connected("40%")
-                        # Prune disconnected devices
                         known_external_sinks.intersection_update(active_sinks)
                     except Exception:
                         pass
@@ -174,24 +225,37 @@ def monitor_bluetooth_and_usb():
                     pass
 
 def main():
-    # Start Bluetooth/USB monitor thread
+    if len(sys.argv) > 1:
+        cmd = sys.argv[1].lower().strip()
+        if cmd in ["hp", "headphones", "headphone"]:
+            switch_to_headphones()
+            return
+        elif cmd in ["spk", "speaker", "speakers"]:
+            switch_to_speaker()
+            return
+        elif cmd in ["toggle", "switch", "t"]:
+            toggle()
+            return
+        elif cmd in ["status", "current"]:
+            prof = get_current_profile()
+            print("Headphones" if "Headphones" in prof else "Speaker")
+            return
+        else:
+            print("Usage: headphone-jack-autoswitch [headphones | speaker | toggle | status]")
+            return
+
+    # Daemon mode: Start Bluetooth/USB monitor thread
     bt_thread = threading.Thread(target=monitor_bluetooth_and_usb, daemon=True)
     bt_thread.start()
 
-    current_state = None
+    # In daemon mode: If ALSA jack detection transitions to ON, auto switch.
+    current_plugged = is_headphone_plugged()
 
-    def apply_state(plugged):
-        nonlocal current_state
-        if plugged:
-            switch_to_headphones()
-        else:
-            switch_to_speaker()
-        current_state = plugged
-
-    initial_plugged = is_headphone_plugged()
-    apply_state(initial_plugged)
+    # Ensure Auto-Mute is disabled initially
+    run_cmd(["amixer", "-c", CARD, "sset", "Auto-Mute Mode", "Disabled"])
 
     def alsa_events_listener():
+        nonlocal current_plugged
         while True:
             proc = None
             try:
@@ -200,15 +264,20 @@ def main():
                     stdout=subprocess.PIPE,
                     stderr=subprocess.DEVNULL,
                     text=True,
-                    bufsize=1
+                    bufsize=1,
+                    env=get_env()
                 )
                 for line in iter(proc.stdout.readline, ''):
                     if "Headphone Jack" in line or "numid=8" in line:
                         time.sleep(0.05)
                         plugged = is_headphone_plugged()
-                        if plugged != current_state:
-                            apply_state(plugged)
-            except Exception as e:
+                        if plugged != current_plugged:
+                            current_plugged = plugged
+                            if plugged:
+                                switch_to_headphones()
+                            else:
+                                switch_to_speaker()
+            except Exception:
                 time.sleep(1)
             finally:
                 if proc and proc.poll() is None:
@@ -222,17 +291,20 @@ def main():
     events_thread = threading.Thread(target=alsa_events_listener, daemon=True)
     events_thread.start()
 
-    # Main thread polling fallback to guarantee state accuracy
     while True:
         try:
-            time.sleep(1.0)
+            time.sleep(2.0)
             plugged = is_headphone_plugged()
-            if plugged != current_state:
-                apply_state(plugged)
+            if plugged != current_plugged:
+                current_plugged = plugged
+                if plugged:
+                    switch_to_headphones()
+                else:
+                    switch_to_speaker()
         except KeyboardInterrupt:
             break
-        except Exception as e:
-            time.sleep(1.0)
+        except Exception:
+            time.sleep(2.0)
 
 if __name__ == "__main__":
     main()

@@ -51,6 +51,20 @@ Item {
     }
 
     // Fetch volume info via hypr-volume
+    property string activeOutput: "Speaker"
+
+    Process {
+        id: outputProc
+        command: ["/home/ferram/.local/bin/headphone-jack-autoswitch", "status"]
+        running: true
+        stdout: StdioCollector {
+            onTextChanged: {
+                let t = text.trim();
+                if (t) root.activeOutput = t;
+            }
+        }
+    }
+
     Process {
         id: queryProc
         command: ["/home/ferram/.local/bin/hypr-volume", "get"]
@@ -73,6 +87,7 @@ Item {
         repeat: true
         onTriggered: {
             if (!queryProc.running) queryProc.running = true;
+            if (!outputProc.running) outputProc.running = true;
         }
     }
 
@@ -130,6 +145,7 @@ Item {
 
         onClicked: {
             if (!queryProc.running) queryProc.running = true;
+            if (!outputProc.running) outputProc.running = true;
             root.togglePopup("volume");
         }
     }
@@ -354,6 +370,86 @@ Item {
                                 root.setVol("up", "5");
                             } else if (event.angleDelta.y < 0) {
                                 root.setVol("down", "5");
+                            }
+                        }
+                    }
+                }
+
+                // Output Device Selector (Speakers vs Headphones)
+                Row {
+                    width: parent.width
+                    spacing: 6
+
+                    Rectangle {
+                        width: (parent.width - 6) / 2
+                        height: 28
+                        radius: 8
+                        property bool isCurrent: root.activeOutput === "Speaker"
+                        color: isCurrent ? Qt.rgba(255, 255, 255, 0.22) : (spkMouse.containsMouse ? theme.surfaceHover : theme.surface)
+                        border.color: isCurrent ? "#ffffff" : (spkMouse.containsMouse ? theme.borderGlow : theme.borderSubtle)
+                        border.width: 1
+
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 6
+                            Text { text: "🔊"; font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter }
+                            Text {
+                                text: "Speakers"
+                                color: parent.parent.isCurrent ? "#ffffff" : theme.textMuted
+                                font.family: theme.fontFamily
+                                font.pixelSize: 11
+                                font.weight: parent.parent.isCurrent ? Font.Bold : Font.Normal
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            id: spkMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                autoCloseTimer.restart();
+                                root.activeOutput = "Speaker";
+                                execProc.command = ["/home/ferram/.local/bin/headphone-jack-autoswitch", "spk"];
+                                execProc.running = true;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: (parent.width - 6) / 2
+                        height: 28
+                        radius: 8
+                        property bool isCurrent: root.activeOutput === "Headphones"
+                        color: isCurrent ? Qt.rgba(255, 255, 255, 0.22) : (hpMouse.containsMouse ? theme.surfaceHover : theme.surface)
+                        border.color: isCurrent ? "#ffffff" : (hpMouse.containsMouse ? theme.borderGlow : theme.borderSubtle)
+                        border.width: 1
+
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 6
+                            Text { text: "🎧"; font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter }
+                            Text {
+                                text: "Headphones"
+                                color: parent.parent.isCurrent ? "#ffffff" : theme.textMuted
+                                font.family: theme.fontFamily
+                                font.pixelSize: 11
+                                font.weight: parent.parent.isCurrent ? Font.Bold : Font.Normal
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            id: hpMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                autoCloseTimer.restart();
+                                root.activeOutput = "Headphones";
+                                execProc.command = ["/home/ferram/.local/bin/headphone-jack-autoswitch", "hp"];
+                                execProc.running = true;
                             }
                         }
                     }
