@@ -282,14 +282,14 @@ Rectangle {
                     anchors.centerIn: parent
                     spacing: 2
 
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.months)
-                        font.family: root.iconFont
-                        font.pixelSize: 18
-                        font.weight: Font.Bold
-                        font.italic: true
-                        color: "#ffffff"
+                        value: root.pad2(root.months)
+                        fontFamily: root.iconFont
+                        pixelSize: 18
+                        fontWeight: Font.Bold
+                        fontItalic: true
+                        textColor: "#ffffff"
                     }
 
                     Text {
@@ -327,14 +327,14 @@ Rectangle {
                     anchors.centerIn: parent
                     spacing: 2
 
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.days)
-                        font.family: root.iconFont
-                        font.pixelSize: 18
-                        font.weight: Font.Bold
-                        font.italic: true
-                        color: "#ffffff"
+                        value: root.pad2(root.days)
+                        fontFamily: root.iconFont
+                        pixelSize: 18
+                        fontWeight: Font.Bold
+                        fontItalic: true
+                        textColor: "#ffffff"
                     }
 
                     Text {
@@ -372,14 +372,14 @@ Rectangle {
                     anchors.centerIn: parent
                     spacing: 2
 
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.hours)
-                        font.family: root.iconFont
-                        font.pixelSize: 18
-                        font.weight: Font.Bold
-                        font.italic: true
-                        color: "#ffffff"
+                        value: root.pad2(root.hours)
+                        fontFamily: root.iconFont
+                        pixelSize: 18
+                        fontWeight: Font.Bold
+                        fontItalic: true
+                        textColor: "#ffffff"
                     }
 
                     Text {
@@ -417,14 +417,14 @@ Rectangle {
                     anchors.centerIn: parent
                     spacing: 2
 
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.minutes)
-                        font.family: root.iconFont
-                        font.pixelSize: 18
-                        font.weight: Font.Bold
-                        font.italic: true
-                        color: "#ffffff"
+                        value: root.pad2(root.minutes)
+                        fontFamily: root.iconFont
+                        pixelSize: 18
+                        fontWeight: Font.Bold
+                        fontItalic: true
+                        textColor: "#ffffff"
                     }
 
                     Text {
@@ -462,14 +462,14 @@ Rectangle {
                     anchors.centerIn: parent
                     spacing: 2
 
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.seconds)
-                        font.family: root.iconFont
-                        font.pixelSize: 18
-                        font.weight: Font.Bold
-                        font.italic: true
-                        color: "#ffffff"
+                        value: root.pad2(root.seconds)
+                        fontFamily: root.iconFont
+                        pixelSize: 18
+                        fontWeight: Font.Bold
+                        fontItalic: true
+                        textColor: "#ffffff"
                     }
 
                     Text {

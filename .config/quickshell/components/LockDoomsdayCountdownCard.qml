@@ -366,13 +366,13 @@ Item {
                     width: 40
                     spacing: 3
 
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.months)
-                        font.family: theme.fontFamily
-                        font.pixelSize: 22
-                        font.weight: Font.Bold
-                        color: "#ffffff"
+                        value: root.pad2(root.months)
+                        fontFamily: theme.fontFamily
+                        pixelSize: 22
+                        fontWeight: Font.Bold
+                        textColor: "#ffffff"
                     }
 
                     Text {
@@ -401,13 +401,13 @@ Item {
                     width: 40
                     spacing: 3
 
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.days)
-                        font.family: theme.fontFamily
-                        font.pixelSize: 22
-                        font.weight: Font.Bold
-                        color: "#ffffff"
+                        value: root.pad2(root.days)
+                        fontFamily: theme.fontFamily
+                        pixelSize: 22
+                        fontWeight: Font.Bold
+                        textColor: "#ffffff"
                     }
 
                     Text {
@@ -436,13 +436,13 @@ Item {
                     width: 40
                     spacing: 3
 
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.hours)
-                        font.family: theme.fontFamily
-                        font.pixelSize: 22
-                        font.weight: Font.Bold
-                        color: "#ffffff"
+                        value: root.pad2(root.hours)
+                        fontFamily: theme.fontFamily
+                        pixelSize: 22
+                        fontWeight: Font.Bold
+                        textColor: "#ffffff"
                     }
 
                     Text {
@@ -471,13 +471,13 @@ Item {
                     width: 40
                     spacing: 3
 
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.minutes)
-                        font.family: theme.fontFamily
-                        font.pixelSize: 22
-                        font.weight: Font.Bold
-                        color: "#ffffff"
+                        value: root.pad2(root.minutes)
+                        fontFamily: theme.fontFamily
+                        pixelSize: 22
+                        fontWeight: Font.Bold
+                        textColor: "#ffffff"
                     }
 
                     Text {
@@ -506,13 +506,13 @@ Item {
                     width: 40
                     spacing: 3
 
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.seconds)
-                        font.family: theme.fontFamily
-                        font.pixelSize: 22
-                        font.weight: Font.Bold
-                        color: "#ffffff"
+                        value: root.pad2(root.seconds)
+                        fontFamily: theme.fontFamily
+                        pixelSize: 22
+                        fontWeight: Font.Bold
+                        textColor: "#ffffff"
                     }
 
                     Text {

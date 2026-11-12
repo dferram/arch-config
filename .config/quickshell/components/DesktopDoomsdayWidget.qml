@@ -308,13 +308,13 @@ Item {
                 // 1. MONTHS
                 Column {
                     spacing: 2
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.months)
-                        font.family: theme.fontFamily
-                        font.pixelSize: root.width > 400 ? 34 : 28
-                        font.weight: Font.Bold
-                        color: "#ffffff"
+                        value: root.pad2(root.months)
+                        fontFamily: theme.fontFamily
+                        pixelSize: root.width > 400 ? 34 : 28
+                        fontWeight: Font.Bold
+                        textColor: "#ffffff"
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -340,13 +340,13 @@ Item {
                 // 2. DAYS
                 Column {
                     spacing: 2
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.days)
-                        font.family: theme.fontFamily
-                        font.pixelSize: root.width > 400 ? 34 : 28
-                        font.weight: Font.Bold
-                        color: "#ffffff"
+                        value: root.pad2(root.days)
+                        fontFamily: theme.fontFamily
+                        pixelSize: root.width > 400 ? 34 : 28
+                        fontWeight: Font.Bold
+                        textColor: "#ffffff"
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -372,13 +372,13 @@ Item {
                 // 3. HOURS
                 Column {
                     spacing: 2
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.hours)
-                        font.family: theme.fontFamily
-                        font.pixelSize: root.width > 400 ? 34 : 28
-                        font.weight: Font.Bold
-                        color: "#ffffff"
+                        value: root.pad2(root.hours)
+                        fontFamily: theme.fontFamily
+                        pixelSize: root.width > 400 ? 34 : 28
+                        fontWeight: Font.Bold
+                        textColor: "#ffffff"
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -404,13 +404,13 @@ Item {
                 // 4. MINUTES
                 Column {
                     spacing: 2
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.minutes)
-                        font.family: theme.fontFamily
-                        font.pixelSize: root.width > 400 ? 34 : 28
-                        font.weight: Font.Bold
-                        color: "#ffffff"
+                        value: root.pad2(root.minutes)
+                        fontFamily: theme.fontFamily
+                        pixelSize: root.width > 400 ? 34 : 28
+                        fontWeight: Font.Bold
+                        textColor: "#ffffff"
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -436,13 +436,13 @@ Item {
                 // 5. SECONDS
                 Column {
                     spacing: 2
-                    Text {
+                    FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.pad2(root.seconds)
-                        font.family: theme.fontFamily
-                        font.pixelSize: root.width > 400 ? 34 : 28
-                        font.weight: Font.Bold
-                        color: "#ffffff"
+                        value: root.pad2(root.seconds)
+                        fontFamily: theme.fontFamily
+                        pixelSize: root.width > 400 ? 34 : 28
+                        fontWeight: Font.Bold
+                        textColor: "#ffffff"
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter

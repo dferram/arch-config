@@ -61,14 +61,14 @@ Rectangle {
             anchors.centerIn: parent
             spacing: 2
 
-            Text {
+            FallingDigits {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: parent.parent.value
-                font.family: root.iconFont
-                font.pixelSize: root.width > 400 ? 34 : 28
-                font.weight: Font.Bold
-                font.italic: true
-                color: "#ffffff"
+                value: parent.parent.value
+                fontFamily: root.iconFont
+                pixelSize: root.width > 400 ? 34 : 28
+                fontWeight: Font.Bold
+                fontItalic: true
+                textColor: "#ffffff"
             }
 
             Text {
