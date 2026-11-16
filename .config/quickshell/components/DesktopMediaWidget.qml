@@ -102,14 +102,17 @@ Rectangle {
                 Image {
                     id: artImg
                     anchors.fill: parent
-                    source: root.getResolvedArtUrl(root.trackArtUrl)
+                    property bool useFallbackArt: false
+                    property string trackedArtUrl: root.trackArtUrl
+                    onTrackedArtUrlChanged: useFallbackArt = false
+                    source: useFallbackArt ? root.trackArtUrl : root.getResolvedArtUrl(root.trackArtUrl)
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
                     cache: true
 
                     onStatusChanged: {
-                        if (status === Image.Error && source.toString().indexOf(".cache/spotify-covers") !== -1) {
-                            source = root.trackArtUrl;
+                        if (status === Image.Error && !useFallbackArt && source.toString().indexOf(".cache/spotify-covers") !== -1) {
+                            useFallbackArt = true;
                         }
                     }
                 }

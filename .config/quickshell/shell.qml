@@ -48,16 +48,16 @@ ShellRoot {
 
     IpcHandler {
         target: "bar"
-        function toggle(): void {
+        function toggle() {
             shell.barVisible = !shell.barVisible;
         }
-        function open(): void {
+        function open() {
             shell.barVisible = true;
         }
-        function close(): void {
+        function close() {
             shell.barVisible = false;
         }
-        function setVisible(v: bool): void {
+        function setVisible(v: bool) {
             shell.barVisible = v;
         }
         function isVisible(): bool {
@@ -68,31 +68,31 @@ ShellRoot {
     // Dynamic Desktop Widgets IPC controller
     IpcHandler {
         target: "widgets"
-        function toggle(): void {
+        function toggle() {
             shell.widgetsVisible = !shell.widgetsVisible;
         }
-        function open(): void {
+        function open() {
             shell.widgetsVisible = true;
         }
-        function close(): void {
+        function close() {
             shell.widgetsVisible = false;
         }
-        function setVisible(v: bool): void {
+        function setVisible(v: bool) {
             shell.widgetsVisible = v;
         }
         function isVisible(): bool {
             return shell.widgetsVisible;
         }
-        function toggleGrid(): void {
+        function toggleGrid() {
             shell.showGridGuide = !shell.showGridGuide;
         }
-        function setGrid(v: bool): void {
+        function setGrid(v: bool) {
             shell.showGridGuide = v;
         }
         function isGridVisible(): bool {
             return shell.showGridGuide;
         }
-        function reloadGrid(): void {
+        function reloadGrid() {
             shell.showGridGuide = shell.showGridGuide; // tickle
             shell.gridReloadTick = shell.gridReloadTick + 1;
         }

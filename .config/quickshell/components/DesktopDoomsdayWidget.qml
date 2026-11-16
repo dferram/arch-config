@@ -25,15 +25,8 @@ Item {
     property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
 
     property color accent: "#10b981" // Refined Doctor Doom Emerald
-    readonly property string iconFont: "GeistMono Nerd Font Propo"
     readonly property string defaultPosterPath: "file://" + Quickshell.shellPath("assets/doomsday-desktop.jpg")
     property string posterPath: defaultPosterPath
-
-    // Target countdown values
-    property string eventTitle: "AVENGERS: DOOMSDAY"
-    property string eventDateLabel: "Dec 16, 2026"
-    property string eventTimeLabel: "12:00 AM"
-    property string eventLocation: "Cinemex Paseo Querétaro · Premiere"
 
     property int months: 0
     property int days: 0
@@ -46,17 +39,6 @@ Item {
 
     function pad2(n) {
         return (n < 10 ? "0" : "") + Math.max(0, n);
-    }
-
-    function formatTime12(t) {
-        if (!t) return "12:00 AM";
-        let p = t.split(":");
-        let h = parseInt(p[0], 10);
-        let m = p[1] || "00";
-        let ap = h >= 12 ? "PM" : "AM";
-        let h12 = h % 12;
-        if (h12 === 0) h12 = 12;
-        return h12 + ":" + m + " " + ap;
     }
 
     function resolveTargetDate() {
@@ -78,13 +60,9 @@ Item {
                             let tparts = r.time.split(":");
                             hr = parseInt(tparts[0], 10) || 0;
                             mn = parseInt(tparts[1], 10) || 0;
-                            root.eventTimeLabel = root.formatTime12(r.time);
                         }
                         if (r.photo && r.photo.trim() && r.photo.indexOf("doomsday.jpg") === -1) {
                             root.posterPath = (r.photo.startsWith("http") || r.photo.startsWith("file://")) ? r.photo : ("file://" + r.photo);
-                        }
-                        if (r.notes && r.notes.trim()) {
-                            root.eventLocation = r.notes.trim() + " · Premiere";
                         }
                         let candidate = new Date(y, m, d, hr, mn, 0);
                         if (candidate.getTime() > now.getTime()) {
@@ -144,7 +122,7 @@ Item {
     // Read reminders from backend hypr-reminders
     Process {
         id: readRemindersProc
-        command: ["/home/ferram/Personal/dotfiles/.local/bin/hypr-reminders", "list"]
+        command: [Quickshell.env("HOME") + "/.local/bin/hypr-reminders", "list"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
@@ -261,7 +239,7 @@ Item {
             z: 3
 
             Image {
-                source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                source: "file://" + Quickshell.shellPath("icons/marvel.svg")
                 width: 38
                 height: 15
                 fillMode: Image.PreserveAspectFit

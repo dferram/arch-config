@@ -116,7 +116,10 @@ Item {
         Image {
             id: bgArtA
             anchors.fill: parent
-            source: !root.flipArt ? root.getResolvedArtUrl(root.artUrl) : ""
+            property bool useFallbackArt: false
+            property string trackedArtUrl: root.artUrl
+            onTrackedArtUrlChanged: useFallbackArt = false
+            source: !root.flipArt ? (useFallbackArt ? root.artUrl : root.getResolvedArtUrl(root.artUrl)) : ""
             fillMode: Image.PreserveAspectCrop
             sourceSize.width: 640
             sourceSize.height: 640
@@ -124,8 +127,8 @@ Item {
             visible: false
 
             onStatusChanged: {
-                if (status === Image.Error && source.toString().indexOf(".cache/spotify-covers") !== -1) {
-                    source = !root.flipArt ? root.artUrl : "";
+                if (status === Image.Error && !useFallbackArt && source.toString().indexOf(".cache/spotify-covers") !== -1) {
+                    useFallbackArt = true;
                 }
             }
         }
@@ -146,7 +149,10 @@ Item {
         Image {
             id: bgArtB
             anchors.fill: parent
-            source: root.flipArt ? root.getResolvedArtUrl(root.artUrl) : ""
+            property bool useFallbackArt: false
+            property string trackedArtUrl: root.artUrl
+            onTrackedArtUrlChanged: useFallbackArt = false
+            source: root.flipArt ? (useFallbackArt ? root.artUrl : root.getResolvedArtUrl(root.artUrl)) : ""
             fillMode: Image.PreserveAspectCrop
             sourceSize.width: 640
             sourceSize.height: 640
@@ -154,8 +160,8 @@ Item {
             visible: false
 
             onStatusChanged: {
-                if (status === Image.Error && source.toString().indexOf(".cache/spotify-covers") !== -1) {
-                    source = root.flipArt ? root.artUrl : "";
+                if (status === Image.Error && !useFallbackArt && source.toString().indexOf(".cache/spotify-covers") !== -1) {
+                    useFallbackArt = true;
                 }
             }
         }
@@ -915,7 +921,10 @@ Item {
                     Image {
                         id: miniThumb
                         anchors.fill: parent
-                        source: root.getResolvedArtUrl(root.artUrl)
+                        property bool useFallbackArt: false
+                        property string trackedArtUrl: root.artUrl
+                        onTrackedArtUrlChanged: useFallbackArt = false
+                        source: useFallbackArt ? root.artUrl : root.getResolvedArtUrl(root.artUrl)
                         fillMode: Image.PreserveAspectCrop
                         sourceSize.width: 64
                         sourceSize.height: 64
@@ -923,8 +932,8 @@ Item {
                         visible: status === Image.Ready
 
                         onStatusChanged: {
-                            if (status === Image.Error && source.toString().indexOf(".cache/spotify-covers") !== -1) {
-                                source = root.artUrl;
+                            if (status === Image.Error && !useFallbackArt && source.toString().indexOf(".cache/spotify-covers") !== -1) {
+                                useFallbackArt = true;
                             }
                         }
                     }

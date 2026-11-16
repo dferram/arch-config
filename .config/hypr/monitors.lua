@@ -2,7 +2,7 @@
 hl.monitor({
     output   = "HDMI-A-1",
     mode     = "preferred",
-    position = "auto-left",
+    position = "auto-right",
     scale    = 1,
     mirror   = "",
 })

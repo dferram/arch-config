@@ -599,9 +599,9 @@ PanelWindow {
     // IPC Endpoint: qs ipc call launcher toggle
     IpcHandler {
         target: "launcher"
-        function toggle(): void { launcherWindow.toggle(); }
-        function open(): void { launcherWindow.open(); }
-        function close(): void { launcherWindow.close(); }
+        function toggle() { launcherWindow.toggle(); }
+        function open() { launcherWindow.open(); }
+        function close() { launcherWindow.close(); }
         function isOpen(): bool { return launcherWindow.isOpen; }
     }
 }

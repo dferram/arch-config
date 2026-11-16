@@ -149,7 +149,9 @@ Item {
         { keywords: ["codex", "codex.openai"], icon: "file:///home/ferram/.local/share/icons/chatgpt.svg" },
         { keywords: ["claude", "anthropic"], icon: "file:///home/ferram/.local/share/icons/claude.svg" },
         { keywords: ["gemini", "bard.google"], icon: "file:///home/ferram/.local/share/icons/gemini.svg" },
-        { keywords: ["github"], icon: root.githubSvgUri },
+        // GitHub profile pages omit "GitHub" from the browser title (for example,
+        // "dferram (Fernando …)").  Keep their workspace marker as the Octocat.
+        { keywords: ["github", "dferram (fernando"], icon: root.githubSvgUri },
         { keywords: ["spotify"], icon: root.spotifySvgUri },
         { keywords: ["pgadmin", "postgresql", "postgres", "psql", "5050", "localhost:5050", "localhost:5432", "5432", "dbeaver", "datagrip", "postico", "tableplus"], icon: "file:///home/ferram/.local/share/icons/postgresql.svg" },
         { keywords: ["docker", "lazydocker", "portainer", "hub.docker"], icon: "file:///home/ferram/.local/share/icons/docker.svg" },
@@ -478,8 +480,10 @@ Item {
             return { icon: root.spotifySvgUri, isTerminal: false, isAi: false };
         }
 
-        // GitHub
-        if (lower.indexOf("github") !== -1 || titleLower.indexOf("github") !== -1) {
+        // GitHub. Profile pages use the account name as their document title and
+        // therefore do not necessarily contain the GitHub brand.
+        if (lower.indexOf("github") !== -1 || titleLower.indexOf("github") !== -1 ||
+            titleLower.indexOf("dferram (fernando") !== -1) {
             return { icon: root.githubSvgUri, isTerminal: false, isAi: false };
         }
 

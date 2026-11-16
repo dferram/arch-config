@@ -15,12 +15,17 @@ Rectangle {
     Theme { id: theme }
 
     property var reminders: []
-    property color accent: theme.blue
+    property color accent: "#ffe600"
     property bool active: false
 
     readonly property string iconFont: "GeistMono Nerd Font Propo"
     readonly property string defaultPosterPath: "file://" + Quickshell.shellPath("assets/nsqk-mosca.jpg")
     property string posterPath: defaultPosterPath
+
+    FontLoader {
+        id: bebasFont
+        source: "file://" + Quickshell.env("HOME") + "/.local/share/fonts/BebasNeue-Regular.ttf"
+    }
 
     implicitWidth: 310
     implicitHeight: 330
@@ -31,8 +36,6 @@ Rectangle {
     clip: true
 
     // Target countdown values
-    property string eventTitle: "NSQK PRESENTS MOSCA"
-    property string eventDateLabel: "Feb 27, 2027"
     property string eventTimeLabel: "8:00 PM"
     property string eventLocation: "Auditorio Josefa · Live"
 
@@ -127,11 +130,11 @@ Rectangle {
             anchor.setMonth(((targetMonthIndex % 12) + 12) % 12);
         }
 
-        let diffSecs = Math.floor((target.getTime() - anchor.getTime()) / 1000);
-        let sec = diffSecs % 60;
-        let min = Math.floor(diffSecs / 60) % 60;
-        let hr = Math.floor(diffSecs / 3600) % 24;
-        let dy = Math.floor(diffSecs / 86400);
+        let totalDiffSecs = Math.max(0, Math.floor((target.getTime() - now.getTime()) / 1000));
+        let sec = totalDiffSecs % 60;
+        let min = Math.floor(totalDiffSecs / 60) % 60;
+        let hr = Math.floor(totalDiffSecs / 3600) % 24;
+        let dy = Math.floor(totalDiffSecs / 86400);
 
         root.months = Math.max(0, mDiff);
         root.days = Math.max(0, dy);
@@ -232,6 +235,21 @@ Rectangle {
         }
     }
 
+    // STANDBY indicator in top right (Canal 600 CRT style)
+    Text {
+        anchors.top: parent.top
+        anchors.topMargin: 18
+        anchors.right: parent.right
+        anchors.rightMargin: 16
+        text: "STANDBY"
+        color: Qt.rgba(125/255, 145/255, 199/255, 0.70)
+        font.family: bebasFont.name ? bebasFont.name : "Bebas Neue"
+        font.pixelSize: 11
+        font.bold: true
+        font.letterSpacing: 1.8
+        z: 3
+    }
+
     // Subtitle / Tour Tag
     Row {
         id: subHeader
@@ -257,310 +275,209 @@ Rectangle {
         }
     }
 
-    // ---- MAIN COUNTDOWN (5 SEGMENTED LIQUID GLASS PILLS) ----
+    // ---- MAIN COUNTDOWN (CRT Canal 600 style: DÍAS : HRS : MIN : SEG) ----
     Column {
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: 6
-        spacing: 12
+        anchors.verticalCenterOffset: -4
+        spacing: 10
         z: 3
 
-        // 5 Segmented countdown units
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 3
+            spacing: 12
 
-            // 1. MONTHS
-            Rectangle {
-                width: 44
-                height: 54
-                radius: 10
-                color: Qt.rgba(255, 255, 255, 0.05)
-                border.width: 1
-                border.color: Qt.rgba(255, 255, 255, 0.09)
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 2
-
-                    FallingDigits {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        value: root.pad2(root.months)
-                        fontFamily: root.iconFont
-                        pixelSize: 18
-                        fontWeight: Font.Bold
-                        fontItalic: true
-                        textColor: "#ffffff"
-                    }
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "MONTH"
-                        font.family: theme.fontFamily
-                        font.pixelSize: 8
-                        font.weight: Font.Bold
-                        font.letterSpacing: 0.5
-                        color: Qt.rgba(255, 255, 255, 0.50)
-                    }
+            // 1. DÍAS
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 3
+                FallingDigits {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    value: root.pad2(root.days)
+                    fontFamily: "NotoSerif Nerd Font"
+                    pixelSize: 36
+                    fontWeight: Font.Black
+                    fontItalic: false
+                    textColor: "#ffe600"
+                    textStyle: Text.Raised
+                    styleColor: Qt.rgba(0, 0, 0, 0.95)
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "DÍAS"
+                    font.family: bebasFont.name ? bebasFont.name : "Bebas Neue"
+                    font.pixelSize: 11
+                    font.bold: true
+                    font.letterSpacing: 1.8
+                    color: "#7d91c7"
                 }
             }
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: -4
+                anchors.verticalCenterOffset: -8
                 text: ":"
-                font.family: root.iconFont
-                font.pixelSize: 13
-                font.weight: Font.Bold
-                color: Qt.rgba(255, 255, 255, 0.35)
+                font.family: "NotoSerif Nerd Font"
+                font.pixelSize: 26
+                font.weight: Font.Black
+                color: "#ffe600"
+                style: Text.Raised
+                styleColor: Qt.rgba(0, 0, 0, 0.95)
             }
 
-            // 2. DAYS
-            Rectangle {
-                width: 44
-                height: 54
-                radius: 10
-                color: Qt.rgba(255, 255, 255, 0.05)
-                border.width: 1
-                border.color: Qt.rgba(255, 255, 255, 0.09)
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 2
-
-                    FallingDigits {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        value: root.pad2(root.days)
-                        fontFamily: root.iconFont
-                        pixelSize: 18
-                        fontWeight: Font.Bold
-                        fontItalic: true
-                        textColor: "#ffffff"
-                    }
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "DAYS"
-                        font.family: theme.fontFamily
-                        font.pixelSize: 8
-                        font.weight: Font.Bold
-                        font.letterSpacing: 0.5
-                        color: Qt.rgba(255, 255, 255, 0.50)
-                    }
+            // 2. HRS
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 3
+                FallingDigits {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    value: root.pad2(root.hours)
+                    fontFamily: "NotoSerif Nerd Font"
+                    pixelSize: 36
+                    fontWeight: Font.Black
+                    fontItalic: false
+                    textColor: "#ffe600"
+                    textStyle: Text.Raised
+                    styleColor: Qt.rgba(0, 0, 0, 0.95)
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "HRS"
+                    font.family: bebasFont.name ? bebasFont.name : "Bebas Neue"
+                    font.pixelSize: 11
+                    font.bold: true
+                    font.letterSpacing: 1.8
+                    color: "#7d91c7"
                 }
             }
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: -4
+                anchors.verticalCenterOffset: -8
                 text: ":"
-                font.family: root.iconFont
-                font.pixelSize: 13
-                font.weight: Font.Bold
-                color: Qt.rgba(255, 255, 255, 0.35)
+                font.family: "NotoSerif Nerd Font"
+                font.pixelSize: 26
+                font.weight: Font.Black
+                color: "#ffe600"
+                style: Text.Raised
+                styleColor: Qt.rgba(0, 0, 0, 0.95)
             }
 
-            // 3. HOURS
-            Rectangle {
-                width: 44
-                height: 54
-                radius: 10
-                color: Qt.rgba(255, 255, 255, 0.05)
-                border.width: 1
-                border.color: Qt.rgba(255, 255, 255, 0.09)
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 2
-
-                    FallingDigits {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        value: root.pad2(root.hours)
-                        fontFamily: root.iconFont
-                        pixelSize: 18
-                        fontWeight: Font.Bold
-                        fontItalic: true
-                        textColor: "#ffffff"
-                    }
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "HOURS"
-                        font.family: theme.fontFamily
-                        font.pixelSize: 8
-                        font.weight: Font.Bold
-                        font.letterSpacing: 0.5
-                        color: Qt.rgba(255, 255, 255, 0.50)
-                    }
+            // 3. MIN
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 3
+                FallingDigits {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    value: root.pad2(root.minutes)
+                    fontFamily: "NotoSerif Nerd Font"
+                    pixelSize: 36
+                    fontWeight: Font.Black
+                    fontItalic: false
+                    textColor: "#ffe600"
+                    textStyle: Text.Raised
+                    styleColor: Qt.rgba(0, 0, 0, 0.95)
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "MIN"
+                    font.family: bebasFont.name ? bebasFont.name : "Bebas Neue"
+                    font.pixelSize: 11
+                    font.bold: true
+                    font.letterSpacing: 1.8
+                    color: "#7d91c7"
                 }
             }
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: -4
+                anchors.verticalCenterOffset: -8
                 text: ":"
-                font.family: root.iconFont
-                font.pixelSize: 13
-                font.weight: Font.Bold
-                color: Qt.rgba(255, 255, 255, 0.35)
+                font.family: "NotoSerif Nerd Font"
+                font.pixelSize: 26
+                font.weight: Font.Black
+                color: "#ffe600"
+                style: Text.Raised
+                styleColor: Qt.rgba(0, 0, 0, 0.95)
             }
 
-            // 4. MINUTES
-            Rectangle {
-                width: 44
-                height: 54
-                radius: 10
-                color: Qt.rgba(255, 255, 255, 0.05)
-                border.width: 1
-                border.color: Qt.rgba(255, 255, 255, 0.09)
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 2
-
-                    FallingDigits {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        value: root.pad2(root.minutes)
-                        fontFamily: root.iconFont
-                        pixelSize: 18
-                        fontWeight: Font.Bold
-                        fontItalic: true
-                        textColor: "#ffffff"
-                    }
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "MIN"
-                        font.family: theme.fontFamily
-                        font.pixelSize: 8
-                        font.weight: Font.Bold
-                        font.letterSpacing: 0.5
-                        color: Qt.rgba(255, 255, 255, 0.50)
-                    }
-                }
-            }
-
-            Text {
+            // 4. SEG
+            Column {
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: -4
-                text: ":"
-                font.family: root.iconFont
-                font.pixelSize: 13
-                font.weight: Font.Bold
-                color: Qt.rgba(255, 255, 255, 0.35)
-            }
-
-            // 5. SECONDS
-            Rectangle {
-                width: 44
-                height: 54
-                radius: 10
-                color: Qt.rgba(255, 255, 255, 0.05)
-                border.width: 1
-                border.color: Qt.rgba(255, 255, 255, 0.09)
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 2
-
-                    FallingDigits {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        value: root.pad2(root.seconds)
-                        fontFamily: root.iconFont
-                        pixelSize: 18
-                        fontWeight: Font.Bold
-                        fontItalic: true
-                        textColor: "#ffffff"
-                    }
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "SEC"
-                        font.family: theme.fontFamily
-                        font.pixelSize: 8
-                        font.weight: Font.Bold
-                        font.letterSpacing: 0.5
-                        color: Qt.rgba(255, 255, 255, 0.50)
-                    }
+                spacing: 3
+                FallingDigits {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    value: root.pad2(root.seconds)
+                    fontFamily: "NotoSerif Nerd Font"
+                    pixelSize: 36
+                    fontWeight: Font.Black
+                    fontItalic: false
+                    textColor: "#ffe600"
+                    textStyle: Text.Raised
+                    styleColor: Qt.rgba(0, 0, 0, 0.95)
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "SEG"
+                    font.family: bebasFont.name ? bebasFont.name : "Bebas Neue"
+                    font.pixelSize: 11
+                    font.bold: true
+                    font.letterSpacing: 1.8
+                    color: "#7d91c7"
                 }
             }
         }
     }
 
-    // ---- FOOTER STRIP (matches LockCalendarCard footer: x: 12, height: 54, radius: 12) ----
+    // ---- MARQUEE BANNER: "¿ESTÁS PONIENDO ATENCIÓN?" (NSQK CRT style, full width edge-to-edge) ----
     Rectangle {
-        id: footer
-        x: 12
-        width: parent.width - 24
-        height: 54
-        y: parent.height - height - 12
-        radius: 12
+        id: marqueeStrip
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 46
+        y: parent.height - height - 16
         clip: true
-        color: Qt.rgba(255, 255, 255, 0.04)
-        border.width: 1
-        border.color: Qt.rgba(255, 255, 255, 0.08)
+        color: "#163172"
         z: 3
 
-        // Date badge
-        Rectangle {
-            id: dateBadge
-            x: 9
-            anchors.verticalCenter: parent.verticalCenter
-            width: 36
-            height: 36
-            radius: 10
-            color: Qt.rgba(255, 255, 255, 0.08)
-            border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.12)
+        readonly property string phrase: "¿ESTÁS PONIENDO ATENCIÓN?               "
 
-            Column {
-                anchors.centerIn: parent
-                spacing: -2
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: "FEB"
-                    color: root.accent
-                    font.family: theme.fontFamily
-                    font.pixelSize: 8
-                    font.weight: Font.Bold
-                }
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: "27"
-                    color: "#ffffff"
-                    font.family: root.iconFont
-                    font.pixelSize: 16
-                    font.weight: Font.Bold
-                }
-            }
+        Text {
+            id: measurer
+            visible: false
+            text: marqueeStrip.phrase
+            font.family: bebasFont.name ? bebasFont.name : "Bebas Neue"
+            font.pixelSize: 17
+            font.bold: true
+            font.letterSpacing: 2.4
         }
 
-        // Details next to badge
-        Column {
-            anchors.left: dateBadge.right
-            anchors.leftMargin: 10
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 2
-            width: parent.width - dateBadge.width - 28
+        readonly property real chunkWidth: measurer.implicitWidth > 0 ? measurer.implicitWidth : 350
 
-            Text {
-                text: "Saturday, Feb 27 · " + root.eventTimeLabel
-                color: theme.text
-                font.family: theme.fontFamily
-                font.pixelSize: 11
-                font.weight: Font.DemiBold
-                elide: Text.ElideRight
-                width: parent.width
+        Row {
+            id: marqueeTrack
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 0
+
+            NumberAnimation on x {
+                from: -marqueeStrip.chunkWidth
+                to: 0
+                duration: 8000
+                loops: Animation.Infinite
+                running: true
             }
 
-            Text {
-                text: root.eventLocation
-                color: Qt.rgba(255, 255, 255, 0.50)
-                font.family: theme.fontFamily
-                font.pixelSize: 10
-                elide: Text.ElideRight
-                width: parent.width
+            Repeater {
+                model: 4
+                Text {
+                    text: marqueeStrip.phrase
+                    font.family: bebasFont.name ? bebasFont.name : "Bebas Neue"
+                    font.pixelSize: 17
+                    font.bold: true
+                    font.letterSpacing: 2.4
+                    color: "#ffe600"
+                    style: Text.Raised
+                    styleColor: Qt.rgba(0, 0, 0, 0.95)
+                }
             }
         }
     }

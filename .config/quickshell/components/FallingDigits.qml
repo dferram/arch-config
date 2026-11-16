@@ -17,6 +17,8 @@ Row {
     property bool fontItalic: false
     property real letterSpacing: 0
     property color textColor: "#ffffff"
+    property int textStyle: Text.Normal
+    property color styleColor: "transparent"
     property int animationDuration: 280
 
     readonly property string textVal: "" + (value !== undefined && value !== null ? value : "")
@@ -25,8 +27,8 @@ Row {
     component FallingDigit: Item {
         id: digitRoot
 
-        property string char: ""
-        property string displayChar: char
+        property string digit: ""
+        property string displayChar: digit
         property string outgoingChar: ""
         property bool initialized: false
 
@@ -36,6 +38,8 @@ Row {
         property bool fontItalic: false
         property real letterSpacing: 0
         property color textColor: "#ffffff"
+        property int textStyle: Text.Normal
+        property color styleColor: "transparent"
         property int animationDuration: 280
 
         implicitWidth: Math.max(measurer.implicitWidth, incomingText.implicitWidth)
@@ -52,6 +56,8 @@ Row {
             font.italic: digitRoot.fontItalic
             font.letterSpacing: digitRoot.letterSpacing
             font.features: { "tnum": 1 }
+            style: digitRoot.textStyle
+            styleColor: digitRoot.styleColor
         }
 
         Text {
@@ -64,6 +70,8 @@ Row {
             font.italic: digitRoot.fontItalic
             font.letterSpacing: digitRoot.letterSpacing
             font.features: { "tnum": 1 }
+            style: digitRoot.textStyle
+            styleColor: digitRoot.styleColor
             color: digitRoot.textColor
             y: 0
             opacity: 0
@@ -79,6 +87,8 @@ Row {
             font.italic: digitRoot.fontItalic
             font.letterSpacing: digitRoot.letterSpacing
             font.features: { "tnum": 1 }
+            style: digitRoot.textStyle
+            styleColor: digitRoot.styleColor
             color: digitRoot.textColor
             y: 0
             opacity: 1
@@ -127,7 +137,7 @@ Row {
         }
 
         function setChar(newChar) {
-            if (!initialized) {
+            if (!initialized || displayChar === "") {
                 displayChar = newChar;
                 initialized = true;
                 return;
@@ -144,9 +154,9 @@ Row {
             fallAnim.restart();
         }
 
-        onCharChanged: setChar(char)
+        onDigitChanged: setChar(digit)
         Component.onCompleted: {
-            displayChar = char;
+            displayChar = digit;
             initialized = true;
         }
     }
@@ -154,13 +164,15 @@ Row {
     Repeater {
         model: root.textVal.length
         FallingDigit {
-            char: root.textVal.charAt(index)
+            digit: root.textVal.charAt(index)
             fontFamily: root.fontFamily
             pixelSize: root.pixelSize
             fontWeight: root.fontWeight
             fontItalic: root.fontItalic
             letterSpacing: root.letterSpacing
             textColor: root.textColor
+            textStyle: root.textStyle
+            styleColor: root.styleColor
             animationDuration: root.animationDuration
         }
     }

@@ -982,7 +982,10 @@ Item {
                             Image {
                                 id: fullArtImg
                                 anchors.fill: parent
-                                source: root.getResolvedArtUrl(root.artUrl)
+                                property bool useFallbackArt: false
+                                property string trackedArtUrl: root.artUrl
+                                onTrackedArtUrlChanged: useFallbackArt = false
+                                source: useFallbackArt ? root.artUrl : root.getResolvedArtUrl(root.artUrl)
                                 visible: root.artUrl !== "" && status === Image.Ready
                                 fillMode: (root.isSpiderMan || root.isStremio) ? Image.PreserveAspectFit : Image.PreserveAspectCrop
                                 asynchronous: true
@@ -990,8 +993,8 @@ Item {
                                 mipmap: true
 
                                 onStatusChanged: {
-                                    if (status === Image.Error && source.toString().indexOf(".cache/spotify-covers") !== -1) {
-                                        source = root.artUrl;
+                                    if (status === Image.Error && !useFallbackArt && source.toString().indexOf(".cache/spotify-covers") !== -1) {
+                                        useFallbackArt = true;
                                     }
                                 }
                             }

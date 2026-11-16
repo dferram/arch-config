@@ -33,7 +33,7 @@ Scope {
 
     IpcHandler {
         target: "lock"
-        function lock(): void { sessionLock.locked = true; }
+        function lock() { sessionLock.locked = true; }
         function isLocked(): bool { return sessionLock.locked; }
         function agentStatus(): string {
             return JSON.stringify({available: lockContext.agentsAvailable, agents: lockContext.agents});

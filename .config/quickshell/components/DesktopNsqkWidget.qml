@@ -30,16 +30,15 @@ Rectangle {
     readonly property var wrapper: findWrapper()
     property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
 
-    property color accent: "#38bdf8" // NSQK Electric Cyan / Ice Blue
+    property color accent: "#ffe600" // NSQK Canal 600 CRT Vivid Yellow
     readonly property string iconFont: "GeistMono Nerd Font Propo"
     readonly property string defaultPosterPath: "file://" + Quickshell.shellPath("assets/nsqk-mosca.jpg")
     property string posterPath: defaultPosterPath
 
-    // Target countdown values
-    property string eventTitle: "NSQK PRESENTS MOSCA"
-    property string eventDateLabel: "Feb 27, 2027"
-    property string eventTimeLabel: "8:00 PM"
-    property string eventLocation: "Auditorio Josefa · Querétaro"
+    FontLoader {
+        id: bebasFont
+        source: "file://" + Quickshell.env("HOME") + "/.local/share/fonts/BebasNeue-Regular.ttf"
+    }
 
     property int months: 0
     property int days: 0
@@ -54,8 +53,8 @@ Rectangle {
     component CountdownPill : Item {
         property string value: "00"
         property string label: "DAYS"
-        width: root.width > 400 ? 54 : 44
-        height: root.width > 400 ? 56 : 48
+        width: root.width > 400 ? 56 : 46
+        height: root.width > 400 ? 58 : 50
 
         Column {
             anchors.centerIn: parent
@@ -64,38 +63,29 @@ Rectangle {
             FallingDigits {
                 anchors.horizontalCenter: parent.horizontalCenter
                 value: parent.parent.value
-                fontFamily: root.iconFont
-                pixelSize: root.width > 400 ? 34 : 28
-                fontWeight: Font.Bold
-                fontItalic: true
-                textColor: "#ffffff"
+                fontFamily: "NotoSerif Nerd Font"
+                pixelSize: root.width > 400 ? 38 : 32
+                fontWeight: Font.Black
+                fontItalic: false
+                textColor: "#ffe600"
+                textStyle: Text.Raised
+                styleColor: Qt.rgba(0, 0, 0, 0.95)
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: parent.parent.label
-                font.family: theme.fontFamily
-                font.pixelSize: 9
-                font.weight: Font.Bold
-                font.letterSpacing: 1.0
-                color: Qt.rgba(255, 255, 255, 0.75)
+                font.family: bebasFont.name ? bebasFont.name : "Bebas Neue"
+                font.pixelSize: 11
+                font.bold: true
+                font.letterSpacing: 1.8
+                color: "#7d91c7"
             }
         }
     }
 
     function pad2(n) {
         return (n < 10 ? "0" : "") + Math.max(0, n);
-    }
-
-    function formatTime12(t) {
-        if (!t) return "8:00 PM";
-        let p = t.split(":");
-        let h = parseInt(p[0], 10);
-        let m = p[1] || "00";
-        let ap = h >= 12 ? "PM" : "AM";
-        let h12 = h % 12;
-        if (h12 === 0) h12 = 12;
-        return h12 + ":" + m + " " + ap;
     }
 
     function resolveTargetDate() {
@@ -116,13 +106,9 @@ Rectangle {
                             let tparts = r.time.split(":");
                             hr = parseInt(tparts[0], 10) || 20;
                             mn = parseInt(tparts[1], 10) || 0;
-                            root.eventTimeLabel = root.formatTime12(r.time);
                         }
                         if (r.photo && r.photo.trim()) {
                             root.posterPath = (r.photo.startsWith("http") || r.photo.startsWith("file://")) ? r.photo : ("file://" + r.photo);
-                        }
-                        if (r.notes && r.notes.trim()) {
-                            root.eventLocation = r.notes.trim();
                         }
                         let candidate = new Date(y, m, d, hr, mn, 0);
                         if (candidate.getTime() > now.getTime()) {
@@ -166,11 +152,11 @@ Rectangle {
             anchor.setMonth(((targetMonthIndex % 12) + 12) % 12);
         }
 
-        let diffSecs = Math.floor((target.getTime() - anchor.getTime()) / 1000);
-        let sec = diffSecs % 60;
-        let min = Math.floor(diffSecs / 60) % 60;
-        let hr = Math.floor(diffSecs / 3600) % 24;
-        let dy = Math.floor(diffSecs / 86400);
+        let totalDiffSecs = Math.max(0, Math.floor((target.getTime() - now.getTime()) / 1000));
+        let sec = totalDiffSecs % 60;
+        let min = Math.floor(totalDiffSecs / 60) % 60;
+        let hr = Math.floor(totalDiffSecs / 3600) % 24;
+        let dy = Math.floor(totalDiffSecs / 86400);
 
         root.months = Math.max(0, mDiff);
         root.days = Math.max(0, dy);
@@ -182,7 +168,7 @@ Rectangle {
     // Read reminders from backend hypr-reminders
     Process {
         id: readRemindersProc
-        command: ["/home/ferram/Personal/dotfiles/.local/bin/hypr-reminders", "list"]
+        command: [Quickshell.env("HOME") + "/.local/bin/hypr-reminders", "list"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
@@ -273,10 +259,10 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             text: "MOSCA TOUR"
             color: Qt.rgba(255, 255, 255, 0.75)
-            font.family: theme.fontFamily
-            font.pixelSize: 10
-            font.weight: Font.Bold
-            font.letterSpacing: 1.2
+            font.family: bebasFont.name ? bebasFont.name : "Bebas Neue"
+            font.pixelSize: 11
+            font.bold: true
+            font.letterSpacing: 1.6
         }
     }
 
@@ -294,66 +280,60 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "NSQK PRESENTS MOSCA"
             color: "#ffffff"
-            font.family: theme.fontFamily
-            font.pixelSize: 13
-            font.weight: Font.Black
+            font.family: bebasFont.name ? bebasFont.name : "Bebas Neue"
+            font.pixelSize: 14
+            font.bold: true
             font.letterSpacing: 2.2
         }
 
-        // 5-Segment Countdown Row
+        // 4-Segment Countdown Row (CRT Canal 600 style)
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: root.width > 400 ? 10 : 6
+            spacing: root.width > 400 ? 14 : 10
 
-            CountdownPill { value: root.pad2(root.months); label: "MONTHS" }
+            CountdownPill { value: root.pad2(root.days); label: "DÍAS" }
 
             Text {
                 text: ":"
-                font.family: theme.fontFamily
-                font.pixelSize: root.width > 400 ? 24 : 20
-                font.weight: Font.Bold
-                color: Qt.rgba(255, 255, 255, 0.45)
+                font.family: "NotoSerif Nerd Font"
+                font.pixelSize: root.width > 400 ? 28 : 24
+                font.weight: Font.Black
+                color: "#ffe600"
+                style: Text.Raised
+                styleColor: Qt.rgba(0, 0, 0, 0.95)
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: -7
+                anchors.verticalCenterOffset: -8
             }
 
-            CountdownPill { value: root.pad2(root.days); label: "DAYS" }
+            CountdownPill { value: root.pad2(root.hours); label: "HRS" }
 
             Text {
                 text: ":"
-                font.family: theme.fontFamily
-                font.pixelSize: root.width > 400 ? 24 : 20
-                font.weight: Font.Bold
-                color: Qt.rgba(255, 255, 255, 0.45)
+                font.family: "NotoSerif Nerd Font"
+                font.pixelSize: root.width > 400 ? 28 : 24
+                font.weight: Font.Black
+                color: "#ffe600"
+                style: Text.Raised
+                styleColor: Qt.rgba(0, 0, 0, 0.95)
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: -7
-            }
-
-            CountdownPill { value: root.pad2(root.hours); label: "HOURS" }
-
-            Text {
-                text: ":"
-                font.family: theme.fontFamily
-                font.pixelSize: root.width > 400 ? 24 : 20
-                font.weight: Font.Bold
-                color: Qt.rgba(255, 255, 255, 0.45)
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: -7
+                anchors.verticalCenterOffset: -8
             }
 
             CountdownPill { value: root.pad2(root.minutes); label: "MIN" }
 
             Text {
                 text: ":"
-                font.family: theme.fontFamily
-                font.pixelSize: root.width > 400 ? 24 : 20
-                font.weight: Font.Bold
-                color: Qt.rgba(255, 255, 255, 0.45)
+                font.family: "NotoSerif Nerd Font"
+                font.pixelSize: root.width > 400 ? 28 : 24
+                font.weight: Font.Black
+                color: "#ffe600"
+                style: Text.Raised
+                styleColor: Qt.rgba(0, 0, 0, 0.95)
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: -7
+                anchors.verticalCenterOffset: -8
             }
 
-            CountdownPill { value: root.pad2(root.seconds); label: "SEC" }
+            CountdownPill { value: root.pad2(root.seconds); label: "SEG" }
         }
     }
 

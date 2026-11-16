@@ -292,7 +292,9 @@ hl.bind(mainMod .. " + W",        hl.dsp.exec_cmd("chromium"))
 hl.bind(mainMod .. " + SHIFT + W", hl.dsp.exec_cmd("/home/ferram/.local/bin/desktop-widgets customize"))
 hl.bind(mainMod .. " + ALT + W",  hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-wallpaper random"))
 hl.bind(mainMod .. " + CTRL + W", hl.dsp.exec_cmd("/home/ferram/.local/bin/hypr-wallpaper menu"))
-hl.bind(mainMod .. " + G", hl.dsp.exec_cmd('/usr/bin/chromium "--profile-directory=Profile 1" --app-id=mjoklplbddabcmpepnokjaffbmgbkkgg'))
+-- GitHub opens as a regular Chromium tab.  Workspaces still recognize its title
+-- and render the GitHub Octocat instead of the browser icon.
+hl.bind(mainMod .. " + G", hl.dsp.exec_cmd('/usr/bin/chromium "--profile-directory=Profile 1" "https://github.com/"'))
 hl.bind(mainMod .. " + A", hl.dsp.exec_cmd("antigravity-ide"))
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("qs ipc call lock lock || hyprlock"))
 local closeWindowBind = hl.bind(mainMod .. " + C", hl.dsp.window.close())
