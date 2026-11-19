@@ -1,7 +1,7 @@
 [Unit]
 Description=Auto-switch audio between Headphones and Speakers on jack event
-After=pipewire.service wireplumber.service
-Wants=pipewire.service wireplumber.service
+After=pipewire.service wireplumber.service filter-chain.service
+Wants=pipewire.service wireplumber.service filter-chain.service
 
 [Service]
 Type=simple

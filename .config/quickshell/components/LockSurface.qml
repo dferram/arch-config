@@ -16,6 +16,7 @@ import "../theme"
 Item {
     id: root
     required property LockContext ctx
+    property string screenName: ""
 
     Theme { id: theme }
 
@@ -23,6 +24,24 @@ Item {
     readonly property color glass: "#d90f0f14"
     readonly property color glassHover: "#e61a1a21"
     readonly property bool revealed: ctx.revealed
+    readonly property bool hasLaptopScreen: {
+        for (let i = 0; i < Quickshell.screens.length; i++) {
+            let s = Quickshell.screens[i];
+            if (s && s.name && s.name.indexOf("eDP") !== -1) return true;
+        }
+        return false;
+    }
+    readonly property bool isLaptopScreen: {
+        if (screenName.indexOf("eDP") !== -1) return true;
+        if (!hasLaptopScreen && Quickshell.screens.length > 0) {
+            let first = Quickshell.screens[0];
+            return first && (first.name || "") === screenName;
+        }
+        return false;
+    }
+    readonly property bool countdownFocused: root.revealed && root.ctx.focusedCountdown !== ""
+    readonly property bool showFocusedCountdown: countdownFocused && isLaptopScreen
+    readonly property bool showControlPanel: root.revealed && !countdownFocused
     readonly property color accent: lockMedia.hasTrack ? lockMedia.mediaAccentColor : theme.blue
     readonly property string artUrl: lockMedia.hasTrack ? lockMedia.artUrl : ""
     readonly property bool hasArt: artUrl !== ""
@@ -84,7 +103,7 @@ Item {
     Item {
         id: backdrop
         anchors.fill: parent
-        opacity: root.revealed ? 1.0 : (root.hasArt ? 0.75 : 0.0)
+        opacity: root.showControlPanel ? 1.0 : ((root.hasArt && !root.showFocusedCountdown) ? 0.75 : 0.0)
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: root.revealDuration; easing.type: Easing.OutCubic } }
 
@@ -195,11 +214,12 @@ Item {
         onPressedChanged: if (pressed) root.ctx.poke()
     }
 
-    // Click anywhere: reveal / keep alive
+    // Click anywhere: reveal / return from focused countdown / keep alive
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onClicked: {
+            if (root.countdownFocused) root.ctx.clearFocusedCountdown();
             root.ctx.reveal();
             input.forceActiveFocus();
         }
@@ -218,27 +238,30 @@ Item {
         width: 1308
         height: 820
         x: (root.width - width) / 2
-        y: root.revealed ? (root.miniTop + root.miniHeight / 2 - height / 2)
-                         : (root.height / 2 - height / 2 - (lockMedia.hasTrack ? 16 : 8) * root.baseScale)
-        scale: root.revealed ? root.miniScale : root.baseScale
+        y: root.showControlPanel ? (root.miniTop + root.miniHeight / 2 - height / 2)
+                                 : (root.height / 2 - height / 2 - (lockMedia.hasTrack ? 16 : 8) * root.baseScale)
+        scale: root.showControlPanel ? root.miniScale : root.baseScale
+        opacity: root.showFocusedCountdown ? 0.0 : 1.0
+        visible: opacity > 0.01
         transformOrigin: Item.Center
 
         Behavior on y { NumberAnimation { duration: root.revealDuration; easing.type: Easing.OutExpo } }
         Behavior on scale { NumberAnimation { duration: root.revealDuration; easing.type: Easing.OutExpo } }
+        Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
 
         // Keep each card alive across clock ticks so only changed values flip.
         FlipClockCard {
             id: hourCard
             value: Qt.formatDateTime(root.ctx.now, "h")
             accent: root.accent
-            outlined: root.revealed
+            outlined: root.showControlPanel
         }
         FlipClockCard {
             id: minuteCard
             x: 688
             value: Qt.formatDateTime(root.ctx.now, "mm")
             accent: root.accent
-            outlined: root.revealed
+            outlined: root.showControlPanel
         }
 
         // AM / PM
@@ -249,7 +272,7 @@ Item {
             color: "#91969e"
             font.family: "Bebas Neue"
             font.pixelSize: 90
-            opacity: root.revealed ? 0 : 1
+            opacity: root.showControlPanel ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: 250 } }
         }
     }
@@ -273,12 +296,12 @@ Item {
         border.color: statusPillMa.containsMouse ? theme.borderGlow : theme.border
         z: 30
 
-        opacity: root.revealed ? 1.0 : 0.0
+        opacity: root.showControlPanel ? 1.0 : 0.0
         visible: opacity > 0.01
         Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
 
         transform: Translate {
-            y: root.revealed ? 0 : -10
+            y: root.showControlPanel ? 0 : -10
             Behavior on y { NumberAnimation { duration: root.revealDuration; easing.type: Easing.OutExpo } }
         }
 
@@ -430,8 +453,8 @@ Item {
 
         Connections {
             target: root
-            function onRevealedChanged() {
-                if (root.revealed) {
+            function onShowControlPanelChanged() {
+                if (root.showControlPanel) {
                     if (!cpuTelemetryProc.running) cpuTelemetryProc.running = true;
                     if (!wifiTelemetryProc.running) wifiTelemetryProc.running = true;
                     if (!batteryFallbackProc.running) batteryFallbackProc.running = true;
@@ -441,7 +464,7 @@ Item {
 
         Timer {
             interval: 3000
-            running: root.revealed
+            running: root.showControlPanel
             repeat: true
             onTriggered: {
                 if (!cpuTelemetryProc.running) cpuTelemetryProc.running = true;
@@ -450,7 +473,7 @@ Item {
 
         Timer {
             interval: 6000
-            running: root.revealed
+            running: root.showControlPanel
             repeat: true
             onTriggered: {
                 if (!wifiTelemetryProc.running) wifiTelemetryProc.running = true;
@@ -596,12 +619,12 @@ Item {
         spacing: 10
         z: 30
 
-        opacity: root.revealed ? 1.0 : 0.0
+        opacity: root.showControlPanel ? 1.0 : 0.0
         visible: opacity > 0.01
         Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
 
         transform: Translate {
-            y: root.revealed ? 0 : 10
+            y: root.showControlPanel ? 0 : 10
             Behavior on y { NumberAnimation { duration: root.revealDuration; easing.type: Easing.OutExpo } }
         }
 
@@ -763,7 +786,7 @@ Item {
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.10)
 
-        opacity: (!root.revealed && lockMedia.hasTrack) ? 1.0 : 0.0
+        opacity: (!root.showControlPanel && !root.showFocusedCountdown && lockMedia.hasTrack) ? 1.0 : 0.0
         visible: opacity > 0.01
         Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
 
@@ -1111,58 +1134,31 @@ Item {
         transformOrigin: Item.Top
         spacing: 24
 
-        property real slide: root.revealed ? 0 : 40
+        property real slide: root.showControlPanel ? 0 : 40
         Behavior on slide { NumberAnimation { duration: root.revealDuration; easing.type: Easing.OutExpo } }
-        opacity: root.revealed ? 1 : 0
+        opacity: root.showControlPanel ? 1 : 0
         visible: opacity > 0.01
         Behavior on opacity { NumberAnimation { duration: 380; easing.type: Easing.OutCubic } }
 
-        // The bar's media card, calendar, and NSQK Mosca countdown card
+        // The bar's media card (only when playing), calendar, and countdown cards
         Row {
             id: cardsRow
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 16
-            readonly property real rowH: Math.max(330, lockMedia.implicitHeight)
+            readonly property real rowH: Math.max(330, lockMedia.hasTrack ? lockMedia.implicitHeight : 0)
 
             Item {
                 width: 350
                 height: parent.rowH
+                visible: lockMedia.hasTrack
                 MediaWidget {
                     id: lockMedia
                     anchors.fill: parent
                     parentWindow: null
                     embedded: true
-                    embeddedActive: root.revealed
-                }
-                Rectangle {
-                    anchors.fill: parent
-                    visible: !lockMedia.hasTrack
-                    radius: 16
-                    color: Qt.rgba(0.04, 0.04, 0.06, 0.88)
-                    border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.10)
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 10
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "󰝚"
-                            color: theme.textDim
-                            font.family: root.iconFont
-                            font.pixelSize: 32
-                            opacity: 0.4
-                        }
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "Nothing playing"
-                            color: theme.textDim
-                            font.family: theme.fontFamily
-                            font.pixelSize: 14
-                        }
-                    }
+                    embeddedActive: root.showControlPanel
                 }
             }
-
 
             LockCalendarCard {
                 id: lockCalendar
@@ -1171,25 +1167,59 @@ Item {
                 now: root.ctx.now
                 reminders: root.ctx.reminders
                 accent: root.accent
-                active: root.revealed
+                active: root.showControlPanel
             }
 
-            LockDoomsdayCountdownCard {
-                id: doomsdayCountdown
+            Item {
                 width: 280
                 height: parent.rowH
-                reminders: root.ctx.reminders
-                accent: "#10b981"
-                active: root.revealed
+                scale: doomsdayClickMa.pressed ? 0.97 : (doomsdayClickMa.containsMouse ? 1.02 : 1.0)
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+                LockDoomsdayCountdownCard {
+                    id: doomsdayCountdown
+                    anchors.fill: parent
+                    reminders: root.ctx.reminders
+                    accent: "#10b981"
+                    active: root.showControlPanel
+                }
+
+                MouseArea {
+                    id: doomsdayClickMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        root.ctx.focusCountdown("doomsday");
+                        input.forceActiveFocus();
+                    }
+                }
             }
 
-            LockEventCountdownCard {
-                id: eventCountdown
+            Item {
                 width: 310
                 height: parent.rowH
-                reminders: root.ctx.reminders
-                accent: root.accent
-                active: root.revealed
+                scale: eventClickMa.pressed ? 0.97 : (eventClickMa.containsMouse ? 1.02 : 1.0)
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+                LockEventCountdownCard {
+                    id: eventCountdown
+                    anchors.fill: parent
+                    reminders: root.ctx.reminders
+                    accent: root.accent
+                    active: root.showControlPanel
+                }
+
+                MouseArea {
+                    id: eventClickMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        root.ctx.focusCountdown("nsqk");
+                        input.forceActiveFocus();
+                    }
+                }
             }
         }
 
@@ -1199,7 +1229,7 @@ Item {
             now: root.ctx.now
             reminders: root.ctx.reminders
             accent: root.accent
-            active: root.revealed
+            active: root.showControlPanel
         }
 
 
@@ -1223,7 +1253,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: 320
                 height: 46
-                radius: 23
+                radius: 10
                 color: root.glass
                 border.width: 1
                 border.color: root.ctx.authFailed ? theme.red
@@ -1290,7 +1320,7 @@ Item {
                     visible: root.ctx.capsLock
                     width: 26
                     height: 26
-                    radius: 13
+                    radius: 7
                     color: Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.22)
                     border.width: 1
                     border.color: theme.peach
@@ -1329,6 +1359,73 @@ Item {
         }
     }
 
+    // ==========================================================================
+    // FOCUSED COUNTDOWN STAGE (Laptop StandBy view when clicking a countdown)
+    // External monitors keep displaying the monumental flip clock.
+    // ==========================================================================
+    Item {
+        id: focusedCountdownStage
+        anchors.fill: parent
+        z: 25
+        opacity: root.showFocusedCountdown ? 1.0 : 0.0
+        visible: opacity > 0.01
+        Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+
+        Item {
+            id: focusedCardFrame
+            anchors.fill: parent
+
+            Loader {
+                anchors.fill: parent
+                active: root.showFocusedCountdown && root.ctx.focusedCountdown === "doomsday"
+                sourceComponent: Component {
+                    LockDoomsdayCountdownCard {
+                        anchors.fill: parent
+                        fullscreen: true
+                        reminders: root.ctx.reminders
+                        accent: "#10b981"
+                        active: root.showFocusedCountdown
+                    }
+                }
+            }
+
+            Loader {
+                anchors.fill: parent
+                active: root.showFocusedCountdown && root.ctx.focusedCountdown === "nsqk"
+                sourceComponent: Component {
+                    LockEventCountdownCard {
+                        anchors.fill: parent
+                        fullscreen: true
+                        reminders: root.ctx.reminders
+                        accent: root.accent
+                        active: root.showFocusedCountdown
+                    }
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    root.ctx.clearFocusedCountdown();
+                    input.forceActiveFocus();
+                }
+            }
+        }
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.topMargin: 20
+            z: 30
+            text: "Click or Esc to return  ·  Type to unlock"
+            color: theme.textDim
+            opacity: 0.60
+            font.family: theme.fontFamily
+            font.pixelSize: 12
+        }
+    }
+
     // Keep keyboard input outside the panel, which is hidden in clock mode.
     TextInput {
         id: input
@@ -1340,6 +1437,7 @@ Item {
         readOnly: root.ctx.authBusy
         cursorVisible: false
         onTextChanged: {
+            if (text.length > 0 && root.ctx.focusedCountdown !== "") root.ctx.clearFocusedCountdown();
             if (text.length > 0) root.ctx.resetQuickUnlock();
             if (root.ctx.password !== text) root.ctx.password = text;
             if (text.length > 0) {
@@ -1378,7 +1476,8 @@ Item {
                 return;
             }
             if (event.key === Qt.Key_Escape) {
-                root.ctx.hide();
+                if (root.ctx.focusedCountdown !== "") root.ctx.clearFocusedCountdown();
+                else root.ctx.hide();
                 event.accepted = true;
                 return;
             }

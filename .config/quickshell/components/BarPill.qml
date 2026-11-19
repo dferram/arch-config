@@ -31,14 +31,14 @@ Rectangle {
 
     color: {
         if (root.active) return Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.22);
-        if (mouseArea.containsMouse) return Qt.rgba(255, 255, 255, 0.14);
-        return Qt.rgba(255, 255, 255, 0.06);
+        if (mouseArea.containsMouse) return theme.surfaceHover;
+        return theme.surface;
     }
 
     border.color: {
         if (root.active) return root.accentColor;
-        if (mouseArea.containsMouse) return Qt.rgba(255, 255, 255, 0.24);
-        return Qt.rgba(255, 255, 255, 0.10);
+        if (mouseArea.containsMouse) return theme.border;
+        return theme.borderSubtle;
     }
     border.width: 1
 
@@ -90,6 +90,7 @@ Rectangle {
                 anchors.centerIn: parent
                 width: 16
                 height: 16
+                sourceSize: Qt.size(32, 32)
                 source: root.iconSource
                 fillMode: Image.PreserveAspectFit
                 smooth: true

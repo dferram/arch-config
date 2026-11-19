@@ -15,8 +15,8 @@ Rectangle {
 
     radius: 20
     // Apple Sonoma Obsidian Frosted Glass
-    color: Qt.rgba(0.06, 0.06, 0.09, 0.60)
-    border.color: hoverArea.containsMouse ? Qt.rgba(255, 255, 255, 0.22) : Qt.rgba(255, 255, 255, 0.10)
+    color: theme.widgetGlass
+    border.color: hoverArea.containsMouse ? theme.border : theme.borderSubtle
     border.width: 1
     clip: true
 

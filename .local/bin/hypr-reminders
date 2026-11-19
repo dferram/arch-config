@@ -9,29 +9,30 @@ import sys
 import os
 import json
 import time
+import calendar
 import argparse
 import subprocess
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 from pathlib import Path
 
 DATA_DIR = Path.home() / ".local" / "share" / "hypr-reminders"
 DATA_FILE = DATA_DIR / "reminders.json"
 CATEGORIES_FILE = DATA_DIR / "categories.json"
+TIMERS_FILE = DATA_DIR / "timers.json"
+
+VALID_REPEATS = {"none", "daily", "weekdays", "weekly", "biweekly", "monthly", "yearly"}
 
 DEFAULT_CATEGORIES = {
     "Personal": {"color": "#f97316", "icon": "user"},
     "Sara": {"color": "#ff2d55", "icon": "heart"},
     "Marvel": {"color": "#10b981", "icon": "marvel"},
     "Colgate-Palmolive": {"color": "#0067fe", "icon": "briefcase"},
-    "Projects": {"color": "#14b8a6", "icon": "folder"},
-    "Free Lance": {"color": "#06b6d4", "icon": "laptop"},
+    "Projects": {"color": "#14b8a6", "icon": "code"},
+    "Free Lance": {"color": "#06b6d4", "icon": "code"},
     "School": {"color": "#a855f7", "icon": "book"},
     "F1": {"color": "#E10600", "icon": "f1"},
-    "Gym": {"color": "#eab308", "icon": "dumbbell"},
     "Workshops": {"color": "#8b5cf6", "icon": "presentation"},
-    "Community": {"color": "#f59e0b", "icon": "users"},
-    "Family": {"color": "#f43f5e", "icon": "home"},
-    "Travel": {"color": "#38bdf8", "icon": "plane"}
+    "Community": {"color": "#f59e0b", "icon": "users"}
 }
 
 def ensure_data():
@@ -91,7 +92,44 @@ def save_reminders(reminders):
     temp_file.write_text(json.dumps(reminders, indent=2, ensure_ascii=False), encoding="utf-8")
     temp_file.replace(DATA_FILE)
 
-def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes="", photo=""):
+def normalize_repeat(rep):
+    val = (rep or "none").strip().lower()
+    return val if val in VALID_REPEATS else "none"
+
+
+def occurs_on(rem, target_date: date) -> bool:
+    d_str = rem.get("date", "")
+    try:
+        start_date = datetime.strptime(d_str, "%Y-%m-%d").date()
+    except ValueError:
+        return False
+
+    if target_date < start_date:
+        return False
+
+    rep = normalize_repeat(rem.get("repeat"))
+    if rep == "none":
+        return target_date == start_date
+    if rep == "daily":
+        return True
+    if rep == "weekdays":
+        return target_date.weekday() < 5
+    if rep == "weekly":
+        return (target_date - start_date).days % 7 == 0
+    if rep == "biweekly":
+        return (target_date - start_date).days % 14 == 0
+    if rep == "monthly":
+        max_day = calendar.monthrange(target_date.year, target_date.month)[1]
+        return target_date.day == min(start_date.day, max_day)
+    if rep == "yearly":
+        if target_date.month != start_date.month:
+            return False
+        max_day = calendar.monthrange(target_date.year, target_date.month)[1]
+        return target_date.day == min(start_date.day, max_day)
+    return target_date == start_date
+
+
+def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes="", photo="", repeat="none", logo=""):
     reminders = load_reminders()
     
     # Validate date
@@ -117,6 +155,8 @@ def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes=
         "category": cat,
         "notes": notes.strip(),
         "photo": photo.strip() if photo else "",
+        "repeat": normalize_repeat(repeat),
+        "logo": (logo or "").strip().lower(),
         "done": False,
         "created_at": datetime.now().isoformat(),
         "notified_5min": False,
@@ -128,7 +168,7 @@ def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes=
     save_reminders(reminders)
     return item
 
-def edit_reminder(rem_id, title=None, date_str=None, time_str=None, category=None, notes=None, photo=None):
+def edit_reminder(rem_id, title=None, date_str=None, time_str=None, category=None, notes=None, photo=None, repeat=None, logo=None):
     reminders = load_reminders()
     for r in reminders:
         if r.get("id") == rem_id:
@@ -144,8 +184,14 @@ def edit_reminder(rem_id, title=None, date_str=None, time_str=None, category=Non
                 r["notes"] = notes.strip()
             if photo is not None:
                 r["photo"] = photo.strip()
+            if repeat is not None:
+                r["repeat"] = normalize_repeat(repeat)
+            if logo is not None:
+                r["logo"] = logo.strip().lower()
             r["notified_5min"] = False
             r["notified_due"] = False
+            r.pop("last_notified_5min_date", None)
+            r.pop("last_notified_due_date", None)
             reminders.sort(key=lambda x: (x.get("date", ""), x.get("time", "")))
             save_reminders(reminders)
             return r
@@ -193,25 +239,66 @@ def play_sound(sound_name="message"):
         except Exception:
             pass
 
+def load_timers():
+    ensure_data()
+    if not TIMERS_FILE.exists():
+        return []
+    try:
+        data = json.loads(TIMERS_FILE.read_text(encoding="utf-8"))
+        return data if isinstance(data, (list, dict)) else []
+    except Exception:
+        return []
+
+
+def save_timers(timers):
+    ensure_data()
+    temp_file = TIMERS_FILE.with_suffix(".tmp")
+    temp_file.write_text(json.dumps(timers, indent=2, ensure_ascii=False), encoding="utf-8")
+    temp_file.replace(TIMERS_FILE)
+
+
 def check_and_notify(reminders=None):
     if reminders is None:
         reminders = load_reminders()
     
     now = datetime.now()
+    today_date = now.date()
+    yesterday_date = today_date - timedelta(days=1)
     changed = False
 
     for rem in reminders:
         if rem.get("done", False):
             continue
 
-        d_str = rem.get("date", "")
         t_str = rem.get("time", "")
+        rep = normalize_repeat(rem.get("repeat"))
+
+        # Determine occurrence date to evaluate (today, or yesterday for midnight catch-up)
+        occ_date = None
+        if rep == "none":
+            d_str = rem.get("date", "")
+            try:
+                occ_date = datetime.strptime(d_str, "%Y-%m-%d").date()
+            except Exception:
+                continue
+        else:
+            if occurs_on(rem, today_date):
+                occ_date = today_date
+            elif occurs_on(rem, yesterday_date):
+                occ_date = yesterday_date
+            else:
+                continue
+
+        occ_str = occ_date.strftime("%Y-%m-%d")
         try:
-            event_dt = datetime.strptime(f"{d_str} {t_str}", "%Y-%m-%d %H:%M")
+            event_dt = datetime.strptime(f"{occ_str} {t_str}", "%Y-%m-%d %H:%M")
         except Exception:
             continue
 
         diff_seconds = (event_dt - now).total_seconds()
+        already_5min = rem.get("notified_5min", False) if rep == "none" else (rem.get("last_notified_5min_date") == occ_str)
+        already_due = rem.get("notified_due", False) if rep == "none" else (rem.get("last_notified_due_date") == occ_str)
+
         title_low = (rem.get("title", "") + " " + rem.get("notes", "")).lower()
         cat_low = (rem.get("category", "")).lower()
         is_f1 = (cat_low == "f1") or ("f1" in title_low) or ("formula 1" in title_low) or ("grand prix" in title_low)
@@ -220,7 +307,7 @@ def check_and_notify(reminders=None):
         icon_to_use = ICON_F1 if is_f1 else (ICON_HEART if is_sara else (ICON_MARVEL if is_marvel else ICON_REMINDER))
 
         # 5 minutes before notification (between 0 and 310 seconds before event)
-        if 0 <= diff_seconds <= 310 and not rem.get("notified_5min", False):
+        if 0 <= diff_seconds <= 310 and not already_5min:
             mins_left = max(1, int(round(diff_seconds / 60)))
             time_label = f"{mins_left} min" if mins_left > 1 else "1 min"
             title = f"Reminder in {time_label}: {rem.get('title')}"
@@ -240,12 +327,15 @@ def check_and_notify(reminders=None):
             except Exception:
                 pass
 
-            rem["notified_5min"] = True
+            if rep == "none":
+                rem["notified_5min"] = True
+            else:
+                rem["last_notified_5min_date"] = occ_str
             changed = True
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Sent alert for upcoming event: {rem.get('title')}", flush=True)
 
         # Exactly at due time (between -60 and 45 seconds)
-        elif -60 <= diff_seconds <= 45 and not rem.get("notified_due", False):
+        elif -60 <= diff_seconds <= 45 and not already_due:
             title = f"Event Due: {rem.get('title')}"
             body = f"Category: {rem.get('category', 'Personal')} | {t_str}"
             if rem.get("notes"):
@@ -263,12 +353,15 @@ def check_and_notify(reminders=None):
             except Exception:
                 pass
 
-            rem["notified_due"] = True
+            if rep == "none":
+                rem["notified_due"] = True
+            else:
+                rem["last_notified_due_date"] = occ_str
             changed = True
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Sent due alert for: {rem.get('title')}", flush=True)
 
         # Catch-up missed reminder if system was asleep/suspended/off (within 3 hours)
-        elif -10800 <= diff_seconds < -60 and not rem.get("notified_due", False):
+        elif -10800 <= diff_seconds < -60 and not already_due:
             title = f"Missed Event: {rem.get('title')}"
             body = f"Was due today at {t_str} ({rem.get('category', 'Personal')})"
             if rem.get("notes"):
@@ -286,8 +379,12 @@ def check_and_notify(reminders=None):
             except Exception:
                 pass
 
-            rem["notified_due"] = True
-            rem["notified_5min"] = True
+            if rep == "none":
+                rem["notified_due"] = True
+                rem["notified_5min"] = True
+            else:
+                rem["last_notified_due_date"] = occ_str
+                rem["last_notified_5min_date"] = occ_str
             changed = True
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Sent catch-up alert for missed event: {rem.get('title')}", flush=True)
 
@@ -318,9 +415,11 @@ def main():
     add_p.add_argument("title", help="Reminder title")
     add_p.add_argument("--date", default=datetime.now().strftime("%Y-%m-%d"), help="Date YYYY-MM-DD")
     add_p.add_argument("--time", default=datetime.now().strftime("%H:%M"), help="Time HH:MM")
-    add_p.add_argument("--category", default="Colgate-Palmolive", help="Category: F1, Colgate-Palmolive, Projects, School, Personal, Health, Urgent")
+    add_p.add_argument("--category", default="Colgate-Palmolive", help="Category")
     add_p.add_argument("--notes", default="", help="Optional notes")
     add_p.add_argument("--photo", default="", help="Optional photo / image path or URL")
+    add_p.add_argument("--repeat", default="none", help="Recurrence: none, daily, weekdays, weekly, biweekly, monthly, yearly")
+    add_p.add_argument("--logo", default="", help="Optional logo key (e.g. fof-qro, claude, devin, gdg)")
 
     # edit
     edit_p = subparsers.add_parser("edit")
@@ -331,6 +430,8 @@ def main():
     edit_p.add_argument("--category", default=None, help="New category")
     edit_p.add_argument("--notes", default=None, help="New notes")
     edit_p.add_argument("--photo", default=None, help="New photo path or URL")
+    edit_p.add_argument("--repeat", default=None, help="Recurrence: none, daily, weekdays, weekly, biweekly, monthly, yearly")
+    edit_p.add_argument("--logo", default=None, help="Optional logo key")
 
     # toggle
     toggle_p = subparsers.add_parser("toggle")
@@ -349,6 +450,13 @@ def main():
     add_cat_p.add_argument("--color", default="#38bdf8", help="Hex color")
     add_cat_p.add_argument("--icon", default="tag", help="Icon name")
 
+    # timers-list
+    subparsers.add_parser("timers-list")
+
+    # timers-save
+    tsave_p = subparsers.add_parser("timers-save")
+    tsave_p.add_argument("--data", required=True, help="JSON array of timers")
+
     # daemon
     subparsers.add_parser("daemon")
 
@@ -365,19 +473,39 @@ def main():
         cats = add_category(args.name, getattr(args, "color", "#38bdf8"), getattr(args, "icon", "tag"))
         print(json.dumps(list(cats.keys()), ensure_ascii=False))
 
+    elif args.command == "timers-list":
+        print(json.dumps(load_timers(), ensure_ascii=False))
+
+    elif args.command == "timers-save":
+        try:
+            parsed = json.loads(args.data)
+            if isinstance(parsed, (list, dict)):
+                save_timers(parsed)
+                print(json.dumps({"success": True}))
+            else:
+                print(json.dumps({"success": False, "error": "expected list or dict"}))
+        except Exception as e:
+            print(json.dumps({"success": False, "error": str(e)}))
+
     elif args.command == "list" or not args.command:
         reminders = load_reminders()
         date_filter = getattr(args, "date", None)
         cat_filter = getattr(args, "category", None)
         if date_filter:
-            reminders = [r for r in reminders if r.get("date") == date_filter]
+            try:
+                target_d = datetime.strptime(date_filter, "%Y-%m-%d").date()
+                reminders = [r for r in reminders if occurs_on(r, target_d)]
+            except ValueError:
+                reminders = [r for r in reminders if r.get("date") == date_filter]
         if cat_filter and cat_filter != "All":
             reminders = [r for r in reminders if r.get("category") == cat_filter]
         print(json.dumps(reminders, ensure_ascii=False))
 
     elif args.command == "add":
         photo_val = getattr(args, "photo", "") or ""
-        item = add_reminder(args.title, args.date, args.time, args.category, args.notes, photo_val)
+        rep_val = getattr(args, "repeat", "none") or "none"
+        logo_val = getattr(args, "logo", "") or ""
+        item = add_reminder(args.title, args.date, args.time, args.category, args.notes, photo_val, rep_val, logo_val)
         print(json.dumps(item, ensure_ascii=False))
 
     elif args.command == "edit":
@@ -388,7 +516,9 @@ def main():
             time_str=getattr(args, "time", None),
             category=getattr(args, "category", None),
             notes=getattr(args, "notes", None),
-            photo=getattr(args, "photo", None)
+            photo=getattr(args, "photo", None),
+            repeat=getattr(args, "repeat", None),
+            logo=getattr(args, "logo", None)
         )
         print(json.dumps({"success": bool(res), "item": res}, ensure_ascii=False))
 

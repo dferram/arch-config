@@ -38,9 +38,9 @@ Item {
 
     // Lucide Wi-Fi vector icon
     property string iconDataUri: {
-        let col = theme.urlColor(root.isConnected ? theme.blue : theme.textMuted);
+        let col = theme.urlColor(root.isConnected ? theme.blueLight : theme.textSub);
         if (!wifiRadioOn || !isConnected) {
-            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>" +
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='2.0' stroke-linecap='round' stroke-linejoin='round'>" +
                    "<line x1='2' y1='2' x2='22' y2='22'/>" +
                    "<path d='M12 20h.01'/>" +
                    "<path d='M8.5 16.4a5 5 0 0 1 7 0'/>" +
@@ -51,15 +51,15 @@ Item {
                    "</svg>";
         }
 
-        let outerOp = root.signalPercent >= 70 ? "1" : "0.25";
-        let midOp = root.signalPercent >= 35 ? "1" : "0.25";
+        let outerOp = root.signalPercent >= 70 ? "1" : "0.42";
+        let midOp = root.signalPercent >= 35 ? "1" : "0.42";
         let dotOp = "1";
 
         return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
-               "<path d='M1.5 8.5a15 15 0 0 1 21 0' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='" + outerOp + "'/>" +
-               "<path d='M5 12.5a10 10 0 0 1 14 0' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='" + midOp + "'/>" +
-               "<path d='M8.5 16.5a5 5 0 0 1 7 0' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='" + dotOp + "'/>" +
-               "<circle cx='12' cy='20' r='1.3' fill='" + col + "' fill-opacity='" + dotOp + "'/>" +
+               "<path d='M1.5 8.5a15 15 0 0 1 21 0' stroke='" + col + "' stroke-width='2.0' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='" + outerOp + "'/>" +
+               "<path d='M5 12.5a10 10 0 0 1 14 0' stroke='" + col + "' stroke-width='2.0' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='" + midOp + "'/>" +
+               "<path d='M8.5 16.5a5 5 0 0 1 7 0' stroke='" + col + "' stroke-width='2.0' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='" + dotOp + "'/>" +
+               "<circle cx='12' cy='20' r='1.4' fill='" + col + "' fill-opacity='" + dotOp + "'/>" +
                "</svg>";
     }
 

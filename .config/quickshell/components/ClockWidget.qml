@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
@@ -12,6 +13,7 @@ Item {
 
     required property var parentWindow
     property string activePopupId: ""
+    property var timerService: null
     signal togglePopup(string id)
 
     implicitHeight: pill.implicitHeight
@@ -49,13 +51,22 @@ Item {
     property string dateShortStr: Qt.formatDateTime(clock.date, "ddd, MMM d")
     property string dateFullStr: Qt.formatDateTime(clock.date, "dddd, MMMM d, yyyy")
 
-    // Pill in the top bar (Pure clean time & date text, no redundant icon)
+    property string timerIconUri: {
+        let col = theme.urlColor((root.timerService && root.timerService.finishedCount > 0) ? theme.red : theme.blueLight);
+        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>" +
+               "<line x1='10' x2='14' y1='2' y2='2'/><line x1='12' x2='15' y1='14' y2='11'/><circle cx='12' cy='14' r='8'/>" +
+               "</svg>";
+    }
+
+    // Pill in the top bar (Pure clean time & date text, plus live timer SVG + countdown if running)
     BarPill {
         id: pill
-        iconSource: ""
+        iconSource: (root.timerService && root.timerService.barBadgeText !== "") ? root.timerIconUri : ""
+        badgeText: (root.timerService && root.timerService.barBadgeText) ? root.timerService.barBadgeText : ""
+        badgeColor: (root.timerService && root.timerService.finishedCount > 0) ? theme.red : theme.blueLight
         text: root.timeStr
         subText: root.dateShortStr
-        accentColor: theme.blue
+        accentColor: (root.timerService && root.timerService.finishedCount > 0) ? theme.red : theme.blue
         active: root.activePopupId === "clock"
         customPadding: 12
 
@@ -111,10 +122,7 @@ Item {
         "School": "#a855f7",
         "Personal": "#f97316",
         "Sara": "#ff2d55",
-        "Marvel": "#10b981",
-        "Gym": "#eab308",
-        "Family": "#f43f5e",
-        "Travel": "#38bdf8"
+        "Marvel": "#10b981"
     })
 
     function getCategoryColor(cat, title) {
@@ -131,13 +139,99 @@ Item {
         if (c === "free lance" || c === "free-lance" || c === "freelance") return "#06b6d4";
         if (c === "school") return "#a855f7";
         if (c === "personal") return "#f97316";
-        if (c === "gym") return "#eab308";
-        if (c === "family") return "#f43f5e";
-        if (c === "travel") return "#38bdf8";
         return categoryColors[cat] || "#38bdf8";
     }
 
-    property var baseCategories: ["F1", "Colgate-Palmolive", "Projects", "Free Lance", "Workshops", "Community", "School", "Personal", "Sara", "Marvel", "Gym", "Family", "Travel"]
+    readonly property var repeatOptions: [
+        { id: "none", label: "Once" },
+        { id: "daily", label: "Daily" },
+        { id: "weekdays", label: "Weekdays" },
+        { id: "weekly", label: "Weekly" },
+        { id: "biweekly", label: "Biweekly" },
+        { id: "monthly", label: "Monthly" },
+        { id: "yearly", label: "Yearly" }
+    ]
+
+    function getRepeatLabel(repId) {
+        let r = (repId || "none").toLowerCase();
+        for (let i = 0; i < repeatOptions.length; i++) {
+            if (repeatOptions[i].id === r) return repeatOptions[i].label;
+        }
+        return "Once";
+    }
+
+    readonly property var communityLogos: [
+        { id: "auto", label: "Auto", icon: "" },
+        { id: "fof-qro", label: "FoF Qro", icon: "file://" + Quickshell.shellPath("icons/community-fof-qro.svg") },
+        { id: "claude", label: "Claude", icon: "file://" + Quickshell.shellPath("icons/claude.svg") },
+        { id: "devin", label: "Devin", icon: "file:///usr/share/pixmaps/devin-desktop.png" },
+        { id: "gdg", label: "GDG", icon: "file://" + Quickshell.shellPath("icons/community-gdg.svg") },
+        { id: "default", label: "Generic", icon: "file://" + Quickshell.shellPath("icons/community-default.svg") }
+    ]
+
+    function codeIconUri(hexCol) {
+        let col = theme.urlColor(hexCol);
+        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'>" +
+               "<path d='m18 16 4-4-4-4'/><path d='m6 8-4 4 4 4'/><path d='m14.5 4-5 16'/>" +
+               "</svg>";
+    }
+
+    function personalIconUri() {
+        let col = theme.urlColor("#f97316");
+        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'>" +
+               "<path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/>" +
+               "</svg>";
+    }
+
+    function workshopsIconUri() {
+        let col = theme.urlColor("#8b5cf6");
+        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'>" +
+               "<path d='M2 3h20'/><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'/><path d='m7 21 5-5 5 5'/>" +
+               "</svg>";
+    }
+
+    function resolveCommunityLogo(logoKey, title, notes) {
+        let k = (logoKey || "").toLowerCase().trim();
+        for (let i = 0; i < communityLogos.length; i++) {
+            if (communityLogos[i].id !== "auto" && communityLogos[i].id === k) {
+                return communityLogos[i].icon;
+            }
+        }
+        let txt = ((title || "") + " " + (notes || "")).toLowerCase();
+        if (txt.indexOf("figma") !== -1 || txt.indexOf("fof") !== -1) {
+            return "file://" + Quickshell.shellPath("icons/community-fof-qro.svg");
+        }
+        if (txt.indexOf("claude") !== -1 || txt.indexOf("anthropic") !== -1) {
+            return "file://" + Quickshell.shellPath("icons/claude.svg");
+        }
+        if (txt.indexOf("devin") !== -1 || txt.indexOf("cognition") !== -1) {
+            return "file:///usr/share/pixmaps/devin-desktop.png";
+        }
+        if (txt.indexOf("gdg") !== -1 || txt.indexOf("google developer") !== -1 || txt.indexOf("devfest") !== -1 || txt.indexOf("google") !== -1) {
+            return "file://" + Quickshell.shellPath("icons/community-gdg.svg");
+        }
+        return "file://" + Quickshell.shellPath("icons/community-default.svg");
+    }
+
+    function getCategoryIconMeta(cat, title, notes, logoKey) {
+        let c = (cat || "").trim();
+        let cLow = c.toLowerCase();
+        let tLow = (title || "").toLowerCase();
+        if (c === "All") return { source: "", width: 8, height: 8 };
+        if (c === "F1") return { source: "file:///home/ferram/.local/share/icons/f1.svg", width: 14, height: 10 };
+        if (c === "Colgate-Palmolive") return { source: "file:///home/ferram/.local/share/icons/cp.svg", width: 13, height: 9 };
+        if (c === "School") return { source: "file:///home/ferram/.local/share/icons/troyanos.svg", width: 12, height: 12 };
+        if (cLow === "sara" || tLow.indexOf("sara") !== -1) return { source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg", width: 12, height: 12 };
+        if (cLow === "marvel" || tLow.indexOf("doomsday") !== -1 || tLow.indexOf("marvel") !== -1) return { source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg", width: 18, height: 9 };
+        if (cLow === "projects") return { source: codeIconUri("#14b8a6"), width: 13, height: 13 };
+        if (cLow === "free lance" || cLow === "free-lance" || cLow === "freelance") return { source: codeIconUri("#06b6d4"), width: 13, height: 13 };
+        if (cLow === "personal") return { source: personalIconUri(), width: 13, height: 13 };
+        if (cLow === "workshops" || cLow === "workshop") return { source: workshopsIconUri(), width: 13, height: 13 };
+        if (cLow === "community") return { source: resolveCommunityLogo(logoKey, title, notes), width: 13, height: 13 };
+        return { source: "", width: 8, height: 8 };
+    }
+
+    property var baseCategories: ["F1", "Colgate-Palmolive", "Projects", "Free Lance", "Workshops", "Community", "School", "Personal", "Sara", "Marvel"]
     property var customCategories: []
     property var availableCategories: {
         let list = baseCategories.concat(customCategories);
@@ -296,7 +390,7 @@ Item {
         }
     }
 
-    function addReminder(title, dateStr, timeStr, category, notes, photo) {
+    function addReminder(title, dateStr, timeStr, category, notes, photo, repeatVal, logoVal) {
         if (!title.trim()) return;
         actionProc.running = false;
         let cmd = [
@@ -305,7 +399,9 @@ Item {
             "--date", dateStr,
             "--time", timeStr,
             "--category", category,
-            "--notes", notes || ""
+            "--notes", notes || "",
+            "--repeat", repeatVal || "none",
+            "--logo", logoVal || ""
         ];
         if (photo && photo.trim()) {
             cmd.push("--photo");
@@ -316,7 +412,7 @@ Item {
         resetForm();
     }
 
-    function editReminder(remId, title, dateStr, timeStr, category, notes, photo) {
+    function editReminder(remId, title, dateStr, timeStr, category, notes, photo, repeatVal, logoVal) {
         if (!remId || !title.trim()) return;
         actionProc.running = false;
         let cmd = [
@@ -326,7 +422,9 @@ Item {
             "--time", timeStr,
             "--category", category,
             "--notes", notes || "",
-            "--photo", photo || ""
+            "--photo", photo || "",
+            "--repeat", repeatVal || "none",
+            "--logo", logoVal || ""
         ];
         actionProc.command = cmd;
         actionProc.running = true;
@@ -342,6 +440,8 @@ Item {
         addFormRect.formCat = item.category || "Colgate-Palmolive";
         addFormRect.formNotes = item.notes || "";
         addFormRect.formPhoto = item.photo || "";
+        addFormRect.formRepeat = item.repeat || "none";
+        addFormRect.formLogo = item.logo || "auto";
         addFormRect.titleError = false;
         addFormRect.showTimePicker = false;
         addFormRect.formCatDropdownOpen = false;
@@ -354,6 +454,8 @@ Item {
         if (titleInput) titleInput.text = "";
         addFormRect.formNotes = "";
         addFormRect.formPhoto = "";
+        addFormRect.formRepeat = "none";
+        addFormRect.formLogo = "auto";
         addFormRect.titleError = false;
         addFormRect.showTimePicker = false;
         addFormRect.formCatDropdownOpen = false;
@@ -387,11 +489,52 @@ Item {
         if (timeInput) timeInput.text = newH + ":" + newM;
     }
 
+    function parseDateParts(dStr) {
+        if (!dStr) return null;
+        let parts = dStr.split("-");
+        if (parts.length !== 3) return null;
+        let y = parseInt(parts[0], 10);
+        let m = parseInt(parts[1], 10);
+        let d = parseInt(parts[2], 10);
+        if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+        return { y: y, m: m, d: d, utcMs: Date.UTC(y, m - 1, d) };
+    }
+
+    function matchesReminderOnDate(rem, dStr) {
+        if (!rem || !rem.date || !dStr) return false;
+        let rep = (rem.repeat || "none").toLowerCase();
+        if (rep === "" || rep === "none") return rem.date === dStr;
+
+        let s = parseDateParts(rem.date);
+        let t = parseDateParts(dStr);
+        if (!s || !t) return rem.date === dStr;
+        if (t.utcMs < s.utcMs) return false;
+
+        let diffDays = Math.round((t.utcMs - s.utcMs) / 86400000);
+        if (rep === "daily") return true;
+        if (rep === "weekdays") {
+            let dow = new Date(t.utcMs).getUTCDay();
+            return dow >= 1 && dow <= 5;
+        }
+        if (rep === "weekly") return diffDays % 7 === 0;
+        if (rep === "biweekly") return diffDays % 14 === 0;
+        if (rep === "monthly") {
+            let maxDay = new Date(Date.UTC(t.y, t.m, 0)).getUTCDate();
+            return t.d === Math.min(s.d, maxDay);
+        }
+        if (rep === "yearly") {
+            if (t.m !== s.m) return false;
+            let maxDay = new Date(Date.UTC(t.y, t.m, 0)).getUTCDate();
+            return t.d === Math.min(s.d, maxDay);
+        }
+        return rem.date === dStr;
+    }
+
     function hasReminders(dStr) {
         if (root.f1Calendar && root.f1Calendar[dStr]) return true;
         if (!allReminders) return false;
         for (let i = 0; i < allReminders.length; i++) {
-            if (allReminders[i].date === dStr) return true;
+            if (matchesReminderOnDate(allReminders[i], dStr)) return true;
         }
         return false;
     }
@@ -404,7 +547,7 @@ Item {
         if (allReminders) {
             for (let i = 0; i < allReminders.length; i++) {
                 let r = allReminders[i];
-                if (r.date === dStr) {
+                if (matchesReminderOnDate(r, dStr)) {
                     let cat = r.category || "Colgate-Palmolive";
                     if (cats.indexOf(cat) === -1) {
                         cats.push(cat);
@@ -421,7 +564,7 @@ Item {
         let count = 0;
         for (let i = 0; i < allReminders.length; i++) {
             let r = allReminders[i];
-            if (r.date === dStr) count++;
+            if (matchesReminderOnDate(r, dStr)) count++;
         }
         return count;
     }
@@ -431,7 +574,7 @@ Item {
         let list = [];
         for (let i = 0; i < allReminders.length; i++) {
             let r = allReminders[i];
-            if (r.date === selectedDateStr) {
+            if (matchesReminderOnDate(r, selectedDateStr)) {
                 if (selectedCategory === "All" || r.category === selectedCategory) {
                     list.push(r);
                 }
@@ -657,7 +800,7 @@ Item {
         let doneCount = 0;
         for (let i = 0; i < allReminders.length; i++) {
             let r = allReminders[i];
-            if (r.date === selectedDateStr) {
+            if (matchesReminderOnDate(r, selectedDateStr)) {
                 if (selectedCategory === "All" || r.category === selectedCategory) {
                     count++;
                     if (r.done) doneCount++;
@@ -709,9 +852,12 @@ Item {
             Behavior on scale { NumberAnimation { duration: 750; easing.type: Easing.InOutQuart } }
 
             Flickable {
+                id: mainScroll
                 anchors.fill: parent
                 anchors.margins: 14
+                contentWidth: width
                 contentHeight: cardLayout.implicitHeight
+                flickableDirection: Flickable.VerticalFlick
                 clip: true
 
                 Column {
@@ -762,6 +908,86 @@ Item {
                         height: 1
                         color: theme.borderSubtle
                     }
+
+                    // Minimalist Page Dots Indicator (Calendar <-> Timers)
+                    Row {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        spacing: 6
+
+                        Repeater {
+                            model: 2
+                            Rectangle {
+                                property bool isCur: pageSwipe.currentIndex === index
+                                property bool hasAlert: index === 1 && !!(root.timerService && root.timerService.finishedCount > 0)
+                                width: isCur ? 16 : 5
+                                height: 4
+                                radius: 2
+                                color: hasAlert ? theme.red : (isCur ? theme.blueLight : (dotMa.containsMouse ? theme.textSub : theme.textDim))
+
+                                MouseArea {
+                                    id: dotMa
+                                    anchors.fill: parent
+                                    anchors.margins: -4
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: pageSwipe.currentIndex = index
+                                }
+                            }
+                        }
+                    }
+
+                    // Page Container (Calendar <-> Timers, no drag or transition animations)
+                    Item {
+                        width: parent.width
+                        implicitHeight: pageSwipe.implicitHeight
+
+                        Timer {
+                            id: swipeCooldown
+                            interval: 280
+                            repeat: false
+                        }
+
+                        WheelHandler {
+                            orientation: Qt.Horizontal
+                            blocking: false
+                            acceptedDevices: PointerDevice.AllDevices
+                            onWheel: (event) => {
+                                let dx = Math.abs(event.pixelDelta.x) > 0 ? event.pixelDelta.x : event.angleDelta.x;
+                                let dy = Math.abs(event.pixelDelta.y) > 0 ? event.pixelDelta.y : event.angleDelta.y;
+                                if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10 && !swipeCooldown.running) {
+                                    if (dx < 0 && pageSwipe.currentIndex < 1) {
+                                        pageSwipe.currentIndex = 1;
+                                        swipeCooldown.start();
+                                    } else if (dx > 0 && pageSwipe.currentIndex > 0) {
+                                        pageSwipe.currentIndex = 0;
+                                        swipeCooldown.start();
+                                    }
+                                    event.accepted = true;
+                                } else {
+                                    event.accepted = false;
+                                }
+                            }
+                        }
+
+                        Item {
+                            id: pageSwipe
+                            width: parent.width
+                            property int currentIndex: 0
+                            implicitHeight: currentIndex === 0 ? calendarTabCol.implicitHeight : timersTabCol.implicitHeight
+
+                            onCurrentIndexChanged: mainScroll.returnToBounds()
+
+                            // PAGE 0: CALENDAR & EVENTS
+                            Item {
+                                id: calPageItem
+                                width: pageSwipe.width
+                                implicitHeight: calendarTabCol.implicitHeight
+                                visible: pageSwipe.currentIndex === 0
+
+                                Column {
+                                    id: calendarTabCol
+                                    width: parent.width
+                                    spacing: 12
 
                     // 2. Calendar Month & Grid Container
                     Rectangle {
@@ -989,41 +1215,54 @@ Item {
                                         property var dayCats: root.getDayCategories(dateStr)
                                         property var mexicanHoliday: root.getMexicanHoliday(dateStr)
 
-                                        Rectangle {
+                                        Item {
                                             id: cellBox
                                             anchors.centerIn: parent
                                             width: 28
                                             height: 28
-                                            radius: 14
-                                            color: {
-                                                if (dayCell.isSelected) return theme.blue;
-                                                if (dayCellMa.containsMouse) return theme.surfaceHover;
-                                                if (dayCell.mexicanHoliday && dayCell.isCurrentMonth) return Qt.rgba(245/255, 158/255, 11/255, 0.15);
-                                                return "transparent";
-                                            }
-                                            border.color: (dayCell.isToday && !dayCell.isSelected) ? theme.blue : "transparent"
-                                            border.width: 1
 
-                                            Behavior on color { ColorAnimation { duration: 150 } }
+                                            Rectangle {
+                                                anchors.fill: parent
+                                                radius: 7
+                                                visible: !dayCell.isSelected
+                                                color: {
+                                                    if (dayCellMa.containsMouse) return theme.surfaceHover;
+                                                    if (dayCell.mexicanHoliday && dayCell.isCurrentMonth) return Qt.rgba(245/255, 158/255, 11/255, 0.15);
+                                                    if (dayCell.isToday) return Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.14);
+                                                    return "transparent";
+                                                }
+                                                border.color: dayCell.isToday ? theme.blue : "transparent"
+                                                border.width: 1
+
+                                                Behavior on color { ColorAnimation { duration: 150 } }
+                                            }
+
+                                            CalendarDayTile {
+                                                id: selectedTile
+                                                anchors.fill: parent
+                                                visible: dayCell.isSelected
+                                                accentColor: theme.blue
+                                            }
 
                                             Text {
                                                 anchors.centerIn: parent
+                                                anchors.verticalCenterOffset: dayCell.isSelected ? (dayCell.dayCats.length > 0 ? -0.5 : 1) : 0
                                                 text: dayCell.dayNum
                                                 color: {
                                                     if (!dayCell.isCurrentMonth) return theme.textMuted;
-                                                    if (dayCell.isSelected) return theme.bgDark;
+                                                    if (dayCell.isSelected) return selectedTile.autoTextColor;
                                                     if (dayCell.isToday) return theme.blueLight;
                                                     if (dayCell.mexicanHoliday) return "#fbbf24";
                                                     return theme.text;
                                                 }
                                                 font.family: theme.fontFamily
-                                                font.pixelSize: 12
+                                                font.pixelSize: dayCell.isSelected ? 11 : 12
                                                 font.weight: (dayCell.isSelected || dayCell.isToday || dayCell.mexicanHoliday) ? Font.Bold : Font.DemiBold
                                             }
 
                                             Row {
                                                 anchors.bottom: parent.bottom
-                                                anchors.bottomMargin: 3
+                                                anchors.bottomMargin: 2.5
                                                 anchors.horizontalCenter: parent.horizontalCenter
                                                 spacing: 2
                                                 
@@ -1033,7 +1272,7 @@ Item {
                                                         width: 4
                                                         height: 4
                                                         radius: 2
-                                                        color: dayCell.isSelected ? theme.bgDark : root.getCategoryColor(dayCell.dayCats[index])
+                                                        color: dayCell.isSelected ? selectedTile.autoTextColor : root.getCategoryColor(dayCell.dayCats[index])
                                                     }
                                                 }
                                             }
@@ -1158,6 +1397,8 @@ Item {
                                                 if (titleInput) titleInput.text = "";
                                                 addFormRect.formPhoto = "";
                                                 addFormRect.formNotes = "";
+                                                addFormRect.formRepeat = "none";
+                                                addFormRect.formLogo = "auto";
                                                 if (root.selectedCategory !== "All") {
                                                     addFormRect.formCat = root.selectedCategory;
                                                 }
@@ -1198,48 +1439,22 @@ Item {
                                         }
 
                                         Item {
+                                            id: filterBtnIconBox
                                             visible: root.selectedCategory !== "All"
-                                            width: root.selectedCategory === "F1" ? 14 : (root.selectedCategory === "Colgate-Palmolive" ? 13 : (root.selectedCategory === "School" ? 12 : (root.selectedCategory === "Sara" ? 12 : (root.selectedCategory === "Marvel" ? 18 : 8))))
-                                            height: root.selectedCategory === "F1" ? 10 : (root.selectedCategory === "Colgate-Palmolive" ? 9 : (root.selectedCategory === "School" ? 12 : (root.selectedCategory === "Sara" ? 12 : (root.selectedCategory === "Marvel" ? 9 : 8))))
+                                            property var iconMeta: root.getCategoryIconMeta(root.selectedCategory, "", "", "")
+                                            width: iconMeta.width
+                                            height: iconMeta.height
                                             anchors.verticalCenter: parent.verticalCenter
 
                                             Image {
-                                                visible: root.selectedCategory === "F1"
+                                                visible: filterBtnIconBox.iconMeta.source !== ""
                                                 anchors.fill: parent
-                                                source: "file:///home/ferram/.local/share/icons/f1.svg"
-                                                fillMode: Image.PreserveAspectFit
-                                                smooth: true
-                                            }
-                                            Image {
-                                                visible: root.selectedCategory === "Colgate-Palmolive"
-                                                anchors.fill: parent
-                                                source: "file:///home/ferram/.local/share/icons/cp.svg"
-                                                fillMode: Image.PreserveAspectFit
-                                                smooth: true
-                                            }
-                                            Image {
-                                                visible: root.selectedCategory === "School"
-                                                anchors.fill: parent
-                                                source: "file:///home/ferram/.local/share/icons/troyanos.svg"
-                                                fillMode: Image.PreserveAspectFit
-                                                smooth: true
-                                            }
-                                            Image {
-                                                visible: root.selectedCategory === "Sara"
-                                                anchors.fill: parent
-                                                source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
-                                                fillMode: Image.PreserveAspectFit
-                                                smooth: true
-                                            }
-                                            Image {
-                                                visible: root.selectedCategory === "Marvel"
-                                                anchors.fill: parent
-                                                source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                                source: filterBtnIconBox.iconMeta.source
                                                 fillMode: Image.PreserveAspectFit
                                                 smooth: true
                                             }
                                             Rectangle {
-                                                visible: root.selectedCategory !== "F1" && root.selectedCategory !== "Colgate-Palmolive" && root.selectedCategory !== "School" && root.selectedCategory !== "Sara" && root.selectedCategory !== "Marvel"
+                                                visible: filterBtnIconBox.iconMeta.source === ""
                                                 anchors.fill: parent
                                                 radius: width / 2
                                                 color: root.getCategoryColor(root.selectedCategory)
@@ -1343,47 +1558,21 @@ Item {
                                                         spacing: 7
 
                                                         Item {
-                                                            width: modelData === "F1" ? 14 : (modelData === "Colgate-Palmolive" ? 13 : (modelData === "School" ? 12 : (modelData === "Sara" ? 12 : (modelData === "Marvel" ? 18 : 7))))
-                                                            height: modelData === "F1" ? 10 : (modelData === "Colgate-Palmolive" ? 9 : (modelData === "School" ? 12 : (modelData === "Sara" ? 12 : (modelData === "Marvel" ? 9 : 7))))
+                                                            id: filterItemIconBox
+                                                            property var iconMeta: root.getCategoryIconMeta(modelData, "", "", "")
+                                                            width: iconMeta.source !== "" ? iconMeta.width : 7
+                                                            height: iconMeta.source !== "" ? iconMeta.height : 7
                                                             anchors.verticalCenter: parent.verticalCenter
 
                                                             Image {
-                                                                visible: modelData === "F1"
+                                                                visible: filterItemIconBox.iconMeta.source !== ""
                                                                 anchors.fill: parent
-                                                                source: "file:///home/ferram/.local/share/icons/f1.svg"
-                                                                fillMode: Image.PreserveAspectFit
-                                                                smooth: true
-                                                            }
-                                                            Image {
-                                                                visible: modelData === "Colgate-Palmolive"
-                                                                anchors.fill: parent
-                                                                source: "file:///home/ferram/.local/share/icons/cp.svg"
-                                                                fillMode: Image.PreserveAspectFit
-                                                                smooth: true
-                                                            }
-                                                            Image {
-                                                                visible: modelData === "School"
-                                                                anchors.fill: parent
-                                                                source: "file:///home/ferram/.local/share/icons/troyanos.svg"
-                                                                fillMode: Image.PreserveAspectFit
-                                                                smooth: true
-                                                            }
-                                                            Image {
-                                                                visible: modelData === "Sara"
-                                                                anchors.fill: parent
-                                                                source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
-                                                                fillMode: Image.PreserveAspectFit
-                                                                smooth: true
-                                                            }
-                                                            Image {
-                                                                visible: modelData === "Marvel"
-                                                                anchors.fill: parent
-                                                                source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                                                source: filterItemIconBox.iconMeta.source
                                                                 fillMode: Image.PreserveAspectFit
                                                                 smooth: true
                                                             }
                                                             Rectangle {
-                                                                visible: modelData !== "F1" && modelData !== "Colgate-Palmolive" && modelData !== "School" && modelData !== "Sara" && modelData !== "Marvel"
+                                                                visible: filterItemIconBox.iconMeta.source === ""
                                                                 anchors.fill: parent
                                                                 radius: width / 2
                                                                 color: modelData === "All" ? theme.frost : filterOptRect.catCol
@@ -1442,6 +1631,8 @@ Item {
                                 property string formCat: "Colgate-Palmolive"
                                 property string formNotes: ""
                                 property string formPhoto: ""
+                                property string formRepeat: "none"
+                                property string formLogo: "auto"
                                 property bool titleError: false
                                 property bool showTimePicker: false
                                 property bool formCatDropdownOpen: false
@@ -1480,7 +1671,9 @@ Item {
                                             timeInput.text,
                                             addFormRect.formCat,
                                             addFormRect.formNotes,
-                                            addFormRect.formPhoto
+                                            addFormRect.formPhoto,
+                                            addFormRect.formRepeat,
+                                            addFormRect.formCat === "Community" ? addFormRect.formLogo : ""
                                         );
                                     } else {
                                         root.addReminder(
@@ -1489,7 +1682,9 @@ Item {
                                             timeInput.text,
                                             addFormRect.formCat,
                                             addFormRect.formNotes,
-                                            addFormRect.formPhoto
+                                            addFormRect.formPhoto,
+                                            addFormRect.formRepeat,
+                                            addFormRect.formCat === "Community" ? addFormRect.formLogo : ""
                                         );
                                     }
                                 }
@@ -1700,47 +1895,21 @@ Item {
                                                 spacing: 6
 
                                                 Item {
-                                                    width: addFormRect.formCat === "F1" ? 14 : (addFormRect.formCat === "Colgate-Palmolive" ? 13 : (addFormRect.formCat === "School" ? 12 : (addFormRect.formCat === "Sara" ? 12 : (addFormRect.formCat === "Marvel" ? 18 : 8))))
-                                                    height: addFormRect.formCat === "F1" ? 10 : (addFormRect.formCat === "Colgate-Palmolive" ? 9 : (addFormRect.formCat === "School" ? 12 : (addFormRect.formCat === "Sara" ? 12 : (addFormRect.formCat === "Marvel" ? 9 : 8))))
+                                                    id: formCatBtnIconBox
+                                                    property var iconMeta: root.getCategoryIconMeta(addFormRect.formCat, titleInput ? titleInput.text : "", addFormRect.formNotes, addFormRect.formLogo)
+                                                    width: iconMeta.width
+                                                    height: iconMeta.height
                                                     anchors.verticalCenter: parent.verticalCenter
 
                                                     Image {
-                                                        visible: addFormRect.formCat === "F1"
+                                                        visible: formCatBtnIconBox.iconMeta.source !== ""
                                                         anchors.fill: parent
-                                                        source: "file:///home/ferram/.local/share/icons/f1.svg"
-                                                        fillMode: Image.PreserveAspectFit
-                                                        smooth: true
-                                                    }
-                                                    Image {
-                                                        visible: addFormRect.formCat === "Colgate-Palmolive"
-                                                        anchors.fill: parent
-                                                        source: "file:///home/ferram/.local/share/icons/cp.svg"
-                                                        fillMode: Image.PreserveAspectFit
-                                                        smooth: true
-                                                    }
-                                                    Image {
-                                                        visible: addFormRect.formCat === "School"
-                                                        anchors.fill: parent
-                                                        source: "file:///home/ferram/.local/share/icons/troyanos.svg"
-                                                        fillMode: Image.PreserveAspectFit
-                                                        smooth: true
-                                                    }
-                                                    Image {
-                                                        visible: addFormRect.formCat === "Sara"
-                                                        anchors.fill: parent
-                                                        source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
-                                                        fillMode: Image.PreserveAspectFit
-                                                        smooth: true
-                                                    }
-                                                    Image {
-                                                        visible: addFormRect.formCat === "Marvel"
-                                                        anchors.fill: parent
-                                                        source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                                        source: formCatBtnIconBox.iconMeta.source
                                                         fillMode: Image.PreserveAspectFit
                                                         smooth: true
                                                     }
                                                     Rectangle {
-                                                        visible: addFormRect.formCat !== "F1" && addFormRect.formCat !== "Colgate-Palmolive" && addFormRect.formCat !== "School" && addFormRect.formCat !== "Sara" && addFormRect.formCat !== "Marvel"
+                                                        visible: formCatBtnIconBox.iconMeta.source === ""
                                                         anchors.fill: parent
                                                         radius: width / 2
                                                         color: root.getCategoryColor(addFormRect.formCat)
@@ -2056,6 +2225,7 @@ Item {
                                                 MouseArea {
                                                     anchors.fill: parent
                                                     hoverEnabled: true
+                                                    preventStealing: true
                                                     cursorShape: Qt.PointingHandCursor
 
                                                     function updateFromPos(mx, my, isRelease) {
@@ -2235,47 +2405,21 @@ Item {
                                                             spacing: 7
 
                                                             Item {
-                                                                width: modelData === "F1" ? 14 : (modelData === "Colgate-Palmolive" ? 13 : (modelData === "School" ? 12 : (modelData === "Sara" ? 12 : (modelData === "Marvel" ? 18 : 7))))
-                                                                height: modelData === "F1" ? 10 : (modelData === "Colgate-Palmolive" ? 9 : (modelData === "School" ? 12 : (modelData === "Sara" ? 12 : (modelData === "Marvel" ? 9 : 7))))
+                                                                id: formCatItemIconBox
+                                                                property var iconMeta: root.getCategoryIconMeta(modelData, "", "", "")
+                                                                width: iconMeta.source !== "" ? iconMeta.width : 7
+                                                                height: iconMeta.source !== "" ? iconMeta.height : 7
                                                                 anchors.verticalCenter: parent.verticalCenter
 
                                                                 Image {
-                                                                    visible: modelData === "F1"
+                                                                    visible: formCatItemIconBox.iconMeta.source !== ""
                                                                     anchors.fill: parent
-                                                                    source: "file:///home/ferram/.local/share/icons/f1.svg"
-                                                                    fillMode: Image.PreserveAspectFit
-                                                                    smooth: true
-                                                                }
-                                                                Image {
-                                                                    visible: modelData === "Colgate-Palmolive"
-                                                                    anchors.fill: parent
-                                                                    source: "file:///home/ferram/.local/share/icons/cp.svg"
-                                                                    fillMode: Image.PreserveAspectFit
-                                                                    smooth: true
-                                                                }
-                                                                Image {
-                                                                    visible: modelData === "School"
-                                                                    anchors.fill: parent
-                                                                    source: "file:///home/ferram/.local/share/icons/troyanos.svg"
-                                                                    fillMode: Image.PreserveAspectFit
-                                                                    smooth: true
-                                                                }
-                                                                Image {
-                                                                    visible: modelData === "Sara"
-                                                                    anchors.fill: parent
-                                                                    source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
-                                                                    fillMode: Image.PreserveAspectFit
-                                                                    smooth: true
-                                                                }
-                                                                Image {
-                                                                    visible: modelData === "Marvel"
-                                                                    anchors.fill: parent
-                                                                    source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
+                                                                    source: formCatItemIconBox.iconMeta.source
                                                                     fillMode: Image.PreserveAspectFit
                                                                     smooth: true
                                                                 }
                                                                 Rectangle {
-                                                                    visible: modelData !== "F1" && modelData !== "Colgate-Palmolive" && modelData !== "School" && modelData !== "Sara" && modelData !== "Marvel"
+                                                                    visible: formCatItemIconBox.iconMeta.source === ""
                                                                     anchors.fill: parent
                                                                     radius: width / 2
                                                                     color: fCatItemRect.catCol
@@ -2384,6 +2528,133 @@ Item {
                                                             cursorShape: Qt.PointingHandCursor
                                                             onClicked: newCatFormInput.commitFormCat()
                                                         }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Community Brand Logo Picker (when Community category is selected)
+                                    Column {
+                                        visible: addFormRect.formCat === "Community"
+                                        width: parent.width
+                                        spacing: 5
+
+                                        Text {
+                                            text: "Community Logo"
+                                            color: theme.textMuted
+                                            font.family: theme.fontFamily
+                                            font.pixelSize: 9
+                                            font.weight: Font.DemiBold
+                                        }
+
+                                        Flow {
+                                            width: parent.width
+                                            spacing: 5
+
+                                            Repeater {
+                                                model: root.communityLogos
+                                                Rectangle {
+                                                    property bool isLogoSel: addFormRect.formLogo === modelData.id
+                                                    height: 24
+                                                    width: logoChipRow.implicitWidth + 14
+                                                    radius: 6
+                                                    color: isLogoSel ? Qt.rgba(245/255, 158/255, 11/255, 0.22) : (logoChipMa.containsMouse ? theme.surfaceHover : theme.surface)
+                                                    border.color: isLogoSel ? "#f59e0b" : theme.borderSubtle
+                                                    border.width: 1
+
+                                                    Row {
+                                                        id: logoChipRow
+                                                        anchors.centerIn: parent
+                                                        spacing: 5
+
+                                                        Image {
+                                                            visible: modelData.icon !== ""
+                                                            width: 12
+                                                            height: 12
+                                                            source: modelData.icon
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                        }
+
+                                                        Text {
+                                                            text: modelData.label
+                                                            color: isLogoSel ? "#fbbf24" : theme.textSub
+                                                            font.family: theme.fontFamily
+                                                            font.pixelSize: 9
+                                                            font.weight: isLogoSel ? Font.Bold : Font.Medium
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                        }
+                                                    }
+
+                                                    MouseArea {
+                                                        id: logoChipMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: addFormRect.formLogo = modelData.id
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Event Recurrence / Repeat Picker
+                                    Column {
+                                        width: parent.width
+                                        spacing: 5
+
+                                        Row {
+                                            spacing: 5
+                                            Text {
+                                                text: "󰑖"
+                                                font.family: "GeistMono Nerd Font Propo"
+                                                font.pixelSize: 10
+                                                color: addFormRect.formRepeat !== "none" ? theme.blueLight : theme.textMuted
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                            Text {
+                                                text: "Repeat"
+                                                color: theme.textMuted
+                                                font.family: theme.fontFamily
+                                                font.pixelSize: 9
+                                                font.weight: Font.DemiBold
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                        }
+
+                                        Flow {
+                                            width: parent.width
+                                            spacing: 5
+
+                                            Repeater {
+                                                model: root.repeatOptions
+                                                Rectangle {
+                                                    property bool isRepSel: addFormRect.formRepeat === modelData.id
+                                                    height: 22
+                                                    width: repChipTxt.implicitWidth + 14
+                                                    radius: 6
+                                                    color: isRepSel ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.24) : (repChipMa.containsMouse ? theme.surfaceHover : theme.surface)
+                                                    border.color: isRepSel ? theme.blue : theme.borderSubtle
+                                                    border.width: 1
+
+                                                    Text {
+                                                        id: repChipTxt
+                                                        anchors.centerIn: parent
+                                                        text: modelData.label
+                                                        color: isRepSel ? theme.blueLight : theme.textSub
+                                                        font.family: theme.fontFamily
+                                                        font.pixelSize: 9
+                                                        font.weight: isRepSel ? Font.Bold : Font.Medium
+                                                    }
+
+                                                    MouseArea {
+                                                        id: repChipMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: addFormRect.formRepeat = modelData.id
                                                     }
                                                 }
                                             }
@@ -2975,12 +3246,13 @@ Item {
 
                                                     Row {
                                                         spacing: 4
-                                                        Text {
-                                                            text: "⏱"
-                                                            color: remCard.catCol
-                                                            font.pixelSize: 10
-                                                            opacity: 0.9
+                                                        Image {
+                                                            width: 11
+                                                            height: 11
                                                             anchors.verticalCenter: parent.verticalCenter
+                                                            source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + theme.urlColor(remCard.catCol) + "' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9'/><polyline points='12 7 12 12 15 14'/></svg>"
+                                                            fillMode: Image.PreserveAspectFit
+                                                            smooth: true
                                                         }
                                                         Text {
                                                             text: modelData.time
@@ -3002,54 +3274,20 @@ Item {
                                                         spacing: 4
                                                         anchors.verticalCenter: parent.verticalCenter
 
-                                                        Image {
-                                                            visible: modelData.category === "F1"
-                                                            width: 14
-                                                            height: 10
+                                                        Item {
+                                                            id: remCardIconBox
+                                                            property var iconMeta: root.getCategoryIconMeta(modelData.category, modelData.title, modelData.notes, modelData.logo)
+                                                            visible: iconMeta.source !== ""
+                                                            width: iconMeta.width
+                                                            height: iconMeta.height
                                                             anchors.verticalCenter: parent.verticalCenter
-                                                            source: "file:///home/ferram/.local/share/icons/f1.svg"
-                                                            fillMode: Image.PreserveAspectFit
-                                                            smooth: true
-                                                        }
 
-                                                        Image {
-                                                            visible: modelData.category === "Colgate-Palmolive"
-                                                            width: 13
-                                                            height: 9
-                                                            anchors.verticalCenter: parent.verticalCenter
-                                                            source: "file:///home/ferram/.local/share/icons/cp.svg"
-                                                            fillMode: Image.PreserveAspectFit
-                                                            smooth: true
-                                                        }
-
-                                                        Image {
-                                                            visible: modelData.category === "School"
-                                                            width: 11
-                                                            height: 11
-                                                            anchors.verticalCenter: parent.verticalCenter
-                                                            source: "file:///home/ferram/.local/share/icons/troyanos.svg"
-                                                            fillMode: Image.PreserveAspectFit
-                                                            smooth: true
-                                                        }
-
-                                                        Image {
-                                                            visible: remCard.isSara
-                                                            width: 12
-                                                            height: 12
-                                                            anchors.verticalCenter: parent.verticalCenter
-                                                            source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
-                                                            fillMode: Image.PreserveAspectFit
-                                                            smooth: true
-                                                        }
-
-                                                        Image {
-                                                            visible: remCard.isMarvel
-                                                            width: 20
-                                                            height: 9
-                                                            anchors.verticalCenter: parent.verticalCenter
-                                                            source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
-                                                            fillMode: Image.PreserveAspectFit
-                                                            smooth: true
+                                                            Image {
+                                                                anchors.fill: parent
+                                                                source: remCardIconBox.iconMeta.source
+                                                                fillMode: Image.PreserveAspectFit
+                                                                smooth: true
+                                                            }
                                                         }
 
                                                         Image {
@@ -3070,6 +3308,15 @@ Item {
                                                             font.weight: Font.Bold
                                                             anchors.verticalCenter: parent.verticalCenter
                                                         }
+                                                    }
+
+                                                    Text {
+                                                        visible: !!(modelData.repeat && modelData.repeat !== "none")
+                                                        text: "󰑖 " + root.getRepeatLabel(modelData.repeat)
+                                                        color: theme.blueLight
+                                                        font.family: "GeistMono Nerd Font Propo"
+                                                        font.pixelSize: 9
+                                                        anchors.verticalCenter: parent.verticalCenter
                                                     }
 
                                                     Text {
@@ -3170,6 +3417,722 @@ Item {
                             }
                         }
                     }
+                    } // end calendarTabCol
+                            } // end calPageItem
+
+                            // PAGE 1: TIMERS (iOS-inspired Scroll Wheel + Grouped Card + Active & Recents)
+                            Item {
+                                id: tmrPageItem
+                                width: pageSwipe.width
+                                implicitHeight: timersTabCol.implicitHeight
+                                visible: pageSwipe.currentIndex === 1
+
+                                Column {
+                                    id: timersTabCol
+                                    width: parent.width
+                                    spacing: 12
+
+                        property int customHours: 0
+                        property int customMins: 15
+                        property int customSecs: 0
+                        property string selectedSound: "alarm"
+                        property bool soundPickerOpen: false
+                        signal wheelReset()
+
+                        function startCustomTimer() {
+                            if (!root.timerService) return;
+                            let total = (customHours * 3600) + (customMins * 60) + customSecs;
+                            if (total <= 0) return;
+                            root.timerService.addTimer(timerLabelInput.text, total, true, selectedSound);
+                            timerLabelInput.text = "";
+                            soundPickerOpen = false;
+                        }
+
+                        function resetWheel() {
+                            customHours = 0;
+                            customMins = 0;
+                            customSecs = 0;
+                            timerLabelInput.text = "";
+                            wheelReset();
+                        }
+
+                        // 1. iOS Top Action Row: Circular Reset (X) | "Timer" | Circular Dynamic Start (▶)
+                        Item {
+                            width: parent.width
+                            height: 36
+
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 32
+                                height: 32
+                                radius: 16
+                                color: wheelResetMa.containsMouse ? theme.surfaceHover : theme.surface
+                                border.color: theme.borderSubtle
+                                border.width: 1
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "✕"
+                                    color: theme.textSub
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
+                                }
+
+                                MouseArea {
+                                    id: wheelResetMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: timersTabCol.resetWheel()
+                                }
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "Timer"
+                                color: theme.text
+                                font.family: theme.fontFamily
+                                font.pixelSize: 14
+                                font.weight: Font.Bold
+                            }
+
+                            Rectangle {
+                                property bool canStart: (timersTabCol.customHours + timersTabCol.customMins + timersTabCol.customSecs) > 0
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 32
+                                height: 32
+                                radius: 16
+                                color: canStart
+                                    ? (topStartMa.containsMouse ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.34) : Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.22))
+                                    : theme.surface
+                                border.color: canStart ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.55) : theme.borderSubtle
+                                border.width: 1
+                                Behavior on color { ColorAnimation { duration: 180 } }
+                                Behavior on border.color { ColorAnimation { duration: 180 } }
+
+                                Image {
+                                    anchors.centerIn: parent
+                                    anchors.horizontalCenterOffset: 1
+                                    width: 12
+                                    height: 12
+                                    source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='" + theme.urlColor(parent.canStart ? theme.blueLight : theme.textDim) + "'><polygon points='6 4 20 12 6 20 6 4'/></svg>"
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                }
+
+                                MouseArea {
+                                    id: topStartMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    enabled: parent.canStart
+                                    cursorShape: parent.canStart ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    onClicked: timersTabCol.startCustomTimer()
+                                }
+                            }
+                        }
+
+                        // 2. iOS 3-Column Scroll Wheel Picker (hours | min | sec)
+                        Item {
+                            width: parent.width
+                            height: 140
+                            clip: true
+
+                            // Center rounded highlight pill bar across all 3 columns
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.leftMargin: 6
+                                anchors.rightMargin: 6
+                                y: 56
+                                height: 28
+                                radius: 9
+                                color: theme.surfaceHover
+                                border.color: theme.borderSubtle
+                                border.width: 1
+                            }
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.leftMargin: 12
+                                anchors.rightMargin: 12
+                                spacing: 4
+
+                                Repeater {
+                                    model: [
+                                        { key: "hours", count: 24, unit: "hours", initVal: 0 },
+                                        { key: "mins", count: 60, unit: "min", initVal: 15 },
+                                        { key: "secs", count: 60, unit: "sec", initVal: 0 }
+                                    ]
+
+                                    Item {
+                                        width: (parent.width - 8) / 3
+                                        height: parent.height
+
+                                        Connections {
+                                            target: timersTabCol
+                                            function onWheelReset() {
+                                                wheelList.positionViewAtIndex(0, ListView.Center);
+                                                wheelList.currentIndex = 0;
+                                            }
+                                        }
+
+                                        Connections {
+                                            target: tmrPageItem
+                                            function onVisibleChanged() {
+                                                Qt.callLater(wheelList.initWheelPos);
+                                            }
+                                        }
+
+                                        Connections {
+                                            target: popup
+                                            function onVisibleChanged() {
+                                                Qt.callLater(wheelList.initWheelPos);
+                                            }
+                                        }
+
+                                        ListView {
+                                            id: wheelList
+                                            anchors.left: parent.left
+                                            anchors.top: parent.top
+                                            anchors.bottom: parent.bottom
+                                            width: parent.width * 0.52
+                                            model: modelData.count
+                                            clip: true
+                                            property bool wheelPositioned: false
+                                            snapMode: ListView.SnapToItem
+                                            highlightRangeMode: ListView.StrictlyEnforceRange
+                                            preferredHighlightBegin: 56
+                                            preferredHighlightEnd: 84
+                                            highlightMoveDuration: 150
+                                            boundsBehavior: Flickable.StopAtBounds
+                                            currentIndex: modelData.initVal
+
+                                            function initWheelPos() {
+                                                if (wheelPositioned || !tmrPageItem.visible || !popup.visible || height <= 0 || width <= 0) return;
+                                                wheelPositioned = true;
+                                                currentIndex = modelData.initVal;
+                                                positionViewAtIndex(modelData.initVal, ListView.Center);
+                                            }
+
+                                            onCurrentIndexChanged: {
+                                                if (currentIndex < 0) return;
+                                                if (modelData.key === "hours") timersTabCol.customHours = currentIndex;
+                                                else if (modelData.key === "mins") timersTabCol.customMins = currentIndex;
+                                                else timersTabCol.customSecs = currentIndex;
+                                            }
+
+                                            onWidthChanged: Qt.callLater(initWheelPos)
+                                            onHeightChanged: Qt.callLater(initWheelPos)
+                                            Component.onCompleted: Qt.callLater(initWheelPos)
+
+                                            delegate: Item {
+                                                width: wheelList.width
+                                                height: 28
+                                                property int dist: Math.abs(index - wheelList.currentIndex)
+
+                                                Text {
+                                                    anchors.right: parent.right
+                                                    anchors.rightMargin: 4
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    text: index
+                                                    color: theme.text
+                                                    opacity: dist === 0 ? 1.0 : (dist === 1 ? 0.50 : (dist === 2 ? 0.22 : 0.08))
+                                                    font.family: theme.fontFamily
+                                                    font.pixelSize: dist === 0 ? 18 : (dist === 1 ? 15 : 13)
+                                                    font.weight: dist === 0 ? Font.DemiBold : Font.Normal
+                                                }
+
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: wheelList.currentIndex = index
+                                                }
+                                            }
+                                        }
+
+                                        WheelHandler {
+                                            acceptedDevices: PointerDevice.AllDevices
+                                            property real wheelAccum: 0
+                                            onWheel: (event) => {
+                                                let d = event.angleDelta.y;
+                                                if (d === 0 && event.pixelDelta.y !== 0) d = event.pixelDelta.y * 2;
+                                                wheelAccum += d;
+                                                if (wheelAccum >= 60) {
+                                                    wheelAccum = 0;
+                                                    if (wheelList.currentIndex > 0) wheelList.currentIndex--;
+                                                } else if (wheelAccum <= -60) {
+                                                    wheelAccum = 0;
+                                                    if (wheelList.currentIndex < modelData.count - 1) wheelList.currentIndex++;
+                                                }
+                                                event.accepted = true;
+                                            }
+                                        }
+
+                                        Text {
+                                            x: wheelList.width + 2
+                                            y: 56
+                                            height: 28
+                                            verticalAlignment: Text.AlignVCenter
+                                            text: modelData.unit
+                                            color: theme.text
+                                            font.family: theme.fontFamily
+                                            font.pixelSize: 12
+                                            font.weight: Font.DemiBold
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. iOS Grouped Settings Card: Label + When Timer Ends
+                        Rectangle {
+                            width: parent.width
+                            implicitHeight: tmrSettingsCol.implicitHeight
+                            radius: 12
+                            color: theme.surface
+                            border.color: theme.borderSubtle
+                            border.width: 1
+                            clip: true
+
+                            Column {
+                                id: tmrSettingsCol
+                                width: parent.width
+
+                                // Row 1: Label
+                                Item {
+                                    width: parent.width
+                                    height: 36
+
+                                    Text {
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 12
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "Label"
+                                        color: theme.text
+                                        font.family: theme.fontFamily
+                                        font.pixelSize: 12
+                                        font.weight: Font.Medium
+                                    }
+
+                                    TextInput {
+                                        id: timerLabelInput
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 12
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width - 80
+                                        horizontalAlignment: Text.AlignRight
+                                        color: theme.textSub
+                                        font.family: theme.fontFamily
+                                        font.pixelSize: 12
+                                        clip: true
+                                        selectByMouse: true
+
+                                        Keys.onReturnPressed: timersTabCol.startCustomTimer()
+                                        Keys.onEnterPressed: timersTabCol.startCustomTimer()
+
+                                        Text {
+                                            anchors.fill: parent
+                                            horizontalAlignment: Text.AlignRight
+                                            verticalAlignment: Text.AlignVCenter
+                                            visible: !parent.text
+                                            text: "Timer"
+                                            color: theme.textDim
+                                            font.family: theme.fontFamily
+                                            font.pixelSize: 12
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        z: -1
+                                        onClicked: timerLabelInput.forceActiveFocus()
+                                    }
+                                }
+
+                                // Hairline divider
+                                Rectangle {
+                                    width: parent.width - 12
+                                    anchors.right: parent.right
+                                    height: 1
+                                    color: theme.borderSubtle
+                                }
+
+                                // Row 2: When Timer Ends
+                                Item {
+                                    width: parent.width
+                                    height: 36
+
+                                    Text {
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 12
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "When Timer Ends"
+                                        color: theme.text
+                                        font.family: theme.fontFamily
+                                        font.pixelSize: 12
+                                        font.weight: Font.Medium
+                                    }
+
+                                    Row {
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 12
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 6
+
+                                        Text {
+                                            text: root.timerService ? root.timerService.getSoundLabel(timersTabCol.selectedSound) : "Alarm"
+                                            color: theme.textSub
+                                            font.family: theme.fontFamily
+                                            font.pixelSize: 12
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+
+                                        Text {
+                                            text: timersTabCol.soundPickerOpen ? "⌄" : "›"
+                                            color: theme.textDim
+                                            font.pixelSize: 13
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: timersTabCol.soundPickerOpen = !timersTabCol.soundPickerOpen
+                                    }
+                                }
+
+                                // Expandable Sound Options Row
+                                Flow {
+                                    visible: timersTabCol.soundPickerOpen
+                                    width: parent.width - 20
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    topPadding: 2
+                                    bottomPadding: 10
+                                    spacing: 6
+
+                                    Repeater {
+                                        model: root.timerService ? root.timerService.soundOptions : []
+                                        Rectangle {
+                                            property bool isSel: timersTabCol.selectedSound === modelData.id
+                                            height: 24
+                                            width: sndTxt.implicitWidth + 14
+                                            radius: 7
+                                            color: isSel ? Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.22) : (sndMa.containsMouse ? theme.surfaceHover : theme.bgDark)
+                                            border.color: isSel ? theme.peach : theme.borderSubtle
+                                            border.width: 1
+
+                                            Text {
+                                                id: sndTxt
+                                                anchors.centerIn: parent
+                                                text: modelData.label
+                                                color: isSel ? theme.peach : theme.textSub
+                                                font.family: theme.fontFamily
+                                                font.pixelSize: 10
+                                                font.weight: isSel ? Font.Bold : Font.Medium
+                                            }
+
+                                            MouseArea {
+                                                id: sndMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    timersTabCol.selectedSound = modelData.id;
+                                                    if (root.timerService) root.timerService.playSound(modelData.id);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 4. Active / Running Timers (if any)
+                        Column {
+                            visible: !!(root.timerService && root.timerService.timers.length > 0)
+                            width: parent.width
+                            spacing: 6
+
+                            Text {
+                                text: "Running"
+                                color: theme.text
+                                font.family: theme.fontFamily
+                                font.pixelSize: 13
+                                font.weight: Font.Bold
+                            }
+
+                            Repeater {
+                                model: root.timerService ? root.timerService.timers : []
+
+                                Rectangle {
+                                    id: runningTmrCard
+                                    readonly property int liveRemainingSec: root.timerService ? root.timerService.getRemainingSec(modelData) : (modelData.remainingSec || 0)
+                                    width: timersTabCol.width
+                                    height: 68
+                                    radius: 12
+                                    color: modelData.finished
+                                        ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.16)
+                                        : theme.surface
+                                    border.color: modelData.finished
+                                        ? theme.red
+                                        : (modelData.running ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.45) : theme.borderSubtle)
+                                    border.width: 1
+                                    clip: true
+
+                                    // Bottom progress indicator
+                                    Rectangle {
+                                        anchors.left: parent.left
+                                        anchors.bottom: parent.bottom
+                                        height: 2.5
+                                        width: {
+                                            if (!modelData.totalSec || modelData.totalSec <= 0) return 0;
+                                            let pct = Math.max(0, Math.min(1, parent.liveRemainingSec / modelData.totalSec));
+                                            return Math.round(parent.width * pct);
+                                        }
+                                        color: modelData.finished ? theme.red : (modelData.running ? theme.blueLight : theme.textDim)
+                                        Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+                                    }
+
+                                    Item {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 12
+                                        anchors.rightMargin: 12
+
+                                        Column {
+                                            anchors.left: parent.left
+                                            anchors.right: runTmrBtns.left
+                                            anchors.rightMargin: 8
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            spacing: 1
+
+                                            Text {
+                                                text: root.timerService ? root.timerService.formatDuration(runningTmrCard.liveRemainingSec) : "0:00"
+                                                color: modelData.finished ? theme.red : theme.text
+                                                font.family: theme.fontFamily
+                                                font.pixelSize: 24
+                                                font.weight: Font.Light
+                                            }
+
+                                            Text {
+                                                width: parent.width
+                                                text: modelData.label + (modelData.finished ? " • Done!" : (" • " + (root.timerService ? root.timerService.formatDuration(modelData.totalSec) : "")))
+                                                color: modelData.finished ? theme.red : theme.textSub
+                                                font.family: theme.fontFamily
+                                                font.pixelSize: 10
+                                                elide: Text.ElideRight
+                                            }
+                                        }
+
+                                        Row {
+                                            id: runTmrBtns
+                                            anchors.right: parent.right
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            spacing: 6
+
+                                            Rectangle {
+                                                width: 28; height: 28; radius: 14
+                                                color: p1Ma.containsMouse ? theme.surfaceHover : theme.bgDark
+                                                border.color: theme.borderSubtle; border.width: 1
+                                                Text { anchors.centerIn: parent; text: "+1m"; color: theme.textSub; font.family: theme.fontFamily; font.pixelSize: 9; font.weight: Font.Bold }
+                                                MouseArea { id: p1Ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: if (root.timerService) root.timerService.addMinutes(modelData.id, 1) }
+                                            }
+
+                                            Rectangle {
+                                                width: 30; height: 30; radius: 15
+                                                color: modelData.running ? Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.22) : Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.22)
+                                                border.color: modelData.running ? theme.peach : theme.blue; border.width: 1
+                                                Image {
+                                                    anchors.centerIn: parent
+                                                    width: 12
+                                                    height: 12
+                                                    source: modelData.running
+                                                        ? ("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='" + theme.urlColor(theme.peach) + "'><rect x='6' y='4' width='4' height='16' rx='1'/><rect x='14' y='4' width='4' height='16' rx='1'/></svg>")
+                                                        : ("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='" + theme.urlColor(theme.blueLight) + "'><polygon points='6 4 20 12 6 20 6 4'/></svg>")
+                                                    fillMode: Image.PreserveAspectFit
+                                                    smooth: true
+                                                }
+                                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.timerService) root.timerService.toggleTimer(modelData.id) }
+                                            }
+
+                                            Rectangle {
+                                                width: 28; height: 28; radius: 14
+                                                color: rResetMa.containsMouse ? theme.surfaceHover : theme.bgDark
+                                                border.color: theme.borderSubtle; border.width: 1
+                                                Text { anchors.centerIn: parent; text: "↺"; color: theme.textSub; font.pixelSize: 12; font.bold: true }
+                                                MouseArea { id: rResetMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: if (root.timerService) root.timerService.resetTimer(modelData.id) }
+                                            }
+
+                                            Rectangle {
+                                                width: 28; height: 28; radius: 14
+                                                color: rDelMa.containsMouse ? theme.red : theme.bgDark
+                                                border.color: rDelMa.containsMouse ? theme.red : theme.borderSubtle; border.width: 1
+                                                Text { anchors.centerIn: parent; text: "✕"; color: rDelMa.containsMouse ? "#ffffff" : theme.textMuted; font.pixelSize: 9; font.bold: true }
+                                                MouseArea { id: rDelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: if (root.timerService) root.timerService.removeTimer(modelData.id) }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 6. Recents Section (matching iOS bottom Recents list with big numerals + green play button)
+                        Column {
+                            visible: !!(root.timerService && root.timerService.recents.length > 0)
+                            width: parent.width
+                            spacing: 6
+
+                            Text {
+                                text: "Recents"
+                                color: theme.text
+                                font.family: theme.fontFamily
+                                font.pixelSize: 13
+                                font.weight: Font.Bold
+                            }
+
+                            Rectangle {
+                                width: parent.width
+                                implicitHeight: recentsListCol.implicitHeight
+                                radius: 12
+                                color: theme.surface
+                                border.color: theme.borderSubtle
+                                border.width: 1
+                                clip: true
+
+                                Column {
+                                    id: recentsListCol
+                                    width: parent.width
+
+                                    Repeater {
+                                        model: root.timerService ? root.timerService.recents : []
+
+                                        Item {
+                                            id: recRowItem
+                                            width: recentsListCol.width
+                                            height: 58
+
+                                            Rectangle {
+                                                visible: index > 0
+                                                anchors.top: parent.top
+                                                anchors.left: parent.left
+                                                anchors.leftMargin: 12
+                                                anchors.right: parent.right
+                                                height: 1
+                                                color: theme.borderSubtle
+                                            }
+
+                                            Column {
+                                                anchors.left: parent.left
+                                                anchors.leftMargin: 12
+                                                anchors.right: recPlayBtn.left
+                                                anchors.rightMargin: 8
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                spacing: 1
+
+                                                Text {
+                                                    text: root.timerService ? root.timerService.formatDuration(modelData.totalSec) : "0:00"
+                                                    color: theme.textSub
+                                                    font.family: theme.fontFamily
+                                                    font.pixelSize: 22
+                                                    font.weight: Font.Light
+                                                }
+
+                                                Text {
+                                                    width: parent.width
+                                                    text: modelData.label
+                                                    color: theme.textMuted
+                                                    font.family: theme.fontFamily
+                                                    font.pixelSize: 10
+                                                    elide: Text.ElideRight
+                                                }
+                                            }
+
+                                            // Subtle delete button on hover
+                                            Rectangle {
+                                                id: recDelBtn
+                                                anchors.right: recPlayBtn.left
+                                                anchors.rightMargin: 8
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                width: 22
+                                                height: 22
+                                                radius: 11
+                                                opacity: (recRowMa.containsMouse || recDelMa.containsMouse) ? 1.0 : 0.0
+                                                color: recDelMa.containsMouse ? theme.red : theme.bgDark
+                                                border.color: recDelMa.containsMouse ? theme.red : theme.borderSubtle
+                                                border.width: 1
+                                                Behavior on opacity { NumberAnimation { duration: 140 } }
+
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "✕"
+                                                    color: recDelMa.containsMouse ? "#ffffff" : theme.textMuted
+                                                    font.pixelSize: 8
+                                                    font.bold: true
+                                                }
+
+                                                MouseArea {
+                                                    id: recDelMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: if (root.timerService) root.timerService.removeRecent(modelData.id)
+                                                }
+                                            }
+
+                                            // Circular Dynamic Play button
+                                            Rectangle {
+                                                id: recPlayBtn
+                                                anchors.right: parent.right
+                                                anchors.rightMargin: 12
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                width: 34
+                                                height: 34
+                                                radius: 17
+                                                color: recPlayMa.containsMouse ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.34) : Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.20)
+                                                border.color: Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.50)
+                                                border.width: 1
+                                                Behavior on color { ColorAnimation { duration: 180 } }
+
+                                                Image {
+                                                    anchors.centerIn: parent
+                                                    anchors.horizontalCenterOffset: 1
+                                                    width: 12
+                                                    height: 12
+                                                    source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='" + theme.urlColor(theme.blueLight) + "'><polygon points='6 4 20 12 6 20 6 4'/></svg>"
+                                                    fillMode: Image.PreserveAspectFit
+                                                    smooth: true
+                                                }
+
+                                                MouseArea {
+                                                    id: recPlayMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (root.timerService) {
+                                                            root.timerService.addTimer(modelData.label, modelData.totalSec, true, modelData.sound || "alarm");
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            MouseArea {
+                                                id: recRowMa
+                                                anchors.fill: parent
+                                                z: -1
+                                                hoverEnabled: true
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } // end timersTabCol
+                            } // end tmrPageItem
+                        } // end pageSwipe
+                    } // end pageContainer wrapper Item
                 }
             }
         }

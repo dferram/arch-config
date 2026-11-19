@@ -4,6 +4,10 @@ import subprocess
 import os
 import sys
 import glob
+import re
+import sqlite3
+import struct
+import urllib.parse
 
 KNOWN_TOOLS = (
     "devin", "codex", "openai-codex", "agy", "antigravity", "gemini", "claude",
@@ -138,11 +142,121 @@ def get_stremio_active_names():
     except Exception:
         return []
 
+def get_chromium_title_url_maps():
+    """Map browser page titles to URLs across Chromium/Chrome/Brave profiles."""
+    events = []
+    profile_globs = (
+        "~/.config/chromium/*",
+        "~/.config/google-chrome/*",
+        "~/.config/BraveSoftware/Brave-Browser/*",
+    )
+    profile_dirs = []
+    for pattern in profile_globs:
+        for path in glob.glob(os.path.expanduser(pattern)):
+            if os.path.isdir(path):
+                profile_dirs.append(path)
+
+    for prof_dir in profile_dirs:
+        hist_path = os.path.join(prof_dir, "History")
+        if os.path.isfile(hist_path):
+            try:
+                con = sqlite3.connect(f"file:{hist_path}?immutable=1", uri=True)
+                rows = con.execute(
+                    "SELECT last_visit_time, title, url FROM urls "
+                    "WHERE title != '' AND url != '' "
+                    "ORDER BY last_visit_time DESC LIMIT 1500"
+                ).fetchall()
+                con.close()
+                for idx, (lvt, title, url) in enumerate(rows):
+                    ts = (lvt / 1_000_000.0) - 11644473600.0 if lvt else 0.0
+                    events.append((ts, -idx, title, url))
+            except Exception:
+                pass
+
+        sess_dir = os.path.join(prof_dir, "Sessions")
+        if not os.path.isdir(sess_dir):
+            continue
+        session_files = []
+        tabs_files = sorted(glob.glob(os.path.join(sess_dir, "Tabs_*")), key=os.path.getmtime)[-2:]
+        sess_files = sorted(glob.glob(os.path.join(sess_dir, "Session_*")), key=os.path.getmtime)[-3:]
+        for fpath in tabs_files:
+            session_files.append((fpath, 1))
+        for fpath in sess_files:
+            session_files.append((fpath, 6))
+
+        for fpath, target_cmd in session_files:
+            try:
+                mtime = os.path.getmtime(fpath)
+                with open(fpath, "rb") as sf:
+                    data = sf.read()
+                if data[:4] != b"SNSS":
+                    continue
+                pos = 8
+                seq = 0
+                while pos + 2 <= len(data):
+                    size = struct.unpack_from("<H", data, pos)[0]
+                    pos += 2
+                    if size == 0 or pos + size > len(data):
+                        break
+                    cmd = data[pos]
+                    payload = data[pos + 1 : pos + size]
+                    pos += size
+                    if cmd == target_cmd and len(payload) >= 16:
+                        _, _, _, url_len = struct.unpack_from("<IIII", payload, 0)
+                        if 0 < url_len < len(payload) - 16:
+                            url = payload[16 : 16 + url_len].decode("utf-8", "ignore")
+                            t_off = 16 + ((url_len + 3) & ~3)
+                            if t_off + 4 <= len(payload):
+                                title_chars = struct.unpack_from("<I", payload, t_off)[0]
+                                t_start = t_off + 4
+                                t_end = t_start + title_chars * 2
+                                if t_end <= len(payload):
+                                    title = payload[t_start:t_end].decode("utf-16-le", "ignore")
+                                    if title and url:
+                                        events.append((mtime, seq, title, url))
+                                        seq += 1
+            except Exception:
+                pass
+
+    events.sort(key=lambda item: (item[0], item[1]))
+    exact_map = {}
+    norm_map = {}
+    for _, _, title, url in events:
+        exact_map[title] = url
+        norm = re.sub(r"^\(\d+\)\s+", "", title)
+        norm_map[norm] = url
+    return exact_map, norm_map
+
+
+def resolve_browser_url(title, exact_map, norm_map):
+    if not title:
+        return ""
+    clean = title
+    for suffix in (" - Chromium", " - Google Chrome", " - Brave Browser", " - Brave"):
+        if clean.endswith(suffix):
+            clean = clean[: -len(suffix)]
+            break
+    if clean in exact_map:
+        return exact_map[clean]
+    norm = re.sub(r"^\(\d+\)\s+", "", clean)
+    return norm_map.get(norm, "")
+
+
 try:
     raw = subprocess.check_output(["hyprctl", "clients", "-j"])
     clients = json.loads(raw)
+    has_browser = any(
+        any(b in (c.get("class") or "").lower() for b in ("chromium", "chrome", "brave"))
+        for c in clients
+    )
+    exact_urls, norm_urls = get_chromium_title_url_maps() if has_browser else ({}, {})
     for c in clients:
         cls = (c.get("class") or "").lower()
+        if any(b in cls for b in ("chromium", "chrome", "brave")):
+            url = resolve_browser_url(c.get("title") or "", exact_urls, norm_urls)
+            if url:
+                c["browserUrl"] = url
+                c["browserHost"] = (urllib.parse.urlparse(url).hostname or "").lower()
         if "stremio" in cls:
             names = get_stremio_active_names()
             if names:

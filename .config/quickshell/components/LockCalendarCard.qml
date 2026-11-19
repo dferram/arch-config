@@ -219,22 +219,24 @@ Rectangle {
                 Behavior on scale { SequentialAnimation { PauseAnimation { duration: 120 + index * 9 } NumberAnimation { duration: 320; easing.type: Easing.OutBack } } }
                 Behavior on opacity { SequentialAnimation { PauseAnimation { duration: 120 + index * 9 } NumberAnimation { duration: 260 } } }
 
-                Rectangle {
+                CalendarDayTile {
+                    id: todayTile
                     anchors.centerIn: parent
-                    width: cellItem.d; height: cellItem.d; radius: cellItem.d / 2
+                    width: cellItem.d; height: cellItem.d
                     visible: cellItem.isToday
-                    color: root.accent
+                    accentColor: root.accent
                     SequentialAnimation on opacity {
                         running: cellItem.isToday && root.active
                         loops: Animation.Infinite
-                        NumberAnimation { from: 1.0; to: 0.65; duration: 1400; easing.type: Easing.InOutSine }
-                        NumberAnimation { from: 0.65; to: 1.0; duration: 1400; easing.type: Easing.InOutSine }
+                        NumberAnimation { from: 1.0; to: 0.72; duration: 1400; easing.type: Easing.InOutSine }
+                        NumberAnimation { from: 0.72; to: 1.0; duration: 1400; easing.type: Easing.InOutSine }
                     }
                 }
-                // soft ring on days with reminders
+                // soft rounded-square ring on days with reminders
                 Rectangle {
                     anchors.centerIn: parent
-                    width: cellItem.d; height: cellItem.d; radius: cellItem.d / 2
+                    width: cellItem.d; height: cellItem.d
+                    radius: Math.max(5, Math.round(cellItem.d * 0.25))
                     visible: cellItem.count > 0 && !cellItem.isToday
                     color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
                     border.width: 1
@@ -242,21 +244,21 @@ Rectangle {
                 }
                 Text {
                     anchors.centerIn: parent
-                    anchors.verticalCenterOffset: cellItem.count > 0 ? -2 : 0
+                    anchors.verticalCenterOffset: cellItem.count > 0 ? -1 : (cellItem.isToday ? 1 : 0)
                     visible: cellItem.valid
                     text: cellItem.day
-                    color: cellItem.isToday ? "#000000" : cellItem.past ? theme.textDim : theme.textSub
+                    color: cellItem.isToday ? todayTile.autoTextColor : cellItem.past ? theme.textDim : theme.textSub
                     font.family: theme.fontFamily
-                    font.pixelSize: 12
+                    font.pixelSize: cellItem.isToday ? 11 : 12
                     font.weight: cellItem.isToday ? Font.Bold : Font.Medium
                 }
                 Rectangle {
                     visible: cellItem.count > 0
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.horizontalCenterOffset: 0
-                    y: parent.height / 2 + cellItem.d / 2 - 6
+                    y: parent.height / 2 + cellItem.d / 2 - 5
                     width: 4; height: 4; radius: 2
-                    color: cellItem.isToday ? "#000000" : root.accent
+                    color: cellItem.isToday ? todayTile.autoTextColor : root.accent
                 }
             }
         }

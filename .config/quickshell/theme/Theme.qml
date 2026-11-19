@@ -3,39 +3,40 @@ import QtQuick
 QtObject {
     id: root
 
-    // Apple iPhone Liquid Glass - Obsidian Frosted Glass Base
-    readonly property color bg: "#08080a"
-    readonly property color bgDark: "#050507"
-    readonly property color bgCrust: "#020204"
-    readonly property color bgGlass: "#d90d0d11"     // 85% neutral obsidian glass tint (more opaque, less see-through)
-    readonly property color popupBg: "#f20f0f14"     // 95% neutral obsidian sheet glass (clean legibility)
+    // Apple Liquid Glass - Cohesive Smoked Obsidian Glass (Slightly Lighter & Airier Across All Surfaces)
+    readonly property color bg: "#0c0f17"
+    readonly property color bgDark: "#9e0c0f17"
+    readonly property color bgCrust: "#b8090b12"
+    readonly property color bgGlass: "#7d10131d"     // 49% smoked obsidian glass
+    readonly property color popupBg: "#c8121520"     // 78% smoked obsidian sheet glass
+    readonly property color widgetGlass: "#7810131d" // 47% desktop widget smoked glass
 
     // Surfaces: Clean specular frosted layers
-    readonly property color surface: "#15ffffff"      // Frosted semi-transparent white (~8%)
-    readonly property color surfaceHover: "#24ffffff" // Hover state (~14%)
-    readonly property color surfaceActive: "#33ffffff"// Active/pressed state (~20%)
+    readonly property color surface: "#19ffffff"      // Frosted semi-transparent white (~10%)
+    readonly property color surfaceHover: "#28ffffff" // Hover state (~16%)
+    readonly property color surfaceActive: "#38ffffff"// Active/pressed state (~22%)
 
-    // Liquid Glass Specular Hairlines (iPhone hallmark)
-    readonly property color border: "#28ffffff"       // Crisp specular hairline (16% white)
-    readonly property color borderSubtle: "#14ffffff" // Subtle divider (8% white)
-    readonly property color borderGlow: "#45ffffff"   // Specular sheen (27% white)
-    readonly property color glassHighlight: "#33ffffff" // Top specular shine
+    // Liquid Glass Specular Hairlines
+    readonly property color border: "#40ffffff"       // Crisp specular hairline (25% white)
+    readonly property color borderSubtle: "#1cffffff" // Subtle divider (11% white)
+    readonly property color borderGlow: "#5cffffff"   // Specular sheen (36% white)
+    readonly property color glassHighlight: "#3cffffff"
 
-    // Apple Clean Neutral Typography (pure neutral zinc, no blue undertones)
+    // Apple Clean Neutral Typography (High legibility)
     readonly property color text: "#ffffff"
     readonly property color textSub: "#e2e8f0"
-    readonly property color textMuted: "#a1a1aa"
-    readonly property color textDim: "#71717a"
+    readonly property color textMuted: "#b8c2d0"
+    readonly property color textDim: "#8b95a5"
     readonly property string fontFamily: "sans-serif"
 
-    // Refined Accent Palette (Dynamic Wallpaper Accents)
-    readonly property color blue: "#2781d4"       // Primary Dynamic Accent
-    readonly property color blueLight: "#72b6f3"  // Highlights & Glow
+    // Luminous Accent Palette (High contrast over dark glass & wallpapers)
+    readonly property color blue: "#58b0ff"       // Primary Luminous Sky Accent
+    readonly property color blueLight: "#8fd0ff"  // Highlights & Crisp Icons
     readonly property color blueDeep: "#0d497f"   // Deep State
-    readonly property color blueMuted: "#6f9ec9"  // Soft Accent
-    readonly property color cyan: "#72b6f3"       // Secondary Glow
+    readonly property color blueMuted: "#7ab8ef"  // Soft Accent
+    readonly property color cyan: "#72c6ff"       // Secondary Glow
     readonly property color frost: "#f1f5f9"      // Crystalline White
-    readonly property color indigo: "#0d497f"     // Sub-accent
+    readonly property color indigo: "#1e5aa8"     // Sub-accent
     readonly property color sky: blueLight
     readonly property color mauve: blue
 

@@ -13,8 +13,8 @@ Rectangle {
 
     radius: 20
     // Apple Sonoma Translucent Obsidian Glass
-    color: Qt.rgba(0.06, 0.06, 0.09, 0.55)
-    border.color: Qt.rgba(255, 255, 255, 0.10)
+    color: theme.widgetGlass
+    border.color: theme.borderSubtle
     border.width: 1
     clip: true
 
@@ -47,22 +47,60 @@ Rectangle {
                 try {
                     let list = JSON.parse(txt);
                     if (Array.isArray(list)) {
-                        // FILTER: Reminders for CURRENT MONTH ONLY, and ONLY UPCOMING (today or future dates, not past)
                         let now = new Date();
-                        let y = now.getFullYear();
-                        let m = String(now.getMonth() + 1).padStart(2, '0');
-                        let d = String(now.getDate()).padStart(2, '0');
-                        let todayStr = y + "-" + m + "-" + d;
+                        let curY = now.getFullYear();
+                        let curM = now.getMonth() + 1;
+                        let curD = now.getDate();
+                        let daysInCurM = new Date(curY, curM, 0).getDate();
 
-                        let filtered = list.filter(r => r.date && r.date.startsWith(root.currentMonthPrefix) && r.date >= todayStr);
+                        let expanded = [];
+                        for (let i = 0; i < list.length; i++) {
+                            let r = list[i];
+                            if (!r.date) continue;
+                            let rep = (r.repeat || "none").toLowerCase();
+                            if (rep === "" || rep === "none") {
+                                let y = curY;
+                                let m = String(curM).padStart(2, '0');
+                                let d = String(curD).padStart(2, '0');
+                                let todayStr = y + "-" + m + "-" + d;
+                                if (r.date.startsWith(root.currentMonthPrefix) && r.date >= todayStr) {
+                                    expanded.push(r);
+                                }
+                            } else {
+                                let sp = r.date.split("-");
+                                if (sp.length !== 3) continue;
+                                let startUtc = Date.UTC(parseInt(sp[0], 10), parseInt(sp[1], 10) - 1, parseInt(sp[2], 10));
+                                let startM = parseInt(sp[1], 10);
+                                let startD = parseInt(sp[2], 10);
+                                for (let day = curD; day <= daysInCurM; day++) {
+                                    let tUtc = Date.UTC(curY, curM - 1, day);
+                                    if (tUtc < startUtc) continue;
+                                    let diffDays = Math.round((tUtc - startUtc) / 86400000);
+                                    let match = false;
+                                    if (rep === "daily") match = true;
+                                    else if (rep === "weekdays") { let dow = new Date(tUtc).getUTCDay(); match = (dow >= 1 && dow <= 5); }
+                                    else if (rep === "weekly") match = (diffDays % 7 === 0);
+                                    else if (rep === "biweekly") match = (diffDays % 14 === 0);
+                                    else if (rep === "monthly") match = (day === Math.min(startD, daysInCurM));
+                                    else if (rep === "yearly") match = (curM === startM && day === Math.min(startD, daysInCurM));
+                                    if (match) {
+                                        let occ = Object.assign({}, r);
+                                        occ.date = root.currentMonthPrefix + "-" + String(day).padStart(2, '0');
+                                        expanded.push(occ);
+                                        break; // show next upcoming occurrence in this month
+                                    }
+                                }
+                            }
+                        }
+
                         // Sort by date and time
-                        filtered.sort((a, b) => {
+                        expanded.sort((a, b) => {
                             let da = (a.date || "") + " " + (a.time || "");
                             let db = (b.date || "") + " " + (b.time || "");
                             return da.localeCompare(db);
                         });
-                        root.monthReminders = filtered;
-                        root.currentMonthCount = filtered.length;
+                        root.monthReminders = expanded;
+                        root.currentMonthCount = expanded.length;
                     }
                 } catch(e) {}
             }
@@ -240,73 +278,65 @@ Rectangle {
                             anchors.margins: 6
                             spacing: 7
 
-                            // Category / Reminder Indicator (Heart for Sara, Marvel for Doomsday, F1, CP, Troyanos, or bullet)
+                            // Category / Reminder Indicator
                             Item {
                                 readonly property string catLow: (modelData.category || "").toLowerCase()
                                 readonly property string titleLow: (modelData.title || "").toLowerCase()
+                                readonly property string notesLow: (modelData.notes || "").toLowerCase()
+                                readonly property string logoLow: (modelData.logo || "").toLowerCase()
                                 readonly property bool isSara: catLow === "sara" || titleLow.indexOf("sara") !== -1
                                 readonly property bool isMarvel: catLow === "marvel" || titleLow.indexOf("doomsday") !== -1 || titleLow.indexOf("marvel") !== -1
                                 readonly property bool isF1: catLow === "f1" || titleLow.indexOf("formula 1") !== -1 || titleLow.indexOf("grand prix") !== -1
                                 readonly property bool isCP: catLow === "colgate-palmolive" || catLow === "colgate"
                                 readonly property bool isSchool: catLow === "school" || catLow === "troyanos"
+                                readonly property bool isCode: catLow === "projects" || catLow === "free lance" || catLow === "free-lance" || catLow === "freelance"
+                                readonly property bool isCommunity: catLow === "community"
+                                readonly property bool isPersonal: catLow === "personal"
+                                readonly property bool isWorkshops: catLow === "workshops" || catLow === "workshop"
 
-                                width: isSara ? 11 : (isMarvel ? 16 : (isF1 ? 12 : (isCP ? 11 : (isSchool ? 10 : 8))))
-                                height: isSara ? 11 : (isMarvel ? 8 : (isF1 ? 8 : (isCP ? 8 : (isSchool ? 10 : 8))))
+                                readonly property string iconSource: {
+                                    if (isSara) return "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg";
+                                    if (isMarvel) return "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg";
+                                    if (isF1) return "file:///home/ferram/.local/share/icons/f1.svg";
+                                    if (isCP) return "file:///home/ferram/.local/share/icons/cp.svg";
+                                    if (isSchool) return "file:///home/ferram/.local/share/icons/troyanos.svg";
+                                    if (isPersonal) return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23f97316' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>";
+                                    if (isWorkshops) return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%238b5cf6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M2 3h20'/><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'/><path d='m7 21 5-5 5 5'/></svg>";
+                                    if (isCode) {
+                                        let hex = catLow === "projects" ? "%2314b8a6" : "%2306b6d4";
+                                        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + hex + "' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='m18 16 4-4-4-4'/><path d='m6 8-4 4 4 4'/><path d='m14.5 4-5 16'/></svg>";
+                                    }
+                                    if (isCommunity) {
+                                        if (logoLow === "fof-qro") return "file://" + Quickshell.shellPath("icons/community-fof-qro.svg");
+                                        if (logoLow === "claude") return "file://" + Quickshell.shellPath("icons/claude.svg");
+                                        if (logoLow === "devin") return "file:///usr/share/pixmaps/devin-desktop.png";
+                                        if (logoLow === "gdg") return "file://" + Quickshell.shellPath("icons/community-gdg.svg");
+                                        if (logoLow === "default") return "file://" + Quickshell.shellPath("icons/community-default.svg");
+                                        let full = titleLow + " " + notesLow;
+                                        if (full.indexOf("figma") !== -1 || full.indexOf("fof") !== -1) return "file://" + Quickshell.shellPath("icons/community-fof-qro.svg");
+                                        if (full.indexOf("claude") !== -1 || full.indexOf("anthropic") !== -1) return "file://" + Quickshell.shellPath("icons/claude.svg");
+                                        if (full.indexOf("devin") !== -1 || full.indexOf("cognition") !== -1) return "file:///usr/share/pixmaps/devin-desktop.png";
+                                        if (full.indexOf("gdg") !== -1 || full.indexOf("google developer") !== -1 || full.indexOf("devfest") !== -1 || full.indexOf("google") !== -1) return "file://" + Quickshell.shellPath("icons/community-gdg.svg");
+                                        return "file://" + Quickshell.shellPath("icons/community-default.svg");
+                                    }
+                                    return "";
+                                }
+
+                                width: isSara ? 11 : (isMarvel ? 16 : (isF1 ? 12 : (isCP ? 11 : (isSchool ? 10 : ((isCode || isCommunity || isPersonal || isWorkshops) ? 12 : 8)))))
+                                height: isSara ? 11 : (isMarvel ? 8 : (isF1 ? 8 : (isCP ? 8 : (isSchool ? 10 : ((isCode || isCommunity || isPersonal || isWorkshops) ? 12 : 8)))))
                                 anchors.verticalCenter: parent.verticalCenter
 
                                 Rectangle {
-                                    visible: !parent.isSara && !parent.isMarvel && !parent.isF1 && !parent.isCP && !parent.isSchool
+                                    visible: parent.iconSource === ""
                                     anchors.fill: parent
                                     radius: width / 2
-                                    color: {
-                                        if (parent.catLow === "projects") return "#10b981";
-                                        if (parent.catLow === "workshops" || parent.catLow === "workshop") return "#8b5cf6";
-                                        if (parent.catLow === "community") return "#06b6d4";
-                                        if (parent.catLow === "free lance" || parent.catLow === "free-lance" || parent.catLow === "freelance") return "#06b6d4";
-                                        if (parent.catLow === "gym") return "#eab308";
-                                        if (parent.catLow === "family") return "#f43f5e";
-                                        if (parent.catLow === "personal") return "#f97316";
-                                        return "#38bdf8";
-                                    }
+                                    color: "#38bdf8"
                                 }
 
                                 Image {
-                                    visible: parent.isSara
+                                    visible: parent.iconSource !== ""
                                     anchors.fill: parent
-                                    source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/holiday-heart.svg"
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                }
-
-                                Image {
-                                    visible: parent.isMarvel
-                                    anchors.fill: parent
-                                    source: "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/marvel.svg"
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                }
-
-
-                                Image {
-                                    visible: parent.isF1
-                                    anchors.fill: parent
-                                    source: "file:///home/ferram/.local/share/icons/f1.svg"
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                }
-
-                                Image {
-                                    visible: parent.isCP
-                                    anchors.fill: parent
-                                    source: "file:///home/ferram/.local/share/icons/cp.svg"
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                }
-
-                                Image {
-                                    visible: parent.isSchool
-                                    anchors.fill: parent
-                                    source: "file:///home/ferram/.local/share/icons/troyanos.svg"
+                                    source: parent.iconSource
                                     fillMode: Image.PreserveAspectFit
                                     smooth: true
                                 }

@@ -39,9 +39,7 @@ def get_target_sink():
         for line in out.strip().split("\n"):
             parts = line.split()
             if len(parts) >= 2:
-                name = parts[1]
-                if "easyeffects" not in name:
-                    candidates.append(name)
+                candidates.append(parts[1])
 
         # Priority 1: Wired headphones
         for name in candidates:
@@ -51,7 +49,11 @@ def get_target_sink():
         for name in candidates:
             if "bluez" in name.lower():
                 return name
-        # Priority 3: Internal laptop speakers
+        # Priority 3: Boosted internal speaker filter-chain sink
+        for name in candidates:
+            if name == "matebook_speaker_boost":
+                return name
+        # Priority 4: Internal laptop speakers
         for name in candidates:
             if "speaker" in name.lower():
                 return name

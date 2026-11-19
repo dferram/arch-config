@@ -134,11 +134,18 @@ Item {
     property string f1SvgUri: "file:///home/ferram/.local/share/icons/f1.png"
     property string nbaSvgUri: "file:///home/ferram/.local/share/icons/nba.png"
 
+    // Official Muse AI (Meta) SVG and NASA Meatball PNG
+    property string museSvgUri: "file:///home/ferram/.local/share/icons/muse.svg"
+    property string nasaSvgUri: "file:///home/ferram/.local/share/icons/nasa.png"
+
     // Rules to dynamically detect active browser tabs by window title
     property var webTabRules: [
+        // GitHub takes highest priority (outweighs Colgate, Troyanos, NASA, etc.)
+        { keywords: ["github", "dferram (fernando", "your repositories", "new repository", "· pull request #", "· issue #", "· discussion #", "dferram/", "colgate-palmolive-interns/", "unaq-hackathon/"], pattern: /^comparing\s+.+\.\.\..+\s+·\s+/, icon: root.githubSvgUri },
         { keywords: ["formula 1", "formula1", "formula one", "f1 tv", "f1tv", "grand prix", "fia f1", "motorsport", "red bull racing", "ferrari f1", "mercedes f1", "checo perez", "verstappen", "hamilton", "f1 -", "f1 |", " f1 "], icon: root.f1SvgUri },
         { keywords: ["nba", "basketball", "nba league pass", "nba.com", "national basketball association", "nba playoffs", "nba finals", "nba highlights", "lakers", "warriors", "celtics", "bulls", "dallas mavericks", "heat", "bucks"], icon: root.nbaSvgUri },
         { keywords: root.spiderKeywords, icon: root.spiderUri },
+        { keywords: ["spaceappschallenge", "space apps challenge", "heimdall.earth", "heimdall"], pattern: /(?:^|[^a-z0-9])nasa(?:$|[^a-z0-9])/, icon: root.nasaSvgUri },
         { keywords: ["colgate", "colpal"], icon: root.cpSvgUri },
         { keywords: ["troyanos", "uaq"], icon: root.troyanosSvgUri },
         { keywords: ["swagger", "swagger-ui", "api-docs", "/docs", "openapi"], icon: root.swaggerSvgUri },
@@ -149,9 +156,7 @@ Item {
         { keywords: ["codex", "codex.openai"], icon: "file:///home/ferram/.local/share/icons/chatgpt.svg" },
         { keywords: ["claude", "anthropic"], icon: "file:///home/ferram/.local/share/icons/claude.svg" },
         { keywords: ["gemini", "bard.google"], icon: "file:///home/ferram/.local/share/icons/gemini.svg" },
-        // GitHub profile pages omit "GitHub" from the browser title (for example,
-        // "dferram (Fernando …)").  Keep their workspace marker as the Octocat.
-        { keywords: ["github", "dferram (fernando"], icon: root.githubSvgUri },
+        { keywords: ["muse.ai", "agent.meta.ai"], pattern: /(?:^|[^a-z0-9])muse(?:$|[^a-z0-9])/, icon: root.museSvgUri },
         { keywords: ["spotify"], icon: root.spotifySvgUri },
         { keywords: ["pgadmin", "postgresql", "postgres", "psql", "5050", "localhost:5050", "localhost:5432", "5432", "dbeaver", "datagrip", "postico", "tableplus"], icon: "file:///home/ferram/.local/share/icons/postgresql.svg" },
         { keywords: ["docker", "lazydocker", "portainer", "hub.docker"], icon: "file:///home/ferram/.local/share/icons/docker.svg" },
@@ -190,13 +195,68 @@ Item {
         return "";
     }
 
+    function isGitHubHost(host) {
+        if (!host) return false;
+        return host === "github.com" || host.endsWith(".github.com");
+    }
+
+    function isGitHubTitle(titleLower) {
+        if (!titleLower) return false;
+        return titleLower.indexOf("github") !== -1 ||
+               titleLower.indexOf("dferram (fernando") !== -1 ||
+               titleLower.indexOf("your repositories") !== -1 ||
+               titleLower.indexOf("new repository") !== -1 ||
+               titleLower.indexOf("· pull request #") !== -1 ||
+               titleLower.indexOf("· issue #") !== -1 ||
+               titleLower.indexOf("· discussion #") !== -1 ||
+               titleLower.indexOf("dferram/") !== -1 ||
+               titleLower.indexOf("colgate-palmolive-interns/") !== -1 ||
+               titleLower.indexOf("unaq-hackathon/") !== -1 ||
+               /^comparing\s+.+\.\.\..+\s+·\s+/.test(titleLower);
+    }
+
+    function isMuseTitle(titleLower) {
+        if (!titleLower) return false;
+        return /(?:^|[^a-z0-9])muse(?:$|[^a-z0-9])/.test(titleLower);
+    }
+
+    function isNasaTitle(titleLower) {
+        if (!titleLower) return false;
+        return /(?:^|[^a-z0-9])nasa(?:$|[^a-z0-9])/.test(titleLower) ||
+               titleLower.indexOf("spaceappschallenge") !== -1 ||
+               titleLower.indexOf("space apps challenge") !== -1;
+    }
+
+    function resolveBrowserUrlIcon(url, host) {
+        if (!url && !host) return "";
+        let h = (host || "").toLowerCase();
+        let u = (url || "").toLowerCase();
+        if (root.isGitHubHost(h)) return root.githubSvgUri;
+        if (h === "muse.ai" || h.endsWith(".muse.ai") || h === "agent.meta.ai" ||
+            u.indexOf("ai.meta.com/muse") !== -1 ||
+            u.indexOf("chrome-extension://jnakhhjmpmoohbjgfccbccfoifnmbdjd") !== -1) {
+            return root.museSvgUri;
+        }
+        if (h === "nasa.gov" || h.endsWith(".nasa.gov") ||
+            h === "spaceappschallenge.org" || h.endsWith(".spaceappschallenge.org") ||
+            h === "heimdall.earth" || h.endsWith(".heimdall.earth")) {
+            return root.nasaSvgUri;
+        }
+        return "";
+    }
+
     function resolveWebTabIcon(titleLower) {
         if (!titleLower) return "";
         for (let i = 0; i < root.webTabRules.length; i++) {
             let rule = root.webTabRules[i];
-            for (let k = 0; k < rule.keywords.length; k++) {
-                if (titleLower.indexOf(rule.keywords[k]) !== -1) {
-                    return rule.icon;
+            if (rule.pattern && rule.pattern.test(titleLower)) {
+                return rule.icon;
+            }
+            if (rule.keywords) {
+                for (let k = 0; k < rule.keywords.length; k++) {
+                    if (titleLower.indexOf(rule.keywords[k]) !== -1) {
+                        return rule.icon;
+                    }
                 }
             }
         }
@@ -318,6 +378,14 @@ Item {
             }
 
             // B. Other CLI developer tools in Terminal
+            // GitHub CLI in Terminal (takes priority over Colgate / Troyanos / Git)
+            if (proc === "gh" || proc.startsWith("gh ") || titleLower.startsWith("gh ")) {
+                return {
+                    icon: root.githubSvgUri,
+                    isTerminal: true,
+                    isAi: false
+                };
+            }
             // Colgate-Palmolive context / repo in Terminal
             if (proc.indexOf("colgate") !== -1 || proc.indexOf("colpal") !== -1 ||
                 titleLower.indexOf("colgate") !== -1 || titleLower.indexOf("colpal") !== -1 ||
@@ -353,14 +421,6 @@ Item {
                 !!client.isGitRepo) {
                 return {
                     icon: root.gitSvgUri,
-                    isTerminal: true,
-                    isAi: false
-                };
-            }
-            // GitHub CLI in Terminal
-            if (proc === "gh" || proc.startsWith("gh ") || titleLower.startsWith("gh ")) {
-                return {
-                    icon: root.githubSvgUri,
                     isTerminal: true,
                     isAi: false
                 };
@@ -425,6 +485,23 @@ Item {
         }
 
         // --- 2. GUI Applications ---
+        let browserUrl = (client.browserUrl || "").toLowerCase();
+        let browserHost = (client.browserHost || "").toLowerCase();
+        let isBrowser = (lower.indexOf("chromium") !== -1 || lower.indexOf("chrome") !== -1 || lower.indexOf("brave") !== -1);
+
+        // GitHub takes highest priority for browser windows and GitHub apps
+        // (outweighs Colgate, Troyanos, NASA, Git, etc. on any GitHub page).
+        if (lower.indexOf("github") !== -1 || root.isGitHubHost(browserHost) ||
+            (isBrowser && root.isGitHubTitle(titleLower))) {
+            return { icon: root.githubSvgUri, isTerminal: false, isAi: false };
+        }
+
+        // Browser URL host detection (e.g., muse.ai tabs with custom titles like "Chat — Viernes", *.nasa.gov)
+        if (isBrowser) {
+            let urlIcon = root.resolveBrowserUrlIcon(browserUrl, browserHost);
+            if (urlIcon) return { icon: urlIcon, isTerminal: false, isAi: false };
+        }
+
         // Formula 1 content (Stremio, Browser, MPV, VLC, etc.)
         if (titleLower.indexOf("formula 1") !== -1 || titleLower.indexOf("formula1") !== -1 ||
             titleLower.indexOf("formula one") !== -1 || titleLower.indexOf("f1 tv") !== -1 ||
@@ -480,10 +557,8 @@ Item {
             return { icon: root.spotifySvgUri, isTerminal: false, isAi: false };
         }
 
-        // GitHub. Profile pages use the account name as their document title and
-        // therefore do not necessarily contain the GitHub brand.
-        if (lower.indexOf("github") !== -1 || titleLower.indexOf("github") !== -1 ||
-            titleLower.indexOf("dferram (fernando") !== -1) {
+        // GitHub (fallback for non-browser windows or PWAs)
+        if (root.isGitHubTitle(titleLower)) {
             return { icon: root.githubSvgUri, isTerminal: false, isAi: false };
         }
 
@@ -510,6 +585,14 @@ Item {
             let tabIcon = root.resolveWebTabIcon(titleLower);
             if (tabIcon) return { icon: tabIcon, isTerminal: false, isAi: false };
             return { icon: "file:///home/ferram/.local/share/icons/chromium.svg", isTerminal: false, isAi: false };
+        }
+
+        // NASA & Muse (non-browser desktop apps or files)
+        if (lower.indexOf("nasa") !== -1 || root.isNasaTitle(titleLower)) {
+            return { icon: root.nasaSvgUri, isTerminal: false, isAi: false };
+        }
+        if (lower.indexOf("muse") !== -1 || root.isMuseTitle(titleLower)) {
+            return { icon: root.museSvgUri, isTerminal: false, isAi: false };
         }
 
         // Known desktop applications
@@ -653,7 +736,7 @@ Item {
             if (name === "openwindow" || name === "closewindow" || name === "movewindow" ||
                 name === "movewindowv2" || name === "changefloatingmode" || name === "fullscreen" ||
                 name === "activewindow" || name === "activewindowv2" || name === "workspace" ||
-                name === "focusedmon") {
+                name === "focusedmon" || name === "windowtitle" || name === "windowtitlev2") {
                 root.refreshClients();
             }
         }
@@ -717,20 +800,20 @@ Item {
                         NumberAnimation { duration: 750; easing.type: Easing.InOutQuart }
                     }
 
-                    // Frosted glass background: translucent obsidian with blue ambient glow
+                    // Frosted glass background: obsidian glass with blue ambient glow
                     color: {
                         if (isFocused) return Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.28);
                         if (isCurrent) return Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.16);
-                        if (wsMouse.containsMouse) return Qt.rgba(255, 255, 255, 0.14);
-                        if (hasClients) return Qt.rgba(255, 255, 255, 0.06);
+                        if (wsMouse.containsMouse) return theme.surfaceHover;
+                        if (hasClients) return theme.surface;
                         return Qt.rgba(255, 255, 255, 0.02);
                     }
 
                     border.color: {
                         if (isFocused) return theme.blueLight;
                         if (isCurrent) return Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.55);
-                        if (wsMouse.containsMouse) return Qt.rgba(255, 255, 255, 0.28);
-                        return Qt.rgba(255, 255, 255, 0.08);
+                        if (wsMouse.containsMouse) return theme.border;
+                        return theme.borderSubtle;
                     }
                     border.width: 1
 

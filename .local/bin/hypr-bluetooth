@@ -76,9 +76,19 @@ def get_status():
         "devices": devices
     }
 
+def has_bluez_audio_sink(mac):
+    mac_under = mac.replace(":", "_").lower()
+    sinks = run_cmd(["pactl", "list", "sinks", "short"])
+    return f"bluez_output.{mac_under}" in sinks.lower()
+
 def connect_device(mac, name):
     notify("Bluetooth", f"Connecting to {name}...", 2000)
-    out = run_cmd(["bluetoothctl", "connect", mac], timeout=8)
+    info = run_cmd(["bluetoothctl", "info", mac])
+    if "Connected: yes" in info and not has_bluez_audio_sink(mac):
+        # Clear stale ACL-only connections before reconnecting A2DP audio
+        run_cmd(["bluetoothctl", "disconnect", mac], timeout=5)
+        time.sleep(1.0)
+    out = run_cmd(["bluetoothctl", "connect", mac], timeout=12)
     if "Connection successful" in out:
         notify("Bluetooth Connected", f"Successfully connected to {name}", 2500)
         return True

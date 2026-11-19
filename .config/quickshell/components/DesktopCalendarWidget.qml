@@ -14,8 +14,8 @@ Rectangle {
 
     radius: 20
     // Apple Sonoma Translucent Obsidian Glass
-    color: Qt.rgba(0.06, 0.06, 0.09, 0.55)
-    border.color: Qt.rgba(255, 255, 255, 0.10)
+    color: theme.widgetGlass
+    border.color: theme.borderSubtle
     border.width: 1
     clip: true
 
@@ -145,33 +145,24 @@ Rectangle {
                     property bool isCurrentMonth: (index >= root.startDayOfWeek) && (index < root.startDayOfWeek + root.daysInMonth)
                     property bool isToday: isCurrentMonth && (dayNumber === root.currentDay)
 
-                    // Dynamic Today Indicator (Circular Accent Badge)
-                    Rectangle {
+                    // Dynamic Today Indicator (Monochrome Flip-Calendar Tile)
+                    CalendarDayTile {
+                        id: todayTile
                         anchors.centerIn: parent
                         width: Math.min(24, Math.min(parent.width, cell.height) - 2)
                         height: width
-                        radius: width / 2
                         visible: cell.isToday
-                        color: theme.blueLight != "" ? theme.blueLight : theme.blue
-
-                        // Subtle specular glow around today
-                        Rectangle {
-                            anchors.fill: parent
-                            anchors.margins: -1
-                            radius: parent.radius + 1
-                            color: "transparent"
-                            border.color: Qt.rgba(parent.color.r, parent.color.g, parent.color.b, 0.45)
-                            border.width: 1
-                        }
+                        accentColor: theme.blue
                     }
 
                     Text {
                         anchors.centerIn: parent
+                        anchors.verticalCenterOffset: cell.isToday ? 1 : 0
                         text: cell.dayNumber.toString()
-                        color: cell.isToday ? "#ffffff" : (cell.isCurrentMonth ? theme.text : theme.textDim)
+                        color: cell.isToday ? todayTile.autoTextColor : (cell.isCurrentMonth ? theme.text : theme.textDim)
                         opacity: cell.isToday ? 1.0 : (cell.isCurrentMonth ? 0.95 : 0.30)
                         font.family: theme.fontFamily
-                        font.pixelSize: cell.isToday ? 12 : 11
+                        font.pixelSize: 11
                         font.weight: cell.isToday ? Font.Bold : (cell.isCurrentMonth ? Font.Medium : Font.Normal)
                     }
                 }

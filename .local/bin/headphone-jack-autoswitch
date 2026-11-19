@@ -19,6 +19,7 @@ HEADPHONES_PROFILE = "HiFi (HDMI1, HDMI2, HDMI3, Headphones, Mic1)"
 SPEAKER_PROFILE = "HiFi (HDMI1, HDMI2, HDMI3, Mic1, Speaker)"
 HEADPHONES_SINK = f"{CARD_NAME.replace('alsa_card.', 'alsa_output.')}.HiFi__Headphones__sink"
 SPEAKER_SINK = f"{CARD_NAME.replace('alsa_card.', 'alsa_output.')}.HiFi__Speaker__sink"
+SPEAKER_BOOST_SINK = "matebook_speaker_boost"
 
 last_notify_time = 0
 
@@ -53,6 +54,62 @@ def run_cmd_async(args):
         )
     except Exception:
         pass
+
+def get_sink_metadata(target_sink):
+    """Return (description, is_speaker) for a PipeWire sink name."""
+    desc = target_sink
+    form_factor = ""
+    icon_name = ""
+    try:
+        out = subprocess.check_output(["pactl", "list", "sinks"], stderr=subprocess.DEVNULL).decode()
+        in_block = False
+        for line in out.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("Name:"):
+                in_block = (stripped.split(":", 1)[1].strip() == target_sink)
+            elif in_block:
+                if stripped.startswith("Description:"):
+                    desc = stripped.split(":", 1)[1].strip()
+                elif stripped.startswith("device.form_factor ="):
+                    form_factor = stripped.split("=", 1)[1].strip().strip('"').lower()
+                elif stripped.startswith("device.icon_name ="):
+                    icon_name = stripped.split("=", 1)[1].strip().strip('"').lower()
+    except Exception:
+        pass
+    lower_desc = desc.lower()
+    is_bt_speaker = (
+        form_factor == "speaker"
+        or "speaker" in icon_name
+        or any(k in lower_desc for k in ("echo", "dot", "show", "alexa", "speaker", "soundbar", "jbl", "bose", "sonos"))
+    )
+    return desc, is_bt_speaker
+
+
+def notify_bluetooth_connected(desc, is_speaker, vol_str):
+    global last_notify_time
+    now = time.time()
+    if now - last_notify_time < 1.0:
+        return
+    last_notify_time = now
+
+    if is_speaker:
+        title = "Bluetooth Speaker Connected"
+        icon = "audio-speakers-bluetooth"
+    else:
+        title = "Bluetooth Headphones Connected"
+        icon_path = "/home/ferram/.local/share/icons/headphones.svg"
+        icon = f"file://{icon_path}" if os.path.exists(icon_path) else "audio-headphones-bluetooth"
+
+    run_cmd([
+        "notify-send", "-a", "Bluetooth",
+        "-i", icon,
+        "-t", "2500",
+        "-h", "string:x-canonical-private-synchronous:audio_output",
+        "-h", "string:synchronous:audio_output",
+        title,
+        f"Audio routed to {desc} • Volume {vol_str}"
+    ])
+
 
 def notify_headphones_connected(vol_str="35%"):
     global last_notify_time
@@ -115,24 +172,76 @@ def get_current_profile():
         pass
     return ""
 
-def switch_to_headphones():
+def switch_to_headphones(notify=True):
     print("[headphone-jack-autoswitch] Switching to Headphones", flush=True)
     # Ensure Auto-Mute is Disabled so ALSA doesn't mute headphones
     run_cmd(["amixer", "-c", CARD, "sset", "Auto-Mute Mode", "Disabled"])
     run_cmd(["pactl", "set-card-profile", CARD_NAME, HEADPHONES_PROFILE])
     time.sleep(0.15)
     run_cmd(["pactl", "set-default-sink", HEADPHONES_SINK])
+    move_direct_alsa_streams_to(HEADPHONES_SINK)
     run_cmd(["amixer", "-c", CARD, "sset", "Headphone", "unmute"])
     run_cmd(["amixer", "-c", CARD, "sset", "Headphone", "80%"])
     run_cmd(["amixer", "-c", CARD, "sset", "Master", "unmute"])
+    run_cmd(["amixer", "-c", CARD, "sset", "Master", "100%"])
     run_cmd(["amixer", "-c", CARD, "sset", "Speaker", "mute"])
 
-    # Load EasyEffects profile asynchronously without blocking
-    run_cmd_async(["easyeffects", "-l", "Huawei MateBook - Max Loudness & Clarity"])
+    if notify:
+        time.sleep(0.15)
+        run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "35"])
+        notify_headphones_connected("35%")
 
-    time.sleep(0.15)
-    run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "35"])
-    notify_headphones_connected("35%")
+def is_external_sink_name(sname):
+    lower = sname.lower()
+    return "bluez" in lower or ("usb" in lower and "speaker" not in lower)
+
+
+def sink_exists(target_sink):
+    try:
+        out = subprocess.check_output(["pactl", "list", "sinks", "short"], stderr=subprocess.DEVNULL).decode()
+        for line in out.strip().splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] == target_sink:
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def move_direct_alsa_streams_to(target_sink):
+    """Move app playback streams from internal ALSA/speaker-boost sinks onto target_sink."""
+    try:
+        sinks_out = subprocess.check_output(["pactl", "list", "sinks", "short"], stderr=subprocess.DEVNULL).decode()
+        internal_ids = set()
+        for line in sinks_out.strip().splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] != target_sink:
+                if parts[1].startswith("alsa_output.") or parts[1] == SPEAKER_BOOST_SINK:
+                    internal_ids.add(parts[0])
+        if not internal_ids:
+            return
+
+        inputs_out = subprocess.check_output(["pactl", "list", "sink-inputs"], stderr=subprocess.DEVNULL).decode()
+        cur_id = None
+        cur_sink = None
+        cur_node = ""
+        for raw in inputs_out.splitlines() + ["Sink Input #END"]:
+            line = raw.strip()
+            if line.startswith("Sink Input #"):
+                if cur_id and cur_sink in internal_ids and cur_node != "matebook_speaker_boost_output":
+                    run_cmd(["pactl", "move-sink-input", cur_id, target_sink])
+                cur_id = line.split("#", 1)[1].strip()
+                if cur_id == "END":
+                    cur_id = None
+                cur_sink = None
+                cur_node = ""
+            elif line.startswith("Sink:"):
+                cur_sink = line.split(":", 1)[1].strip()
+            elif line.startswith("node.name ="):
+                cur_node = line.split("=", 1)[1].strip().strip('"')
+    except Exception:
+        pass
+
 
 def get_external_headphone_sink():
     try:
@@ -141,13 +250,13 @@ def get_external_headphone_sink():
             parts = sline.split()
             if len(parts) >= 2:
                 sname = parts[1]
-                if ("bluez" in sname.lower() or "usb" in sname.lower()) and "speaker" not in sname.lower():
+                if is_external_sink_name(sname):
                     return sname
     except Exception:
         pass
     return None
 
-def switch_to_speaker():
+def switch_to_speaker(notify=True):
     ext = get_external_headphone_sink()
     if ext:
         print(f"[headphone-jack-autoswitch] External {ext} active -> Keeping {ext}", flush=True)
@@ -158,15 +267,22 @@ def switch_to_speaker():
     run_cmd(["amixer", "-c", CARD, "sset", "Auto-Mute Mode", "Disabled"])
     run_cmd(["pactl", "set-card-profile", CARD_NAME, SPEAKER_PROFILE])
     time.sleep(0.15)
-    run_cmd(["pactl", "set-default-sink", SPEAKER_SINK])
+    # Keep underlying ALSA speaker sink fixed at 100% (0.00 dB) unmuted
     run_cmd(["amixer", "-c", CARD, "sset", "Speaker", "unmute"])
+    run_cmd(["amixer", "-c", CARD, "sset", "Speaker", "100%"])
     run_cmd(["amixer", "-c", CARD, "sset", "Master", "unmute"])
+    run_cmd(["amixer", "-c", CARD, "sset", "Master", "100%"])
+    run_cmd(["pactl", "set-sink-mute", SPEAKER_SINK, "0"])
+    run_cmd(["pactl", "set-sink-volume", SPEAKER_SINK, "65536"])
+
+    target = SPEAKER_BOOST_SINK if sink_exists(SPEAKER_BOOST_SINK) else SPEAKER_SINK
+    run_cmd(["pactl", "set-default-sink", target])
+    move_direct_alsa_streams_to(target)
 
     # Enable hardware DRC for laptop speaker protection
     run_cmd(["amixer", "-c", CARD, "sset", "Post Mixer Analog Playback DRC switch", "on"])
-    # Switch EasyEffects back asynchronously
-    run_cmd_async(["easyeffects", "-l", "Huawei MateBook - Max Loudness & Clarity"])
-    notify_speaker_activated()
+    if notify:
+        notify_speaker_activated()
 
 def toggle():
     prof = get_current_profile()
@@ -199,17 +315,23 @@ def monitor_bluetooth_and_usb():
                             parts = sline.split()
                             if len(parts) >= 2:
                                 sname = parts[1]
-                                is_external_hp = ("bluez" in sname.lower() or "usb" in sname.lower()) and ("speaker" not in sname.lower())
+                                is_external_hp = is_external_sink_name(sname)
                                 if is_external_hp:
                                     active_sinks.add(sname)
                                     if sname not in known_external_sinks:
                                         known_external_sinks.add(sname)
-                                        print(f"[headphone-jack-autoswitch] Detected new external headphone sink: {sname} -> Routing sound and setting volume to 40%", flush=True)
+                                        is_bt = "bluez" in sname.lower()
+                                        desc, is_bt_speaker = get_sink_metadata(sname) if is_bt else (sname, False)
+                                        target_vol = "60" if is_bt_speaker else "40"
+                                        print(f"[headphone-jack-autoswitch] Detected new external sink: {sname} ({desc}) -> Routing sound and setting volume to {target_vol}%", flush=True)
                                         run_cmd(["pactl", "set-default-sink", sname])
-                                        run_cmd_async(["easyeffects", "-l", "Perfect EQ"])
+                                        move_direct_alsa_streams_to(sname)
                                         time.sleep(0.25)
-                                        run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", "40"])
-                                        notify_headphones_connected("40%")
+                                        run_cmd(["/home/ferram/.local/bin/hypr-volume", "set", target_vol])
+                                        if is_bt:
+                                            notify_bluetooth_connected(desc, is_bt_speaker, f"{target_vol}%")
+                                        else:
+                                            notify_headphones_connected(f"{target_vol}%")
                         known_external_sinks.intersection_update(active_sinks)
                     except Exception:
                         pass
@@ -251,8 +373,17 @@ def main():
     # In daemon mode: If ALSA jack detection transitions to ON, auto switch.
     current_plugged = is_headphone_plugged()
 
-    # Ensure Auto-Mute is disabled initially
+    # Ensure Auto-Mute is disabled and route correctly on startup
     run_cmd(["amixer", "-c", CARD, "sset", "Auto-Mute Mode", "Disabled"])
+    if not get_external_headphone_sink():
+        if current_plugged:
+            switch_to_headphones(notify=False)
+        else:
+            for _ in range(10):
+                if sink_exists(SPEAKER_BOOST_SINK):
+                    break
+                time.sleep(0.2)
+            switch_to_speaker(notify=False)
 
     def alsa_events_listener():
         nonlocal current_plugged

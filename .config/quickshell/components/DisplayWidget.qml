@@ -15,9 +15,15 @@ Item {
 
     implicitHeight: pill.implicitHeight
     implicitWidth: pill.implicitWidth
+    visible: root.hasExternal
 
     // Display state
     property bool hasExternal: false
+    onHasExternalChanged: {
+        if (!hasExternal && root.activePopupId === "display") {
+            root.togglePopup("display");
+        }
+    }
     property string primaryName: "eDP-1"
     property string externalName: "HDMI-A-1"
     property string externalDesc: "External Monitor"
@@ -117,7 +123,7 @@ Item {
         anchor.gravity: Edges.Bottom
         anchor.margins.top: 8
 
-        visible: root.activePopupId === "display"
+        visible: root.hasExternal && root.activePopupId === "display"
         implicitWidth: 280
         implicitHeight: cardLayout.implicitHeight + 34
         color: "transparent"

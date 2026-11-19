@@ -31,20 +31,19 @@ Item {
     property bool isConnecting: false
     property string connectingMac: ""
 
-    // Text to show on the pill
+    // Text to show on the pill (only show connected device name, omit On/Off)
     property string pillText: {
         if (isConnected && connectedName !== "") return connectedName;
-        if (isPowered) return "On";
-        return "Off";
+        return "";
     }
 
-    // Lucide Bluetooth vector icon (matching Night Mode aesthetic)
+    // Lucide Bluetooth vector icon (high contrast)
     property string iconDataUri: {
-        let col = theme.urlColor(root.isPowered ? theme.blue : theme.textMuted);
-        let op = !isPowered ? "0.35" : "1.0";
-        let dot = isConnected ? "<circle cx='18.5' cy='12' r='1.5' fill='" + col + "' stroke='none'/>" : "";
+        let col = theme.urlColor(root.isPowered ? theme.blueLight : theme.textSub);
+        let op = !isPowered ? "0.65" : "1.0";
+        let dot = isConnected ? "<circle cx='18.5' cy='12' r='1.7' fill='" + col + "' stroke='none'/>" : "";
         return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'>" +
-               "<path d='M6.5 6.5 L17.5 17.5 L12 23 L12 1 L17.5 6.5 L6.5 17.5' stroke='" + col + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='" + op + "'/>" +
+               "<path d='M6.5 6.5 L17.5 17.5 L12 23 L12 1 L17.5 6.5 L6.5 17.5' stroke='" + col + "' stroke-width='2.0' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='" + op + "'/>" +
                dot + "</svg>";
     }
 
@@ -146,6 +145,7 @@ Item {
         iconSource: root.iconDataUri
         text: root.pillText
         subText: root.isConnected && root.connectedBattery >= 0 ? (root.connectedBattery + "%") : ""
+        customPadding: root.pillText !== "" ? 10 : 8
         accentColor: theme.blue
         active: root.activePopupId === "bluetooth"
 

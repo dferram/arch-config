@@ -103,7 +103,7 @@ PanelWindow {
                    "</svg>";
         }
 
-        let col = "%23ffffff";
+        let col = theme.urlColor(theme.text);
         if (level === 0) {
             return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%2371717a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'>" +
                    "<polygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/>" +
@@ -174,13 +174,14 @@ PanelWindow {
             z: -1
         }
 
-        // Opaque Pure Obsidian Pill Base (Completely borderless, solid deep black)
+        // Smoked Obsidian Liquid Glass Pill Base
         Rectangle {
             id: glassPill
             anchors.fill: parent
             radius: theme.windowRadius
-            color: "#0c0e14"
-            border.width: 0
+            color: theme.popupBg
+            border.color: theme.border
+            border.width: 1
 
             // Interactive dismissal on click
             MouseArea {
@@ -195,14 +196,14 @@ PanelWindow {
                 anchors.rightMargin: 12
                 spacing: 10
 
-                // Icon Container (Neutral Dark Tile, No Colored Border)
+                // Icon Container
                 Rectangle {
                     Layout.preferredWidth: 30
                     Layout.preferredHeight: 30
                     Layout.alignment: Qt.AlignVCenter
                     radius: 8
-                    color: "#181a22"
-                    border.color: "#262b3a"
+                    color: theme.surface
+                    border.color: theme.borderSubtle
                     border.width: 1
 
                     Image {
@@ -229,8 +230,8 @@ PanelWindow {
                             width: 13
                             height: 12
                             radius: 3
-                            color: "#181b24"
-                            border.color: "#262b38"
+                            color: theme.surface
+                            border.color: theme.borderSubtle
                             border.width: 1
                             clip: true
 
@@ -306,8 +307,8 @@ PanelWindow {
                         color: {
                             if (osdWindow.isMuted) return "#ff453a";
                             if (osdWindow.isMic) return theme.blue;
-                            if (osdWindow.isBrightness || osdWindow.isNight) return "#fbbf24";
-                            return "#ffffff";
+                            if (osdWindow.isBrightness || osdWindow.isNight) return "#f59e0b";
+                            return theme.text;
                         }
                         font.family: "JetBrainsMono Nerd Font, ZedMono Nerd Font, monospace"
                         font.pixelSize: (osdWindow.isMic || osdWindow.isNight || osdWindow.isCaps) ? 11 : (osdWindow.isMuted ? 10 : 12)

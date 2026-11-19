@@ -396,6 +396,8 @@ PanelWindow {
                 required property string metaContext
                 required property string timeStr
 
+                readonly property int lifeDurationMs: 5500
+
                 width: notifCol.width
                 implicitHeight: Math.max(68, contentRow.implicitHeight + 20)
                 height: implicitHeight
@@ -406,9 +408,12 @@ PanelWindow {
 
                 Component.onCompleted: {
                     notifEntrance.start();
+                    expireTimer.start();
                 }
 
                 Component.onDestruction: {
+                    expireTimer.stop();
+                    borderAnim.stop();
                     cardDismissAnim.stop();
                     notifEntrance.stop();
                 }
@@ -1704,60 +1709,23 @@ PanelWindow {
                     return "file:///home/ferram/.local/share/icons/arch.svg";
                 }
 
-                // Auto-dismiss timer (pauses on hover)
+                // Fixed-duration auto-dismiss timer (synchronized with border animation)
                 Timer {
                     id: expireTimer
-                    interval: {
-                        let lowerApp = card.appName.toLowerCase();
-                        if (lowerApp.includes("volume") || lowerApp.includes("bright")) return 1400;
-                        let customTimeout = card.expireTimeout > 0 ? card.expireTimeout : 6500;
-                        return Math.max(5000, customTimeout);
-                    }
-                    running: true
+                    interval: card.lifeDurationMs
+                    repeat: false
+                    running: false
                     onTriggered: card.dismissCard()
                 }
 
-                // 1. Moving LED Border Beam Layer (Perimeter-Uniform Velocity, Infinite Continuous Loop)
+                // 1. Moving LED Border Beam Layer (Canvas-based, uniform perimeter speed, never stalls)
                 Item {
                     id: borderBeamLayer
                     anchors.fill: parent
                     opacity: 1.0
 
                     property real beamProgress: 0.0
-
-                    function calcPerimeterAngle(p) {
-                        let w = Math.max(1, borderBeamLayer.width);
-                        let h = Math.max(1, borderBeamLayer.height);
-                        let perimeter = 2 * (w + h);
-                        let hw = w / 2;
-                        let hh = h / 2;
-                        let frac = p % 1.0;
-                        if (frac < 0) frac += 1.0;
-                        let dist = frac * perimeter;
-                        let x = 0;
-                        let y = 0;
-
-                        if (dist < hh) {
-                            x = hw;
-                            y = dist;
-                        } else if (dist < hh + w) {
-                            x = hw - (dist - hh);
-                            y = hh;
-                        } else if (dist < hh + w + h) {
-                            x = -hw;
-                            y = hh - (dist - (hh + w));
-                        } else if (dist < hh + 2 * w + h) {
-                            x = -hw + (dist - (hh + w + h));
-                            y = -hh;
-                        } else {
-                            x = hw;
-                            y = -hh + (dist - (hh + 2 * w + h));
-                        }
-
-                        let deg = Math.atan2(y, x) * 180 / Math.PI;
-                        if (deg < 0) deg += 360;
-                        return deg;
-                    }
+                    onBeamProgressChanged: borderCanvas.requestPaint()
 
                     NumberAnimation {
                         id: borderAnim
@@ -1765,52 +1733,117 @@ PanelWindow {
                         property: "beamProgress"
                         from: 0.0
                         to: 1.0
-                        duration: 2600
+                        duration: 2400
                         easing.type: Easing.Linear
                         loops: Animation.Infinite
-                        running: card.visible
+                        running: true
                     }
 
-                    Item {
-                        id: rotHolder
+                    Canvas {
+                        id: borderCanvas
                         anchors.fill: parent
-                        visible: false
+                        antialiasing: true
+                        readonly property color col1: card.palette.primary
+                        readonly property color col2: card.palette.secondary
+                        readonly property color col3: card.palette.accent
 
-                        Item {
-                            id: rotItem
-                            anchors.centerIn: parent
-                            width: Math.max(parent.width, parent.height) * 2.2
-                            height: width
-                            rotation: borderBeamLayer.calcPerimeterAngle(borderBeamLayer.beamProgress)
+                        onWidthChanged: requestPaint()
+                        onHeightChanged: requestPaint()
+                        onCol1Changed: requestPaint()
 
-                            ConicalGradient {
-                                anchors.fill: parent
-                                angle: 0.0
-                                gradient: Gradient {
-                                    GradientStop { position: 0.00; color: card.palette.primary }
-                                    GradientStop { position: 0.03; color: card.palette.primary }
-                                    GradientStop { position: 0.09; color: card.palette.secondary }
-                                    GradientStop { position: 0.16; color: card.palette.accent }
-                                    GradientStop { position: 0.28; color: "transparent" }
-                                    GradientStop { position: 0.98; color: "transparent" }
-                                    GradientStop { position: 1.00; color: card.palette.primary }
+                        function pointAt(dist, rw, rh, rad) {
+                            let lTop = Math.max(0, rw - 2 * rad);
+                            let lSide = Math.max(0, rh - 2 * rad);
+                            let lArc = Math.PI * rad * 0.5;
+                            let perim = 2 * lTop + 2 * lSide + 4 * lArc;
+                            if (perim <= 0) return { x: 0, y: 0 };
+
+                            let d = dist % perim;
+                            if (d < 0) d += perim;
+
+                            // Top straight (left -> right)
+                            if (d < lTop) return { x: rad + d, y: 0 };
+                            d -= lTop;
+                            // Top-right corner
+                            if (d < lArc) {
+                                let a = -Math.PI * 0.5 + (d / lArc) * (Math.PI * 0.5);
+                                return { x: rw - rad + Math.cos(a) * rad, y: rad + Math.sin(a) * rad };
+                            }
+                            d -= lArc;
+                            // Right straight (top -> bottom)
+                            if (d < lSide) return { x: rw, y: rad + d };
+                            d -= lSide;
+                            // Bottom-right corner
+                            if (d < lArc) {
+                                let a = (d / lArc) * (Math.PI * 0.5);
+                                return { x: rw - rad + Math.cos(a) * rad, y: rh - rad + Math.sin(a) * rad };
+                            }
+                            d -= lArc;
+                            // Bottom straight (right -> left)
+                            if (d < lTop) return { x: rw - rad - d, y: rh };
+                            d -= lTop;
+                            // Bottom-left corner
+                            if (d < lArc) {
+                                let a = Math.PI * 0.5 + (d / lArc) * (Math.PI * 0.5);
+                                return { x: rad + Math.cos(a) * rad, y: rh - rad + Math.sin(a) * rad };
+                            }
+                            d -= lArc;
+                            // Left straight (bottom -> top)
+                            if (d < lSide) return { x: 0, y: rh - rad - d };
+                            d -= lSide;
+                            // Top-left corner
+                            let a = Math.PI + (d / Math.max(0.001, lArc)) * (Math.PI * 0.5);
+                            return { x: rad + Math.cos(a) * rad, y: rad + Math.sin(a) * rad };
+                        }
+
+                        onPaint: {
+                            let ctx = getContext("2d");
+                            let w = width;
+                            let h = height;
+                            if (w <= 4 || h <= 4) return;
+                            ctx.clearRect(0, 0, w, h);
+
+                            let pad = 1.0;
+                            let rw = w - pad * 2;
+                            let rh = h - pad * 2;
+                            let rad = Math.min(theme.windowRadius, rw * 0.5, rh * 0.5);
+                            let perim = 2 * Math.max(0, rw - 2 * rad) + 2 * Math.max(0, rh - 2 * rad) + 2 * Math.PI * rad;
+                            if (perim <= 0) return;
+
+                            let headDist = borderBeamLayer.beamProgress * perim;
+                            let trailLen = perim * 0.28;
+                            let steps = 20;
+
+                            ctx.lineWidth = 2.4;
+                            ctx.lineCap = "round";
+
+                            for (let i = 0; i < steps; i++) {
+                                let t0 = i / steps;
+                                let t1 = (i + 1) / steps;
+                                let p0 = pointAt(headDist - (1 - t0) * trailLen, rw, rh, rad);
+                                let p1 = pointAt(headDist - (1 - t1) * trailLen, rw, rh, rad);
+
+                                let r, g, b;
+                                if (t1 < 0.5) {
+                                    let k = t1 * 2.0;
+                                    r = col3.r + (col2.r - col3.r) * k;
+                                    g = col3.g + (col2.g - col3.g) * k;
+                                    b = col3.b + (col2.b - col3.b) * k;
+                                } else {
+                                    let k = (t1 - 0.5) * 2.0;
+                                    r = col2.r + (col1.r - col2.r) * k;
+                                    g = col2.g + (col1.g - col2.g) * k;
+                                    b = col2.b + (col1.b - col2.b) * k;
                                 }
+                                let alpha = Math.pow(t1, 1.4);
+
+                                ctx.strokeStyle = Qt.rgba(r, g, b, alpha);
+                                ctx.beginPath();
+                                ctx.moveTo(pad + p0.x, pad + p0.y);
+                                ctx.lineTo(pad + p1.x, pad + p1.y);
+                                ctx.stroke();
                             }
                         }
-                    }
-
-                    Rectangle {
-                        id: outerMask
-                        anchors.fill: parent
-                        radius: theme.windowRadius
-                        color: "black"
-                        visible: false
-                    }
-
-                    OpacityMask {
-                        anchors.fill: parent
-                        source: rotHolder
-                        maskSource: outerMask
                     }
                 }
 
@@ -1852,9 +1885,6 @@ PanelWindow {
                     MouseArea {
                         id: mouseArea
                         anchors.fill: parent
-                        hoverEnabled: true
-                        onEntered: expireTimer.stop()
-                        onExited: expireTimer.restart()
                         onClicked: {
                             let raw = notifWindow.getNotif(card.notifId);
                             if (raw) {

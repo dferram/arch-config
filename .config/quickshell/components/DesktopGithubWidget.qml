@@ -14,8 +14,8 @@ Rectangle {
 
     radius: 20
     // Obsidian Translucent Glass matching other widgets
-    color: Qt.rgba(0.06, 0.06, 0.09, 0.72)
-    border.color: Qt.rgba(255, 255, 255, 0.10)
+    color: theme.widgetGlass
+    border.color: theme.borderSubtle
     border.width: 1
     clip: true
 
@@ -36,8 +36,10 @@ Rectangle {
     property int currentYear: 2026
     property string displayName: "Fernando Ramírez"
     property int totalContributions: 0
-    property int currentStreak: 0
-    property int longestStreak: 0
+    property int currentMonthCount: 0
+    property string currentMonthName: Qt.formatDate(new Date(), "MMM").toUpperCase()
+    property var monthlyTotals: []
+    property int maxMonthTotal: 1
     property var monthsData: []
     property var daysData: []
     property int totalCols: 53
@@ -46,7 +48,46 @@ Rectangle {
 
     // Hover state for interactive inspection
     property var hoveredDay: null
+    property var hoveredMonth: null
     property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
+
+    function recomputeInsights(days) {
+        if (!days || days.length === 0) return;
+        const mNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        let mSums = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let mHasPast = [false, false, false, false, false, false, false, false, false, false, false, false];
+        let curMonth = new Date().getMonth() + 1;
+
+        for (let i = 0; i < days.length; i++) {
+            let d = days[i];
+            if (d.isFuture) continue;
+            if (d.isToday) {
+                curMonth = d.month || curMonth;
+            }
+            let mi = (d.month || 1) - 1;
+            if (mi >= 0 && mi < 12) {
+                mSums[mi] += (d.count || 0);
+                mHasPast[mi] = true;
+            }
+        }
+
+        let maxM = 1;
+        let mArr = [];
+        for (let m = 0; m < 12; m++) {
+            if (mSums[m] > maxM) maxM = mSums[m];
+            mArr.push({
+                name: mNames[m],
+                total: mSums[m],
+                isCurrent: (m + 1) === curMonth,
+                isFuture: !mHasPast[m]
+            });
+        }
+
+        root.currentMonthCount = mSums[Math.max(0, curMonth - 1)] || 0;
+        root.currentMonthName = mNames[Math.max(0, curMonth - 1)].toUpperCase();
+        root.maxMonthTotal = maxM;
+        root.monthlyTotals = mArr;
+    }
 
     // Cascade entrance wave animation
     property real animPhase: 0.0
@@ -96,13 +137,12 @@ Rectangle {
                     if (d.username) root.username = d.username;
                     if (d.name) root.displayName = d.name;
                     if (d.total !== undefined) root.totalContributions = d.total;
-                    if (d.currentStreak !== undefined) root.currentStreak = d.currentStreak;
-                    if (d.longestStreak !== undefined) root.longestStreak = d.longestStreak;
                     if (d.months) root.monthsData = d.months;
                     if (d.totalCols) root.totalCols = d.totalCols;
                     if (d.updatedAt) root.lastUpdated = d.updatedAt;
                     if (d.days && d.days.length > 0) {
                         root.daysData = d.days;
+                        root.recomputeInsights(d.days);
                         root.animPhase = 0.0;
                         cascadeAnim.restart();
                     }
@@ -135,6 +175,13 @@ Rectangle {
         onTriggered: {
             if (root.isLive) root.refreshData(true);
         }
+    }
+
+    // Click anywhere on the widget background to refresh
+    MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.refreshData(true)
     }
 
     // Specular top hairline highlight (Apple Sonoma aesthetic)
@@ -219,6 +266,22 @@ Rectangle {
                             font.bold: true
                         }
                     }
+
+                    // Subtle sync indicator while refreshing
+                    Rectangle {
+                        visible: root.isLoading
+                        Layout.preferredWidth: 6
+                        Layout.preferredHeight: 6
+                        radius: 3
+                        color: "#30d158"
+
+                        SequentialAnimation on opacity {
+                            running: root.isLoading
+                            loops: Animation.Infinite
+                            NumberAnimation { from: 0.25; to: 1.0; duration: 400 }
+                            NumberAnimation { from: 1.0; to: 0.25; duration: 400 }
+                        }
+                    }
                 }
 
                 Text {
@@ -230,13 +293,13 @@ Rectangle {
                 }
             }
 
-            // Stat Tile 1: Current Streak
+            // Current Month Contributions pill
             Rectangle {
-                Layout.preferredWidth: 72
+                Layout.preferredWidth: 68
                 Layout.preferredHeight: 36
                 radius: 8
                 color: Qt.rgba(255, 255, 255, 0.05)
-                border.color: Qt.rgba(255, 159, 10, 0.28)
+                border.color: Qt.rgba(48, 209, 88, 0.35)
                 border.width: 1
 
                 Column {
@@ -245,8 +308,8 @@ Rectangle {
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.currentStreak + "d"
-                        color: "#ff9f0a"
+                        text: String(root.currentMonthCount)
+                        color: "#30d158"
                         font.family: "sans-serif"
                         font.pixelSize: 13
                         font.bold: true
@@ -254,79 +317,12 @@ Rectangle {
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "STREAK"
+                        text: root.currentMonthName
                         color: theme.textDim
                         font.family: "sans-serif"
                         font.pixelSize: 7
                         font.bold: true
                     }
-                }
-            }
-
-            // Stat Tile 2: Best Streak
-            Rectangle {
-                Layout.preferredWidth: 72
-                Layout.preferredHeight: 36
-                radius: 8
-                color: Qt.rgba(255, 255, 255, 0.05)
-                border.color: Qt.rgba(255, 214, 10, 0.25)
-                border.width: 1
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 1
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: root.longestStreak + "d"
-                        color: "#ffd60a"
-                        font.family: "sans-serif"
-                        font.pixelSize: 13
-                        font.bold: true
-                    }
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "BEST"
-                        color: theme.textDim
-                        font.family: "sans-serif"
-                        font.pixelSize: 7
-                        font.bold: true
-                    }
-                }
-            }
-
-            // Refresh Button
-            Rectangle {
-                Layout.preferredWidth: 28
-                Layout.preferredHeight: 36
-                radius: 8
-                color: refHover.containsMouse ? Qt.rgba(255, 255, 255, 0.12) : Qt.rgba(255, 255, 255, 0.05)
-                border.color: Qt.rgba(255, 255, 255, 0.12)
-                border.width: 1
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "󰑐"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 12
-                    color: root.isLoading ? "#30d158" : (refHover.containsMouse ? "#ffffff" : theme.textMuted)
-
-                    RotationAnimation on rotation {
-                        running: root.isLoading
-                        loops: Animation.Infinite
-                        from: 0
-                        to: 360
-                        duration: 800
-                    }
-                }
-
-                MouseArea {
-                    id: refHover
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.refreshData(true)
                 }
             }
         }
@@ -344,7 +340,7 @@ Rectangle {
         Item {
             id: matrixArea
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.preferredHeight: 68
 
             readonly property real dayLabelWidth: 10
             readonly property real labelSpacing: 6
@@ -502,7 +498,7 @@ Rectangle {
                             }
 
                             onClicked: {
-                                Quickshell.execDetached(["xdg-open", "https://github.com/" + root.username]);
+                                root.refreshData(true);
                             }
                         }
                     }
@@ -511,28 +507,118 @@ Rectangle {
         }
 
         // =====================================================================
-        // FOOTER: Dynamic Hover Inspection & Color Scale
+        // MONTHLY CONTRIBUTIONS STRIP: Full-Width 12-Month Bars (Jan..Dec)
+        // =====================================================================
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.minimumHeight: 32
+            radius: 9
+            color: Qt.rgba(255, 255, 255, 0.04)
+            border.color: Qt.rgba(255, 255, 255, 0.08)
+            border.width: 1
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                anchors.topMargin: 4
+                anchors.bottomMargin: 4
+                spacing: 6
+
+                Repeater {
+                    model: root.monthlyTotals
+
+                    delegate: Item {
+                        id: mBarItem
+                        required property var modelData
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+
+                        readonly property real barRatio: root.maxMonthTotal > 0 ? Math.max(0.15, modelData.total / root.maxMonthTotal) : 0.15
+                        readonly property bool isHov: mBarMa.containsMouse
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            spacing: 2
+
+                            Item {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: 3
+                                    color: Qt.rgba(255, 255, 255, 0.04)
+                                }
+
+                                Rectangle {
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.bottom: parent.bottom
+                                    height: mBarItem.modelData.isFuture ? 3 : Math.max(3, Math.round(parent.height * mBarItem.barRatio))
+                                    radius: 3
+                                    color: mBarItem.modelData.isFuture
+                                        ? Qt.rgba(255, 255, 255, 0.08)
+                                        : (mBarItem.isHov ? "#39d353" : (mBarItem.modelData.isCurrent ? "#30d158" : "#26a641"))
+                                    border.width: mBarItem.isHov ? 1 : 0
+                                    border.color: "#ffffff"
+                                    Behavior on height { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+                                }
+                            }
+
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: mBarItem.modelData.name
+                                color: mBarItem.isHov ? "#ffffff" : (mBarItem.modelData.isCurrent ? "#30d158" : theme.textDim)
+                                font.family: "sans-serif"
+                                font.pixelSize: 7
+                                font.bold: mBarItem.modelData.isCurrent || mBarItem.isHov
+                            }
+                        }
+
+                        MouseArea {
+                            id: mBarMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: root.hoveredMonth = mBarItem.modelData
+                            onExited: {
+                                if (root.hoveredMonth && root.hoveredMonth.name === mBarItem.modelData.name) {
+                                    root.hoveredMonth = null;
+                                }
+                            }
+                            onClicked: root.refreshData(true)
+                        }
+                    }
+                }
+            }
+        }
+
+        // =====================================================================
+        // FOOTER: Live Hover Details (only when hovering) & Green Color Scale
         // =====================================================================
         RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 16
+            Layout.preferredHeight: 14
             spacing: 8
 
-            // Inspection text
+            // Hover-only inspection text (empty by default so only green scale shows)
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 16
+                Layout.preferredHeight: 14
 
                 RowLayout {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 5
+                    visible: !!(root.hoveredDay || root.hoveredMonth)
 
                     Rectangle {
                         Layout.preferredWidth: 4
                         Layout.preferredHeight: 4
                         radius: 2
-                        color: root.hoveredDay ? (root.hoveredDay.count > 0 ? "#30d158" : theme.textDim) : "#30d158"
+                        color: (root.hoveredDay && root.hoveredDay.count === 0) ? theme.textDim : "#30d158"
                     }
 
                     Text {
@@ -544,12 +630,19 @@ Rectangle {
                                 let c = root.hoveredDay.count;
                                 return root.hoveredDay.label + " • " + (c === 0 ? "No contributions" : (c + (c === 1 ? " contribution" : " contributions")));
                             }
-                            return "Hover a day to inspect • " + root.currentYear + " Green Wall";
+                            if (root.hoveredMonth) {
+                                if (root.hoveredMonth.isFuture) {
+                                    return root.hoveredMonth.name + " " + root.currentYear + " • Upcoming";
+                                }
+                                let mt = root.hoveredMonth.total;
+                                return root.hoveredMonth.name + " " + root.currentYear + " • " + mt.toLocaleString() + (mt === 1 ? " contribution" : " contributions");
+                            }
+                            return "";
                         }
-                        color: root.hoveredDay ? "#ffffff" : theme.textDim
+                        color: "#ffffff"
                         font.family: "sans-serif"
                         font.pixelSize: 9
-                        font.bold: !!root.hoveredDay
+                        font.bold: true
                     }
                 }
             }

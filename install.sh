@@ -35,7 +35,7 @@ fi
 
 # Install .config directories
 mkdir -p "$HOME/.config"
-for dir in hypr quickshell mako kitty fastfetch easyeffects cava; do
+for dir in hypr quickshell mako kitty fastfetch pipewire cava; do
     if [ -d "$DOTFILES_DIR/.config/$dir" ]; then
         create_symlink "$DOTFILES_DIR/.config/$dir" "$HOME/.config/$dir"
     fi

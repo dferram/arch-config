@@ -13,8 +13,8 @@ Rectangle {
     implicitHeight: 207
 
     radius: 20
-    color: Qt.rgba(0.06, 0.06, 0.09, 0.65)
-    border.color: Qt.rgba(255, 255, 255, 0.10)
+    color: theme.widgetGlass
+    border.color: theme.borderSubtle
     border.width: 1
     clip: true
 

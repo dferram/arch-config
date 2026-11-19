@@ -18,6 +18,8 @@ Item {
     property var reminders: []
     property color accent: "#10b981" // Refined Doctor Doom Emerald
     property bool active: false
+    property bool fullscreen: false
+    readonly property real k: fullscreen ? Math.min(Math.max(1.0, width / 500), Math.max(1.0, height / 300)) : 1.0
 
     readonly property string defaultPosterPath: "file://" + Quickshell.shellPath("assets/doomsday.jpg")
     property string posterPath: defaultPosterPath
@@ -139,6 +141,7 @@ Item {
         // 1. Steady Diffuse Backlight Glow (Warm Wall Reflection)
         RectangularGlow {
             anchors.fill: parent
+            visible: !root.fullscreen
             glowRadius: 26
             spread: 0.08
             color: Qt.rgba(16/255, 185/255, 129/255, ambientFlicker.val)
@@ -164,12 +167,12 @@ Item {
         // 2. The Green Candle Flame (Soft blurred oval that wavers gently like a live flame)
         Rectangle {
             id: candleFlame
-            width: 240
-            height: 270
-            radius: 120
+            width: root.fullscreen ? Math.round(root.width * 0.70) : 240
+            height: root.fullscreen ? Math.round(root.height * 0.78) : 270
+            radius: Math.round(width / 2)
             color: "#059669"
             layer.enabled: true
-            layer.effect: FastBlur { radius: 64 }
+            layer.effect: FastBlur { radius: root.fullscreen ? 96 : 64 }
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: -10
@@ -227,9 +230,9 @@ Item {
     Rectangle {
         id: cardBody
         anchors.fill: parent
-        radius: 16
-        color: Qt.rgba(0.04, 0.04, 0.06, 0.90)
-        border.width: 1
+        radius: root.fullscreen ? 0 : 16
+        color: Qt.rgba(0.04, 0.04, 0.06, root.fullscreen ? 1.0 : 0.90)
+        border.width: root.fullscreen ? 0 : 1
         border.color: Qt.rgba(16/255, 185/255, 129/255, 0.24)
         clip: true
         z: 1
@@ -237,7 +240,7 @@ Item {
         // Masked Background Poster Image (Subtle Moody Doctor Doom Background)
         Item {
             anchors.fill: parent
-            layer.enabled: true
+            layer.enabled: !root.fullscreen
             layer.effect: OpacityMask {
                 maskSource: Rectangle {
                     width: cardBody.width
@@ -250,10 +253,10 @@ Item {
                 anchors.fill: parent
                 source: root.posterPath
                 fillMode: Image.PreserveAspectCrop
-                sourceSize.width: 480
-                sourceSize.height: 640
+                sourceSize.width: root.fullscreen ? 1316 : 480
+                smooth: true
                 asynchronous: true
-                opacity: 0.30
+                opacity: root.fullscreen ? 0.36 : 0.30
 
                 // Neutral obsidian gradient darkening overlay
                 Rectangle {
@@ -270,6 +273,7 @@ Item {
 
         // Top Specular Hairline (Subtle Candlelight Sheen)
         Rectangle {
+            visible: !root.fullscreen
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
@@ -290,15 +294,16 @@ Item {
         // ---- HEADER: Marvel Badge & Subtitle ----
         Row {
             id: header
-            x: 16; y: 14
-            width: parent.width - 32
-            spacing: 8
+            x: root.fullscreen ? 36 : 16
+            y: root.fullscreen ? 28 : 14
+            width: parent.width - (root.fullscreen ? 72 : 32)
+            spacing: root.fullscreen ? 14 : 8
             z: 3
 
             Image {
                 source: "file://" + Quickshell.shellPath("icons/marvel.svg")
-                width: 38
-                height: 15
+                width: root.fullscreen ? 64 : 38
+                height: root.fullscreen ? 25 : 15
                 fillMode: Image.PreserveAspectFit
                 anchors.verticalCenter: parent.verticalCenter
                 smooth: true
@@ -309,17 +314,17 @@ Item {
                 text: "STUDIOS · CINEMA PREMIERE"
                 color: Qt.rgba(255, 255, 255, 0.75)
                 font.family: theme.fontFamily
-                font.pixelSize: 10
+                font.pixelSize: root.fullscreen ? 14 : 10
                 font.weight: Font.Bold
-                font.letterSpacing: 1.2
+                font.letterSpacing: root.fullscreen ? 2.0 : 1.2
             }
         }
 
         // ---- MAIN COUNTDOWN (5-SEGMENT CLEAN WHITE REFERENCE STYLE) ----
         Column {
             anchors.centerIn: parent
-            anchors.verticalCenterOffset: 14
-            spacing: 16
+            anchors.verticalCenterOffset: root.fullscreen ? 0 : 14
+            spacing: Math.round(16 * root.k)
             z: 3
             width: parent.width - 24
 
@@ -329,26 +334,26 @@ Item {
                 text: "DOOMSDAY IS COMING"
                 color: "#ffffff"
                 font.family: theme.fontFamily
-                font.pixelSize: 13
+                font.pixelSize: Math.round(13 * root.k)
                 font.weight: Font.Black
-                font.letterSpacing: 2.2
+                font.letterSpacing: 2.2 * root.k
             }
 
             // 5-Segment Countdown Row
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 3
+                spacing: Math.round(3 * root.k)
 
                 // 1. MONTHS
                 Column {
-                    width: 40
-                    spacing: 3
+                    width: Math.round(40 * root.k)
+                    spacing: Math.round(3 * root.k)
 
                     FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
                         value: root.pad2(root.months)
                         fontFamily: theme.fontFamily
-                        pixelSize: 22
+                        pixelSize: Math.round(22 * root.k)
                         fontWeight: Font.Bold
                         textColor: "#ffffff"
                     }
@@ -357,9 +362,9 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "MONTHS"
                         font.family: theme.fontFamily
-                        font.pixelSize: 8
+                        font.pixelSize: Math.round(8 * root.k)
                         font.weight: Font.Bold
-                        font.letterSpacing: 0.8
+                        font.letterSpacing: 0.8 * root.k
                         color: Qt.rgba(255, 255, 255, 0.75)
                     }
                 }
@@ -367,23 +372,23 @@ Item {
                 Text {
                     text: ":"
                     font.family: theme.fontFamily
-                    font.pixelSize: 16
+                    font.pixelSize: Math.round(16 * root.k)
                     font.weight: Font.Bold
                     color: Qt.rgba(255, 255, 255, 0.55)
                     anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: -7
+                    anchors.verticalCenterOffset: -Math.round(7 * root.k)
                 }
 
                 // 2. DAYS
                 Column {
-                    width: 40
-                    spacing: 3
+                    width: Math.round(40 * root.k)
+                    spacing: Math.round(3 * root.k)
 
                     FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
                         value: root.pad2(root.days)
                         fontFamily: theme.fontFamily
-                        pixelSize: 22
+                        pixelSize: Math.round(22 * root.k)
                         fontWeight: Font.Bold
                         textColor: "#ffffff"
                     }
@@ -392,9 +397,9 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "DAYS"
                         font.family: theme.fontFamily
-                        font.pixelSize: 8
+                        font.pixelSize: Math.round(8 * root.k)
                         font.weight: Font.Bold
-                        font.letterSpacing: 0.8
+                        font.letterSpacing: 0.8 * root.k
                         color: Qt.rgba(255, 255, 255, 0.75)
                     }
                 }
@@ -402,23 +407,23 @@ Item {
                 Text {
                     text: ":"
                     font.family: theme.fontFamily
-                    font.pixelSize: 16
+                    font.pixelSize: Math.round(16 * root.k)
                     font.weight: Font.Bold
                     color: Qt.rgba(255, 255, 255, 0.55)
                     anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: -7
+                    anchors.verticalCenterOffset: -Math.round(7 * root.k)
                 }
 
                 // 3. HOURS
                 Column {
-                    width: 40
-                    spacing: 3
+                    width: Math.round(40 * root.k)
+                    spacing: Math.round(3 * root.k)
 
                     FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
                         value: root.pad2(root.hours)
                         fontFamily: theme.fontFamily
-                        pixelSize: 22
+                        pixelSize: Math.round(22 * root.k)
                         fontWeight: Font.Bold
                         textColor: "#ffffff"
                     }
@@ -427,9 +432,9 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "HOURS"
                         font.family: theme.fontFamily
-                        font.pixelSize: 8
+                        font.pixelSize: Math.round(8 * root.k)
                         font.weight: Font.Bold
-                        font.letterSpacing: 0.8
+                        font.letterSpacing: 0.8 * root.k
                         color: Qt.rgba(255, 255, 255, 0.75)
                     }
                 }
@@ -437,23 +442,23 @@ Item {
                 Text {
                     text: ":"
                     font.family: theme.fontFamily
-                    font.pixelSize: 16
+                    font.pixelSize: Math.round(16 * root.k)
                     font.weight: Font.Bold
                     color: Qt.rgba(255, 255, 255, 0.55)
                     anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: -7
+                    anchors.verticalCenterOffset: -Math.round(7 * root.k)
                 }
 
                 // 4. MINUTES
                 Column {
-                    width: 40
-                    spacing: 3
+                    width: Math.round(40 * root.k)
+                    spacing: Math.round(3 * root.k)
 
                     FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
                         value: root.pad2(root.minutes)
                         fontFamily: theme.fontFamily
-                        pixelSize: 22
+                        pixelSize: Math.round(22 * root.k)
                         fontWeight: Font.Bold
                         textColor: "#ffffff"
                     }
@@ -462,9 +467,9 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "MINUTES"
                         font.family: theme.fontFamily
-                        font.pixelSize: 7
+                        font.pixelSize: Math.round(7 * root.k)
                         font.weight: Font.Bold
-                        font.letterSpacing: 0.6
+                        font.letterSpacing: 0.6 * root.k
                         color: Qt.rgba(255, 255, 255, 0.75)
                     }
                 }
@@ -472,23 +477,23 @@ Item {
                 Text {
                     text: ":"
                     font.family: theme.fontFamily
-                    font.pixelSize: 16
+                    font.pixelSize: Math.round(16 * root.k)
                     font.weight: Font.Bold
                     color: Qt.rgba(255, 255, 255, 0.55)
                     anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: -7
+                    anchors.verticalCenterOffset: -Math.round(7 * root.k)
                 }
 
                 // 5. SECONDS
                 Column {
-                    width: 40
-                    spacing: 3
+                    width: Math.round(40 * root.k)
+                    spacing: Math.round(3 * root.k)
 
                     FallingDigits {
                         anchors.horizontalCenter: parent.horizontalCenter
                         value: root.pad2(root.seconds)
                         fontFamily: theme.fontFamily
-                        pixelSize: 22
+                        pixelSize: Math.round(22 * root.k)
                         fontWeight: Font.Bold
                         textColor: "#ffffff"
                     }
@@ -497,9 +502,9 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "SECONDS"
                         font.family: theme.fontFamily
-                        font.pixelSize: 7
+                        font.pixelSize: Math.round(7 * root.k)
                         font.weight: Font.Bold
-                        font.letterSpacing: 0.6
+                        font.letterSpacing: 0.6 * root.k
                         color: Qt.rgba(255, 255, 255, 0.75)
                     }
                 }

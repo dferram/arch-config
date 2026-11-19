@@ -23,10 +23,12 @@ Scope {
         locked: false
 
         WlSessionLockSurface {
+            id: lockSurfaceWindow
             color: "black"
             LockSurface {
                 anchors.fill: parent
                 ctx: lockContext
+                screenName: (lockSurfaceWindow.screen && lockSurfaceWindow.screen.name) ? lockSurfaceWindow.screen.name : ""
             }
         }
     }

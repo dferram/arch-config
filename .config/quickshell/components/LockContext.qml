@@ -16,6 +16,7 @@ Scope {
 
     // --- Reveal state: false = monumental OLED flip clock, true = control panel ---
     property bool revealed: false
+    property string focusedCountdown: "" // "" | "doomsday" | "nsqk"
     property string password: ""
     property bool authBusy: pam.active
     property bool authFailed: false
@@ -53,16 +54,28 @@ Scope {
 
     function reveal() {
         revealed = true;
-        idleTimer.restart();
+        if (focusedCountdown === "") idleTimer.restart();
+    }
+    function focusCountdown(id) {
+        focusedCountdown = id;
+        idleTimer.stop();
+    }
+    function clearFocusedCountdown() {
+        if (focusedCountdown === "") return;
+        focusedCountdown = "";
+        if (revealed) idleTimer.restart();
     }
     function hide() {
         if (pam.active) return;
+        focusedCountdown = "";
         revealed = false;
         password = "";
         authFailed = false;
         statusText = "";
     }
-    function poke() { idleTimer.restart(); }
+    function poke() {
+        if (focusedCountdown === "") idleTimer.restart();
+    }
 
     function submit() {
         if (pam.active) return;
@@ -76,6 +89,7 @@ Scope {
         if (locked) {
             lockedAt = Date.now();
             lastEnterTime = 0;
+            focusedCountdown = "";
             revealed = false;
             password = "";
             authFailed = false;
@@ -91,6 +105,7 @@ Scope {
         } else {
             lockedAt = 0;
             lastEnterTime = 0;
+            focusedCountdown = "";
             if (pam.active) pam.abort();
             fprintProc.running = false;
         }
@@ -101,7 +116,9 @@ Scope {
     Timer {
         id: idleTimer
         interval: 20000
-        onTriggered: ctx.hide()
+        onTriggered: {
+            if (ctx.focusedCountdown === "") ctx.hide();
+        }
     }
 
     // --------------------------------------------------------------------------
