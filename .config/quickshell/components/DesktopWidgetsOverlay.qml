@@ -188,6 +188,80 @@ PanelWindow {
         onExited: reloadGrid()
     }
 
+    ListModel {
+        id: photoKeysModel
+    }
+
+    function isPhotoWidgetKey(k, entry) {
+        if (!k) return false;
+        if (k.startsWith("photo")) return true;
+        return !!(entry && typeof entry.type === "string" && entry.type.startsWith("photo"));
+    }
+
+    function photoWidgetId(k) {
+        if (!k) return "1";
+        let m = k.match(/^photo(.+)$/);
+        return m ? m[1] : k;
+    }
+
+    function syncPhotoKeysModel() {
+        let m = desktopWindow.gridMap || {};
+        let desired = [];
+        for (let k in m) {
+            if (isPhotoWidgetKey(k, m[k])) desired.push(k);
+        }
+        desired.sort();
+
+        // Remove keys no longer in gridMap
+        for (let i = photoKeysModel.count - 1; i >= 0; i--) {
+            let existing = photoKeysModel.get(i).widgetKey;
+            if (desired.indexOf(existing) === -1) {
+                photoKeysModel.remove(i);
+            }
+        }
+        // Append newly added keys without disturbing existing delegates
+        for (let j = 0; j < desired.length; j++) {
+            let dk = desired[j];
+            let found = false;
+            for (let i = 0; i < photoKeysModel.count; i++) {
+                if (photoKeysModel.get(i).widgetKey === dk) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                photoKeysModel.append({ "widgetKey": dk });
+            }
+        }
+    }
+
+    onGridMapChanged: syncPhotoKeysModel()
+
+    function addNewPhotoWidget() {
+        let m = Object.assign({}, desktopWindow.gridMap);
+        let n = 1;
+        while (m["photo" + n]) n++;
+        let newKey = "photo" + n;
+        let ws = desktopWindow.currentWorkspaceId;
+        let cSpan = 2, rSpan = 2;
+        let best = findBestFitSlot(newKey, 0, 0, cSpan, rSpan, ws);
+        if (!best.valid) {
+            cSpan = 1; rSpan = 1;
+            best = findBestFitSlot(newKey, 0, 0, cSpan, rSpan, ws);
+        }
+        m[newKey] = {
+            "col": best.col,
+            "row": best.row,
+            "colSpan": cSpan,
+            "rowSpan": rSpan,
+            "type": newKey,
+            "workspace": ws
+        };
+        desktopWindow.gridMap = m;
+        desktopWindow.savePositions();
+        desktopWindow.showAddGallery = false;
+    }
+
     function addWidgetKey(key, type, defW, defH) {
         let ws = desktopWindow.currentWorkspaceId;
         let m = Object.assign({}, desktopWindow.gridMap);
@@ -444,91 +518,21 @@ PanelWindow {
             }
         }
 
-        // 9. Photo Widget 1 (Pictures)
-        GridWidgetWrapper {
-            id: itemPhoto1
-            overlay: desktopWindow
-            widgetKey: "photo1"
-            Loader {
-                anchors.fill: parent
-                active: itemPhoto1.opacity > 0.001
-                sourceComponent: Component {
-                    DesktopPhotoWidget {
-                        anchors.fill: parent
-                        widgetId: "1"
-                        isLive: itemPhoto1.isLive
-                    }
-                }
-            }
-        }
-
-        // 10. Photo Widget 2 (Pictures 2)
-        GridWidgetWrapper {
-            id: itemPhoto2
-            overlay: desktopWindow
-            widgetKey: "photo2"
-            Loader {
-                anchors.fill: parent
-                active: itemPhoto2.opacity > 0.001
-                sourceComponent: Component {
-                    DesktopPhotoWidget {
-                        anchors.fill: parent
-                        widgetId: "2"
-                        isLive: itemPhoto2.isLive
-                    }
-                }
-            }
-        }
-
-        // 11. Photo Widget 3 (Wallpapers)
-        GridWidgetWrapper {
-            id: itemPhoto3
-            overlay: desktopWindow
-            widgetKey: "photo3"
-            Loader {
-                anchors.fill: parent
-                active: itemPhoto3.opacity > 0.001
-                sourceComponent: Component {
-                    DesktopPhotoWidget {
-                        anchors.fill: parent
-                        widgetId: "3"
-                        isLive: itemPhoto3.isLive
-                    }
-                }
-            }
-        }
-
-        // 12. Photo Widget 4 (Additional Frame)
-        GridWidgetWrapper {
-            id: itemPhoto4
-            overlay: desktopWindow
-            widgetKey: "photo4"
-            Loader {
-                anchors.fill: parent
-                active: itemPhoto4.opacity > 0.001
-                sourceComponent: Component {
-                    DesktopPhotoWidget {
-                        anchors.fill: parent
-                        widgetId: "4"
-                        isLive: itemPhoto4.isLive
-                    }
-                }
-            }
-        }
-
-        // 13. Photo Widget 5 (Additional Frame)
-        GridWidgetWrapper {
-            id: itemPhoto5
-            overlay: desktopWindow
-            widgetKey: "photo5"
-            Loader {
-                anchors.fill: parent
-                active: itemPhoto5.opacity > 0.001
-                sourceComponent: Component {
-                    DesktopPhotoWidget {
-                        anchors.fill: parent
-                        widgetId: "5"
-                        isLive: itemPhoto5.isLive
+        // 9. Dynamic Independent Photo Widgets (photo1, photo2, ..., photoN)
+        Repeater {
+            model: photoKeysModel
+            delegate: GridWidgetWrapper {
+                id: itemPhotoDyn
+                overlay: desktopWindow
+                Loader {
+                    anchors.fill: parent
+                    active: itemPhotoDyn.opacity > 0.001
+                    sourceComponent: Component {
+                        DesktopPhotoWidget {
+                            anchors.fill: parent
+                            widgetId: desktopWindow.photoWidgetId(itemPhotoDyn.widgetKey)
+                            isLive: itemPhotoDyn.isLive
+                        }
                     }
                 }
             }
@@ -902,21 +906,23 @@ PanelWindow {
                                 { "key": "leetcode",  "name": "LeetCode",     "icon": "",  "span": "1x1", "c": 1, "r": 1 },
                                 { "key": "doomsday",  "name": "Doomsday",     "icon": "󰋑", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "nsqk",      "name": "NSQK Tour",    "icon": "󰎈", "span": "2x1", "c": 2, "r": 1 },
-                                { "key": "photo1",    "name": "Photos (1)",   "icon": "󰄀", "span": "2x2", "c": 2, "r": 2 },
-                                { "key": "photo2",    "name": "Photos (2)",   "icon": "󰄀", "span": "2x2", "c": 2, "r": 2 },
-                                { "key": "photo3",    "name": "Photos (3)",   "icon": "󰄀", "span": "2x2", "c": 2, "r": 2 },
-                                { "key": "photo4",    "name": "Photos (4)",   "icon": "󰄀", "span": "2x2", "c": 2, "r": 2 },
-                                { "key": "photo5",    "name": "Photos (5)",   "icon": "󰄀", "span": "2x2", "c": 2, "r": 2 }
+                                { "key": "photo",     "name": "Photos",       "icon": "󰄀", "span": "2x2", "c": 2, "r": 2, "multi": true }
                             ]
 
                             delegate: Rectangle {
                                 width: (galleryCol.width - 24) / 4
                                 height: 64
                                 radius: 10
-                                readonly property bool isAdded: !!(desktopWindow.gridMap && desktopWindow.gridMap[modelData.key])
+                                readonly property bool isMulti: !!modelData.multi
+                                readonly property int multiCount: isMulti ? photoKeysModel.count : 0
+                                readonly property bool isAdded: !isMulti && !!(desktopWindow.gridMap && desktopWindow.gridMap[modelData.key])
                                 readonly property int widgetWs: isAdded ? ((desktopWindow.gridMap[modelData.key].workspace !== undefined) ? desktopWindow.gridMap[modelData.key].workspace : 1) : 0
-                                color: isAdded ? (cardHover.containsMouse ? Qt.rgba(1, 0.2, 0.2, 0.18) : Qt.rgba(1, 1, 1, 0.05)) : (cardHover.containsMouse ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.28) : Qt.rgba(1, 1, 1, 0.08))
-                                border.color: isAdded ? (cardHover.containsMouse ? "#ff453a" : Qt.rgba(255, 255, 255, 0.12)) : (cardHover.containsMouse ? theme.blue : Qt.rgba(255, 255, 255, 0.18))
+                                color: isMulti
+                                    ? (cardHover.containsMouse ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.28) : Qt.rgba(1, 1, 1, 0.08))
+                                    : (isAdded ? (cardHover.containsMouse ? Qt.rgba(1, 0.2, 0.2, 0.18) : Qt.rgba(1, 1, 1, 0.05)) : (cardHover.containsMouse ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.28) : Qt.rgba(1, 1, 1, 0.08)))
+                                border.color: isMulti
+                                    ? (cardHover.containsMouse ? theme.blue : Qt.rgba(255, 255, 255, 0.18))
+                                    : (isAdded ? (cardHover.containsMouse ? "#ff453a" : Qt.rgba(255, 255, 255, 0.12)) : (cardHover.containsMouse ? theme.blue : Qt.rgba(255, 255, 255, 0.18)))
                                 border.width: 1
 
                                 Column {
@@ -935,7 +941,7 @@ PanelWindow {
                                         }
                                         Text {
                                             text: modelData.name
-                                            color: isAdded ? (cardHover.containsMouse ? "#ffffff" : theme.text) : theme.text
+                                            color: theme.text
                                             font.family: theme.fontFamily
                                             font.pixelSize: 11
                                             font.weight: Font.DemiBold
@@ -945,8 +951,12 @@ PanelWindow {
 
                                     Text {
                                         anchors.horizontalCenter: parent.horizontalCenter
-                                        text: isAdded ? (cardHover.containsMouse ? "󰅖 Remove Widget" : ("󰄬 Active (WS " + widgetWs + ")")) : ("󰐕 Add (" + modelData.span + ")")
-                                        color: isAdded ? (cardHover.containsMouse ? "#ff453a" : theme.textDim) : theme.blueLight
+                                        text: isMulti
+                                            ? (multiCount > 0 ? ("󰐕 Add (" + multiCount + " active)") : ("󰐕 Add (" + modelData.span + ")"))
+                                            : (isAdded ? (cardHover.containsMouse ? "󰅖 Remove Widget" : ("󰄬 Active (WS " + widgetWs + ")")) : ("󰐕 Add (" + modelData.span + ")"))
+                                        color: isMulti
+                                            ? theme.blueLight
+                                            : (isAdded ? (cardHover.containsMouse ? "#ff453a" : theme.textDim) : theme.blueLight)
                                         font.family: theme.fontFamily
                                         font.pixelSize: 9
                                         font.weight: cardHover.containsMouse ? Font.Bold : Font.Normal
@@ -959,7 +969,9 @@ PanelWindow {
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: {
-                                        if (!isAdded) {
+                                        if (isMulti) {
+                                            desktopWindow.addNewPhotoWidget();
+                                        } else if (!isAdded) {
                                             desktopWindow.addWidgetKey(modelData.key, modelData.key, modelData.c, modelData.r);
                                         } else {
                                             let m = Object.assign({}, desktopWindow.gridMap);
