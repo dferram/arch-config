@@ -42,24 +42,40 @@ Rectangle {
     property string roundStr: "Round 21 / 24"
     property string sessionLabel: "RACE"
     property string sessionFullLabel: "Grand Prix Race"
+    property int currentLap: 0
+    property bool isRaceLive: false
     property string countdownStr: "LIVE NOW"
     property int remainingSecs: 0
-    property string circuitLength: "5.8 km"
-    property int laps: 53
+    property string circuitLength: "6.201 km"
+    property int laps: 50
 
-    property bool showConstructors: false
-    property int driverPage: 0
-    property int constructorPage: 0
+    // 0: Driver Standings, 1: Constructor Standings, 2: Race Positions, 3: Qualifying
+    property int viewMode: 0
+    property var pageIndices: [0, 0, 0, 0]
     property int pendingPage: 0
     property int slideDirection: 1
 
     property var standings: []
     property var constructorStandings: []
+    property var raceStandings: []
+    property var qualifying: []
 
-    readonly property var activeList: showConstructors ? constructorStandings : standings
+    readonly property var activeList: {
+        if (viewMode === 1) return constructorStandings;
+        if (viewMode === 2) return raceStandings;
+        if (viewMode === 3) return qualifying;
+        return standings;
+    }
     readonly property int pageSize: 3
     readonly property int totalPages: Math.max(1, Math.ceil((activeList ? activeList.length : 0) / pageSize))
-    readonly property int activePage: Math.min(showConstructors ? constructorPage : driverPage, totalPages - 1)
+    readonly property int activePage: Math.min(pageIndices[viewMode] || 0, totalPages - 1)
+
+    function viewModeTitle() {
+        if (viewMode === 1) return "CONSTRUCTOR STANDINGS";
+        if (viewMode === 2) return isRaceLive ? "RACE LIVE ORDER" : "RACE POSITIONS";
+        if (viewMode === 3) return "QUALIFYING";
+        return "DRIVER STANDINGS";
+    }
 
     function entryAt(idx) {
         if (!activeList || idx < 0 || idx >= activeList.length) return null;
@@ -86,6 +102,12 @@ Rectangle {
         modeFadeAnim.restart();
     }
 
+    function setViewMode(targetMode) {
+        if (targetMode === viewMode) return;
+        modeFadeAnim.targetMode = targetMode;
+        modeFadeAnim.restart();
+    }
+
     SequentialAnimation {
         id: towerSlideAnim
 
@@ -108,11 +130,9 @@ Rectangle {
 
         ScriptAction {
             script: {
-                if (root.showConstructors) {
-                    root.constructorPage = root.pendingPage;
-                } else {
-                    root.driverPage = root.pendingPage;
-                }
+                let copy = root.pageIndices.slice();
+                copy[root.viewMode] = root.pendingPage;
+                root.pageIndices = copy;
                 towerSlideContainer.xOffset = root.slideDirection * 28;
             }
         }
@@ -137,6 +157,7 @@ Rectangle {
 
     SequentialAnimation {
         id: modeFadeAnim
+        property int targetMode: -1
 
         NumberAnimation {
             target: towerSlideContainer
@@ -147,7 +168,20 @@ Rectangle {
         }
         ScriptAction {
             script: {
-                root.showConstructors = !root.showConstructors;
+                if (modeFadeAnim.targetMode >= 0) {
+                    root.viewMode = modeFadeAnim.targetMode;
+                    modeFadeAnim.targetMode = -1;
+                } else {
+                    // Cycle: Driver Standings -> Constructor Standings -> Race Positions -> Qualifying
+                    for (let step = 1; step <= 4; step++) {
+                        let cand = (root.viewMode + step) % 4;
+                        let listForCand = cand === 1 ? root.constructorStandings : (cand === 2 ? root.raceStandings : (cand === 3 ? root.qualifying : root.standings));
+                        if (listForCand && listForCand.length > 0) {
+                            root.viewMode = cand;
+                            break;
+                        }
+                    }
+                }
             }
         }
         NumberAnimation {
@@ -227,19 +261,21 @@ Rectangle {
                         root.remainingSecs = d.nextRace.secondsRemaining !== undefined ? d.nextRace.secondsRemaining : root.remainingSecs;
                         root.circuitLength = d.nextRace.circuitLength || root.circuitLength;
                         root.laps = d.nextRace.laps || root.laps;
+                        root.currentLap = d.nextRace.currentLap !== undefined ? d.nextRace.currentLap : root.currentLap;
+                        root.isRaceLive = !!d.nextRace.isRaceLive;
                         trackCanvas.requestPaint();
                     }
                     if (d.standings && d.standings.length > 0) {
                         root.standings = d.standings;
-                        if (root.driverPage >= Math.ceil(d.standings.length / root.pageSize)) {
-                            root.driverPage = 0;
-                        }
                     }
                     if (d.constructorStandings && d.constructorStandings.length > 0) {
                         root.constructorStandings = d.constructorStandings;
-                        if (root.constructorPage >= Math.ceil(d.constructorStandings.length / root.pageSize)) {
-                            root.constructorPage = 0;
-                        }
+                    }
+                    if (d.raceStandings && d.raceStandings.length > 0) {
+                        root.raceStandings = d.raceStandings;
+                    }
+                    if (d.qualifying && d.qualifying.length > 0) {
+                        root.qualifying = d.qualifying;
                     }
                 } catch(e) {}
             }
@@ -248,10 +284,10 @@ Rectangle {
 
     property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
 
-    // Live 1-second countdown ticker
+    // Live 1-second countdown ticker (preserves live LAP counter when race is underway)
     Timer {
         interval: 1000
-        running: root.isLive
+        running: root.isLive && !root.isRaceLive
         repeat: true
         onTriggered: {
             if (root.remainingSecs > 0) {
@@ -269,19 +305,19 @@ Rectangle {
                 } else {
                     root.countdownStr = hPad + "h " + mPad + "m " + sPad + "s";
                 }
-            } else {
+            } else if (!root.isRaceLive) {
                 root.countdownStr = "LIVE NOW";
             }
         }
     }
 
-    // Periodic refresh every 5 minutes
+    // Periodic refresh: 30s during live race, 5m otherwise
     Timer {
-        interval: 300000
+        interval: root.isRaceLive ? 30000 : 300000
         running: root.isLive
         repeat: true
         onTriggered: {
-            if (root.isLive) f1Proc.running = true;
+            if (root.isLive && !f1Proc.running) f1Proc.running = true;
         }
     }
 
@@ -412,7 +448,7 @@ Rectangle {
                 }
             }
 
-            // Top-Right Session Timing HUD Badge
+            // Top-Right Session Timing HUD Badge (shows live lap count when race is underway)
             Rectangle {
                 Layout.preferredHeight: 23
                 Layout.preferredWidth: countdownRow.implicitWidth + 14
@@ -420,10 +456,10 @@ Rectangle {
                 Layout.topMargin: -3
                 Layout.alignment: Qt.AlignTop | Qt.AlignRight
                 radius: 6
-                color: root.countdownStr === "LIVE NOW"
+                color: (root.isRaceLive || root.countdownStr === "LIVE NOW")
                     ? Qt.rgba(225/255, 6/255, 0, 0.24)
                     : Qt.rgba(0.02, 0.03, 0.06, 0.65)
-                border.color: root.countdownStr === "LIVE NOW"
+                border.color: (root.isRaceLive || root.countdownStr === "LIVE NOW")
                     ? "#E10600"
                     : Qt.rgba(1, 1, 1, 0.16)
                 border.width: 1
@@ -460,7 +496,7 @@ Rectangle {
             }
         }
 
-        // 2. Standings Header Bar (Drivers <-> Constructors Toggle, Page Range, Season)
+        // 2. Standings Header Bar (4 Modes: Drivers, Constructors, Race Positions, Qualifying)
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
@@ -483,7 +519,7 @@ Rectangle {
                     spacing: 5
 
                     Text {
-                        text: root.showConstructors ? "CONSTRUCTOR STANDINGS" : "DRIVER STANDINGS"
+                        text: root.viewModeTitle()
                         font.family: theme.fontFamily
                         font.pixelSize: 10
                         font.weight: Font.Black
@@ -526,6 +562,35 @@ Rectangle {
                     font.pixelSize: 9
                     font.weight: Font.Bold
                     color: theme.textMuted
+                }
+            }
+
+            // Interactive 4-dot mode indicator (Drivers | Constructors | Race | Qualifying)
+            Row {
+                spacing: 4
+                Layout.alignment: Qt.AlignVCenter
+
+                Repeater {
+                    model: 4
+                    Rectangle {
+                        readonly property bool hasData: index === 0 ? (root.standings && root.standings.length > 0) :
+                                                        index === 1 ? (root.constructorStandings && root.constructorStandings.length > 0) :
+                                                        index === 2 ? (root.raceStandings && root.raceStandings.length > 0) :
+                                                                      (root.qualifying && root.qualifying.length > 0)
+                        visible: hasData
+                        width: root.viewMode === index ? 14 : 5
+                        height: 5
+                        radius: 2.5
+                        color: root.viewMode === index ? "#E10600" : Qt.rgba(1, 1, 1, 0.22)
+                        Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -3
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.setViewMode(index)
+                        }
+                    }
                 }
             }
 
@@ -650,9 +715,9 @@ Rectangle {
                                     }
                                 }
 
-                                // Code (Drivers mode)
+                                // Code (Drivers, Race & Qualifying modes)
                                 Text {
-                                    visible: !root.showConstructors
+                                    visible: root.viewMode !== 1
                                     Layout.preferredWidth: 28
                                     text: (timingRow.entry && timingRow.entry.code) ? timingRow.entry.code : ""
                                     font.family: "JetBrainsMono Nerd Font"
@@ -664,7 +729,7 @@ Rectangle {
 
                                 // Driver Name OR Constructor Team Name
                                 Text {
-                                    text: root.showConstructors
+                                    text: root.viewMode === 1
                                         ? ((timingRow.entry && timingRow.entry.team) ? timingRow.entry.team : "")
                                         : ((timingRow.entry && timingRow.entry.fullName) ? timingRow.entry.fullName : "")
                                     font.family: theme.fontFamily
@@ -676,29 +741,35 @@ Rectangle {
                                     Layout.alignment: Qt.AlignVCenter
                                 }
 
-                                // Driver Duo / Wins (Constructors) OR Number (Drivers)
+                                // Driver Duo (Constructors) OR Car Number (Drivers / Race / Quali)
                                 Text {
-                                    text: root.showConstructors
-                                        ? (timingRow.entry ? (timingRow.entry.drivers || "") : "")
-                                        : (timingRow.entry ? ("#" + (timingRow.entry.number || "0")) : "")
-                                    font.family: root.showConstructors ? theme.fontFamily : "JetBrainsMono Nerd Font"
+                                    text: root.viewMode === 1
+                                        ? ((timingRow.entry && timingRow.entry.drivers) ? timingRow.entry.drivers : "")
+                                        : ((timingRow.entry && timingRow.entry.number) ? ("#" + timingRow.entry.number) : "")
+                                    font.family: root.viewMode === 1 ? theme.fontFamily : "JetBrainsMono Nerd Font"
                                     font.pixelSize: 9
                                     font.weight: Font.DemiBold
                                     color: theme.textDim
                                     elide: Text.ElideRight
-                                    Layout.maximumWidth: root.showConstructors ? 115 : 32
+                                    Layout.maximumWidth: root.viewMode === 1 ? 115 : 32
                                     Layout.alignment: Qt.AlignVCenter
                                 }
 
-                                // Tabular Championship Points
+                                // Tabular Right Metric (Points | Race Status | Qualy Lap Time)
                                 Row {
                                     Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-                                    spacing: 3
+                                    spacing: 4
 
                                     Text {
-                                        text: timingRow.entry ? timingRow.entry.pts : "0"
+                                        text: {
+                                            if (!timingRow.entry) return "";
+                                            if (root.viewMode === 2 || root.viewMode === 3) {
+                                                return timingRow.entry.metric ? timingRow.entry.metric : "";
+                                            }
+                                            return timingRow.entry.pts !== undefined ? String(timingRow.entry.pts) : "0";
+                                        }
                                         font.family: "JetBrainsMono Nerd Font"
-                                        font.pixelSize: 12
+                                        font.pixelSize: (root.viewMode === 3) ? 11 : 12
                                         font.weight: Font.Black
                                         color: "#FFFFFF"
                                         anchors.baseline: rowPtsLbl.baseline
@@ -706,7 +777,13 @@ Rectangle {
 
                                     Text {
                                         id: rowPtsLbl
-                                        text: "PTS"
+                                        text: {
+                                            if (!timingRow.entry) return "";
+                                            if (root.viewMode === 2 || root.viewMode === 3) {
+                                                return timingRow.entry.unit ? timingRow.entry.unit : "";
+                                            }
+                                            return "PTS";
+                                        }
                                         font.family: "JetBrainsMono Nerd Font"
                                         font.pixelSize: 8
                                         font.weight: Font.Bold

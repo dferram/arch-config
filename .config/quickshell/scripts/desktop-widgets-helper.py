@@ -584,12 +584,13 @@ def check_grid_collision(grid, key, col, row, col_span, row_span):
 
 def get_f1_data():
     cache_file = DATA_DIR / "f1_live_cache.json"
-    cache_ttl = 300  # 5 minutes
     cached_data = None
     if cache_file.exists():
         try:
             with open(cache_file, "r", encoding="utf-8") as f:
                 cached_data = json.load(f)
+                is_live_cached = cached_data.get("payload", {}).get("nextRace", {}).get("isRaceLive", False)
+                cache_ttl = 30 if is_live_cached else 300
                 if cached_data.get("_timestamp") and (datetime.now().timestamp() - cached_data["_timestamp"] < cache_ttl):
                     return cached_data["payload"]
         except Exception:
@@ -598,6 +599,35 @@ def get_f1_data():
     try:
         import urllib.request
         from datetime import timezone
+
+        CIRCUIT_SPECS = {
+            "albert_park":   ("5.278 km", 58),
+            "shanghai":      ("5.451 km", 56),
+            "suzuka":        ("5.807 km", 53),
+            "miami":         ("5.412 km", 57),
+            "villeneuve":    ("4.361 km", 70),
+            "monaco":        ("3.337 km", 78),
+            "catalunya":     ("4.657 km", 66),
+            "red_bull_ring": ("4.318 km", 71),
+            "silverstone":   ("5.891 km", 52),
+            "spa":           ("7.004 km", 44),
+            "hungaroring":   ("4.381 km", 70),
+            "zandvoort":     ("4.259 km", 72),
+            "monza":         ("5.793 km", 53),
+            "madring":       ("5.474 km", 57),
+            "baku":          ("6.003 km", 51),
+            "sepang":        ("5.543 km", 56),
+            "marina_bay":    ("4.940 km", 62),
+            "americas":      ("5.513 km", 56),
+            "rodriguez":     ("4.304 km", 71),
+            "interlagos":    ("4.309 km", 71),
+            "vegas":         ("6.201 km", 50),
+            "losail":        ("5.419 km", 57),
+            "yas_marina":    ("5.281 km", 58),
+            "bahrain":       ("5.412 km", 57),
+            "jeddah":        ("6.174 km", 50),
+            "imola":         ("4.909 km", 63),
+        }
 
         CONSTRUCTOR_META = {
             "mercedes":     {"team": "Mercedes-AMG Petronas", "short": "Mercedes",     "teamKey": "mercedes",    "color": "#27F4D2"},
@@ -861,6 +891,158 @@ def get_f1_data():
         except Exception:
             pass
 
+        # 3. Current GP Qualifying & Live Race Positions / Lap Count
+        c_length, total_laps = CIRCUIT_SPECS.get(circuit_id, ("5.4 km", 55))
+        current_lap = 0
+        is_race_live = False
+
+        # Build fast name -> live driver metadata lookup from current standings + static fallback
+        drv_lookup = {}
+        for s_item in standings:
+            fn = s_item["fullName"].lower()
+            ln = fn.split()[-1] if fn else ""
+            drv_lookup[fn] = s_item
+            if ln:
+                drv_lookup[ln] = s_item
+
+        def resolve_driver_meta(full_name, cid_hint=""):
+            low = (full_name or "").lower().strip()
+            ln = low.split()[-1] if low else ""
+            if cid_hint and cid_hint in CONSTRUCTOR_META:
+                cm = CONSTRUCTOR_META[cid_hint]
+                dm = F1_DRIVERS_2026.get(ln)
+                return {
+                    "number": dm["number"] if dm else 0,
+                    "code": dm["code"] if dm else (ln[:3].upper() or "DRV"),
+                    "team": cm["team"],
+                    "teamKey": cm["teamKey"],
+                    "color": cm["color"],
+                }
+            if low in drv_lookup:
+                return drv_lookup[low]
+            if ln in drv_lookup:
+                return drv_lookup[ln]
+            for k, v in drv_lookup.items():
+                if k and k in low:
+                    return v
+            dm = F1_DRIVERS_2026.get(ln)
+            if dm:
+                cm = CONSTRUCTOR_META.get(dm["cid"], {})
+                return {
+                    "number": dm["number"],
+                    "code": dm["code"],
+                    "team": cm.get("team", "Formula 1 Team"),
+                    "teamKey": cm.get("teamKey", "f1"),
+                    "color": cm.get("color", "#E10600"),
+                }
+            return {
+                "number": 0,
+                "code": (ln[:3].upper() if ln else "DRV"),
+                "team": "Formula 1 Team",
+                "teamKey": "f1",
+                "color": "#E10600",
+            }
+
+        qualifying = []
+        try:
+            req_q = urllib.request.Request(
+                f"https://api.jolpi.ca/ergast/f1/current/{round_no}/qualifying.json",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            with urllib.request.urlopen(req_q, timeout=4) as rq:
+                q_data = json.loads(rq.read().decode())
+            q_races = q_data.get("MRData", {}).get("RaceTable", {}).get("Races", [])
+            if q_races:
+                for qr in q_races[0].get("QualifyingResults", []):
+                    drv = qr.get("Driver", {})
+                    ctor = qr.get("Constructor", {})
+                    full_name = f"{drv.get('givenName', '')} {drv.get('familyName', '')}".strip()
+                    meta = resolve_driver_meta(full_name, ctor.get("constructorId", ""))
+                    if qr.get("Q3"):
+                        q_time, q_seg = qr["Q3"], "Q3"
+                    elif qr.get("Q2"):
+                        q_time, q_seg = qr["Q2"], "Q2"
+                    else:
+                        q_time, q_seg = (qr.get("Q1") or "NO TIME"), "Q1"
+                    qualifying.append({
+                        "pos": int(qr.get("position") or (len(qualifying) + 1)),
+                        "number": int(drv.get("permanentNumber") or meta["number"] or 0),
+                        "code": drv.get("code") or meta["code"],
+                        "fullName": full_name,
+                        "team": meta["team"],
+                        "teamKey": meta["teamKey"],
+                        "color": meta["color"],
+                        "metric": q_time,
+                        "unit": q_seg,
+                    })
+        except Exception:
+            pass
+
+        race_standings = []
+        try:
+            req_espn = urllib.request.Request(
+                "https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            with urllib.request.urlopen(req_espn, timeout=4) as re_sb:
+                sb = json.loads(re_sb.read().decode())
+            evs = sb.get("events", [])
+            if evs:
+                comps = evs[0].get("competitions", [])
+                race_comp = next((c for c in comps if c.get("type", {}).get("abbreviation") == "Race"), None)
+                qual_comp = next((c for c in comps if c.get("type", {}).get("abbreviation") == "Qual"), None)
+
+                if race_comp:
+                    r_stat = race_comp.get("status", {})
+                    r_state = r_stat.get("type", {}).get("state", "pre")
+                    period = int(r_stat.get("period") or 0)
+                    if r_state == "in":
+                        is_race_live = True
+                        current_lap = period
+                        session_label = "RACE"
+                        session_countdown = f"LAP {current_lap}/{total_laps}" if current_lap > 0 else "LIVE"
+                        session_seconds = 0
+                    elif r_state == "post" and session_countdown == "LIVE NOW":
+                        session_countdown = "FINAL"
+
+                    competitors = sorted(race_comp.get("competitors", []), key=lambda x: int(x.get("order") or 99))
+                    for c_item in competitors:
+                        ath = c_item.get("athlete", {})
+                        full_name = ath.get("displayName", "")
+                        meta = resolve_driver_meta(full_name)
+                        pos_num = int(c_item.get("order") or (len(race_standings) + 1))
+                        race_standings.append({
+                            "pos": pos_num,
+                            "number": meta["number"],
+                            "code": meta["code"],
+                            "fullName": full_name,
+                            "team": meta["team"],
+                            "teamKey": meta["teamKey"],
+                            "color": meta["color"],
+                            "metric": f"LAP {current_lap}" if (r_state == "in" and current_lap > 0) else ("FIN" if r_state == "post" else "GRID"),
+                            "unit": "LIVE" if r_state == "in" else ("FINAL" if r_state == "post" else "PRE"),
+                        })
+
+                if not qualifying and qual_comp:
+                    q_comps = sorted(qual_comp.get("competitors", []), key=lambda x: int(x.get("order") or 99))
+                    for c_item in q_comps:
+                        ath = c_item.get("athlete", {})
+                        full_name = ath.get("displayName", "")
+                        meta = resolve_driver_meta(full_name)
+                        qualifying.append({
+                            "pos": int(c_item.get("order") or (len(qualifying) + 1)),
+                            "number": meta["number"],
+                            "code": meta["code"],
+                            "fullName": full_name,
+                            "team": meta["team"],
+                            "teamKey": meta["teamKey"],
+                            "color": meta["color"],
+                            "metric": "P" + str(c_item.get("order") or (len(qualifying) + 1)),
+                            "unit": "GRID",
+                        })
+        except Exception:
+            pass
+
         payload = {
             "status": "ok",
             "sport": "f1",
@@ -879,8 +1061,10 @@ def get_f1_data():
                 "sessionDate": session_date,
                 "sessionTime": session_time,
                 "round": f"Round {round_no} / {total_rounds}",
-                "laps": 71 if "mexico" in clean_name.lower() else 53,
-                "circuitLength": "4.304 km" if "mexico" in clean_name.lower() else "5.8 km",
+                "laps": total_laps,
+                "currentLap": current_lap,
+                "isRaceLive": is_race_live,
+                "circuitLength": c_length,
                 "countdown": session_countdown,
                 "secondsRemaining": session_seconds,
                 "compounds": [
@@ -890,7 +1074,9 @@ def get_f1_data():
                 ]
             },
             "standings": standings,
-            "constructorStandings": constructor_standings
+            "constructorStandings": constructor_standings,
+            "raceStandings": race_standings,
+            "qualifying": qualifying
         }
         try:
             with open(cache_file, "w", encoding="utf-8") as f:
