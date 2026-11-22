@@ -72,7 +72,7 @@ Rectangle {
 
     function viewModeTitle() {
         if (viewMode === 1) return "CONSTRUCTOR STANDINGS";
-        if (viewMode === 2) return isRaceLive ? "RACE LIVE ORDER" : "RACE POSITIONS";
+        if (viewMode === 2) return isRaceLive ? "LIVE TIMING" : "RACE CLASSIFICATION";
         if (viewMode === 3) return "QUALIFYING";
         return "DRIVER STANDINGS";
     }
@@ -80,13 +80,6 @@ Rectangle {
     function entryAt(idx) {
         if (!activeList || idx < 0 || idx >= activeList.length) return null;
         return activeList[idx];
-    }
-
-    function pageRangeLabel() {
-        if (!activeList || activeList.length === 0) return "0 / 0";
-        let start = activePage * pageSize + 1;
-        let end = Math.min(activeList.length, start + pageSize - 1);
-        return start + "-" + end + " / " + activeList.length;
     }
 
     function stepPage(delta) {
@@ -445,8 +438,8 @@ Rectangle {
                     let drawH = height - pad * 2;
 
                     // Circuit asphalt trace
-                    ctx.strokeStyle = "rgba(255, 255, 255, 0.48)";
-                    ctx.lineWidth = 1.7;
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
+                    ctx.lineWidth = 1.6;
                     ctx.lineCap = "round";
                     ctx.lineJoin = "round";
                     ctx.beginPath();
@@ -459,20 +452,49 @@ Rectangle {
                     ctx.closePath();
                     ctx.stroke();
 
-                    // Soft trailing slipstream behind moving dot
-                    for (let k = 3; k >= 1; k--) {
-                        let tp = pointOnClosedLoop(pts, trackCanvas.lapProgress - k * 0.022, pad, drawW, drawH);
-                        ctx.fillStyle = "rgba(225, 6, 0, " + (0.45 - k * 0.11) + ")";
-                        ctx.beginPath();
-                        ctx.arc(tp.x, tp.y, 2.2 - k * 0.35, 0, Math.PI * 2);
-                        ctx.fill();
+                    // Smooth continuous crimson light trail following the exact circuit path
+                    let trailSteps = 14;
+                    let trailSpan = 0.16;
+                    let trailPts = [];
+                    for (let s = 0; s <= trailSteps; s++) {
+                        let tSample = trackCanvas.lapProgress - (1.0 - s / trailSteps) * trailSpan;
+                        trailPts.push(pointOnClosedLoop(pts, tSample, pad, drawW, drawH));
                     }
 
-                    // Active F1 Telemetry Marker racing along track
-                    let cur = pointOnClosedLoop(pts, trackCanvas.lapProgress, pad, drawW, drawH);
+                    // Soft outer ambient red light glow
+                    for (let s = 0; s < trailSteps; s++) {
+                        let ratio = (s + 1) / trailSteps;
+                        ctx.strokeStyle = "rgba(225, 6, 0, " + (0.20 * ratio * ratio) + ")";
+                        ctx.lineWidth = 1.5 + 3.2 * ratio;
+                        ctx.lineCap = "round";
+                        ctx.beginPath();
+                        ctx.moveTo(trailPts[s].x, trailPts[s].y);
+                        ctx.lineTo(trailPts[s + 1].x, trailPts[s + 1].y);
+                        ctx.stroke();
+                    }
+
+                    // Crisp inner crimson light core
+                    for (let s = 0; s < trailSteps; s++) {
+                        let ratio = (s + 1) / trailSteps;
+                        ctx.strokeStyle = "rgba(255, 59, 48, " + (0.75 * ratio * ratio) + ")";
+                        ctx.lineWidth = 0.8 + 1.1 * ratio;
+                        ctx.lineCap = "round";
+                        ctx.beginPath();
+                        ctx.moveTo(trailPts[s].x, trailPts[s].y);
+                        ctx.lineTo(trailPts[s + 1].x, trailPts[s + 1].y);
+                        ctx.stroke();
+                    }
+
+                    // Active F1 Telemetry Marker with soft red halo
+                    let cur = trailPts[trailSteps];
+                    ctx.fillStyle = "rgba(225, 6, 0, 0.28)";
+                    ctx.beginPath();
+                    ctx.arc(cur.x, cur.y, 4.4, 0, Math.PI * 2);
+                    ctx.fill();
+
                     ctx.fillStyle = "#E10600";
                     ctx.beginPath();
-                    ctx.arc(cur.x, cur.y, 2.7, 0, Math.PI * 2);
+                    ctx.arc(cur.x, cur.y, 2.5, 0, Math.PI * 2);
                     ctx.fill();
 
                     ctx.fillStyle = "#FFFFFF";
@@ -482,13 +504,11 @@ Rectangle {
                 }
             }
 
-            // Top-Right Session Timing HUD Badge (shows live lap count when race is underway)
+            // Top-Right Session Timing HUD Badge (shows LIVE + lap count when race is underway)
             Rectangle {
                 Layout.preferredHeight: 23
                 Layout.preferredWidth: countdownRow.implicitWidth + 14
-                Layout.rightMargin: -4
-                Layout.topMargin: -3
-                Layout.alignment: Qt.AlignTop | Qt.AlignRight
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
                 radius: 6
                 color: (root.isRaceLive || root.countdownStr === "LIVE NOW")
                     ? Qt.rgba(225/255, 6/255, 0, 0.24)
@@ -519,7 +539,9 @@ Rectangle {
                     }
 
                     Text {
-                        text: (root.sessionLabel ? root.sessionLabel + " • " : "") + root.countdownStr
+                        text: (root.isRaceLive || root.countdownStr === "LIVE NOW")
+                            ? ("LIVE • " + (root.countdownStr === "LIVE NOW" ? "NOW" : root.countdownStr))
+                            : ((root.sessionLabel ? root.sessionLabel + " • " : "") + root.countdownStr)
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 10
                         font.weight: Font.Bold
@@ -577,54 +599,6 @@ Rectangle {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.toggleStandingsMode()
-                }
-            }
-
-            Rectangle {
-                height: 18
-                width: pageText.implicitWidth + 12
-                radius: 5
-                color: Qt.rgba(1, 1, 1, 0.06)
-                border.color: Qt.rgba(1, 1, 1, 0.10)
-                border.width: 1
-
-                Text {
-                    id: pageText
-                    anchors.centerIn: parent
-                    text: root.pageRangeLabel()
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 9
-                    font.weight: Font.Bold
-                    color: theme.textMuted
-                }
-            }
-
-            // Interactive 4-dot mode indicator (Drivers | Constructors | Race | Qualifying)
-            Row {
-                spacing: 4
-                Layout.alignment: Qt.AlignVCenter
-
-                Repeater {
-                    model: 4
-                    Rectangle {
-                        readonly property bool hasData: index === 0 ? (root.standings && root.standings.length > 0) :
-                                                        index === 1 ? (root.constructorStandings && root.constructorStandings.length > 0) :
-                                                        index === 2 ? (root.raceStandings && root.raceStandings.length > 0) :
-                                                                      (root.qualifying && root.qualifying.length > 0)
-                        visible: hasData
-                        width: root.viewMode === index ? 14 : 5
-                        height: 5
-                        radius: 2.5
-                        color: root.viewMode === index ? "#E10600" : Qt.rgba(1, 1, 1, 0.22)
-                        Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -3
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.setViewMode(index)
-                        }
-                    }
                 }
             }
 
