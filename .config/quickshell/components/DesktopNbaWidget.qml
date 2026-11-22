@@ -211,25 +211,25 @@ Rectangle {
         spacing: 8
         z: 2
 
-        // 1. Header: NBA Badge + Title + Switcher + Status Pill
+        // 1. Header: Larger NBA Emblem + Title + Counter + Status Pill
         RowLayout {
             Layout.fillWidth: true
-            spacing: 9
+            spacing: 10
 
             Rectangle {
-                Layout.preferredWidth: 28
-                Layout.preferredHeight: 22
-                radius: 6
+                Layout.preferredWidth: 42
+                Layout.preferredHeight: 32
+                radius: 7
                 color: "#1D428A"
-                border.color: Qt.rgba(1, 1, 1, 0.16)
+                border.color: Qt.rgba(1, 1, 1, 0.18)
                 border.width: 1
 
                 Image {
                     anchors.centerIn: parent
                     source: root.nbaPng
-                    width: 20
-                    height: 18
-                    sourceSize: Qt.size(40, 40)
+                    width: 30
+                    height: 26
+                    sourceSize: Qt.size(64, 64)
                     fillMode: Image.PreserveAspectFit
                     mipmap: true
                     asynchronous: true
@@ -246,7 +246,7 @@ Rectangle {
                     Text {
                         text: "NBA"
                         font.family: theme.fontFamily
-                        font.pixelSize: 13
+                        font.pixelSize: 15
                         font.weight: Font.Black
                         color: "#FFFFFF"
                     }
