@@ -213,11 +213,11 @@ PanelWindow {
             z: -2
         }
 
-        // Smoked Obsidian Liquid Glass Capsule
+        // Smoked Obsidian Liquid Glass Capsule (aligned to top bar island geometry)
         Rectangle {
             id: glassPill
             anchors.fill: parent
-            radius: height / 2
+            radius: theme.radius
             color: theme.popupBg
             border.color: theme.border
             border.width: 1
@@ -255,8 +255,8 @@ PanelWindow {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.topMargin: 1
-                anchors.leftMargin: glassPill.radius * 0.75
-                anchors.rightMargin: glassPill.radius * 0.75
+                anchors.leftMargin: glassPill.radius
+                anchors.rightMargin: glassPill.radius
                 height: 1
                 color: Qt.rgba(1, 1, 1, 0.22)
             }
@@ -270,15 +270,15 @@ PanelWindow {
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 10
-                anchors.rightMargin: 14
-                spacing: 11
+                anchors.rightMargin: 12
+                spacing: 10
 
-                // Liquid Glass circular icon well
+                // Liquid Glass squircle icon well
                 Rectangle {
-                    Layout.preferredWidth: 34
-                    Layout.preferredHeight: 34
+                    Layout.preferredWidth: 32
+                    Layout.preferredHeight: 32
                     Layout.alignment: Qt.AlignVCenter
-                    radius: 17
+                    radius: 8
                     color: Qt.rgba(osdWindow.accentColor.r, osdWindow.accentColor.g, osdWindow.accentColor.b, (osdWindow.isToggle && !osdWindow.isToggleActive) ? 0.08 : 0.18)
                     border.color: Qt.rgba(osdWindow.accentColor.r, osdWindow.accentColor.g, osdWindow.accentColor.b, (osdWindow.isToggle && !osdWindow.isToggleActive) ? 0.18 : 0.42)
                     border.width: 1
@@ -415,12 +415,12 @@ PanelWindow {
                         }
                     }
 
-                    // Frosted Status Capsule Badge (ON / OFF / ACTIVE / MUTED)
+                    // Frosted Status Badge (ON / OFF / ACTIVE / MUTED)
                     Rectangle {
                         Layout.alignment: Qt.AlignVCenter
-                        implicitWidth: badgeRow.implicitWidth + 16
+                        implicitWidth: badgeRow.implicitWidth + 14
                         implicitHeight: 24
-                        radius: 12
+                        radius: 7
                         color: {
                             if (osdWindow.isToggleActive) {
                                 return Qt.rgba(osdWindow.accentColor.r, osdWindow.accentColor.g, osdWindow.accentColor.b, 0.20);
