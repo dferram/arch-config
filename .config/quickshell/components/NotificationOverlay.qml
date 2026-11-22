@@ -1847,12 +1847,12 @@ PanelWindow {
                     }
                 }
 
-                // 2. Base Subtle Border (Specular 10% white hairline)
+                // 2. Base Subtle Border (Specular Liquid Glass hairline)
                 Rectangle {
                     anchors.fill: parent
                     radius: theme.windowRadius
                     color: "transparent"
-                    border.color: theme.borderSubtle
+                    border.color: theme.border
                     border.width: 1
                 }
 
@@ -1874,13 +1874,25 @@ PanelWindow {
                     }
                 }
 
-                // 3. Inner Card Surface (Opaque obsidian base - strictly 0% light bleed into interior)
+                // 3. Inner Card Surface (Smoked Obsidian Liquid Glass matching top bar & desktop widgets)
                 Rectangle {
                     id: cardInner
                     anchors.fill: parent
                     anchors.margins: 1.5
                     radius: Math.max(0, theme.windowRadius - 1)
-                    color: "#090c12"
+                    color: theme.popupBg
+                    clip: true
+
+                    // Liquid Glass 3-stop specular sheen
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.09) }
+                            GradientStop { position: 0.45; color: Qt.rgba(1, 1, 1, 0.015) }
+                            GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.04) }
+                        }
+                    }
 
                     MouseArea {
                         id: mouseArea
