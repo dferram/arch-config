@@ -1084,7 +1084,8 @@ def main():
 
     if cmd == "photos-get":
         wid = sys.argv[2] if len(sys.argv) > 2 else "1"
-        res = get_widget_state(wid)
+        cur = sys.argv[3] if len(sys.argv) > 3 else ""
+        res = get_widget_state(wid, requested_photo=cur or None)
         print(json.dumps(res, ensure_ascii=False))
 
     elif cmd == "photos-next":
@@ -1134,29 +1135,32 @@ def main():
 
     elif cmd == "photos-toggle-recursive":
         wid = sys.argv[2] if len(sys.argv) > 2 else "1"
+        cur = sys.argv[3] if len(sys.argv) > 3 else ""
         def _u(w):
             w["recursive"] = not w.get("recursive", True)
             w["current_index"] = 0
         atomic_update_config(wid, _u)
-        res = get_widget_state(wid)
+        res = get_widget_state(wid, requested_photo=cur or None)
         print(json.dumps(res, ensure_ascii=False))
 
     elif cmd == "photos-toggle-shuffle":
         wid = sys.argv[2] if len(sys.argv) > 2 else "1"
+        cur = sys.argv[3] if len(sys.argv) > 3 else ""
         def _u(w):
             w["shuffle"] = not w.get("shuffle", True)
             w["current_index"] = 0
         atomic_update_config(wid, _u)
-        res = get_widget_state(wid)
+        res = get_widget_state(wid, requested_photo=cur or None)
         print(json.dumps(res, ensure_ascii=False))
 
     elif cmd == "photos-set-fit":
         wid = sys.argv[2] if len(sys.argv) > 2 else "1"
         fmode = sys.argv[3] if len(sys.argv) > 3 else "crop"
+        cur = sys.argv[4] if len(sys.argv) > 4 else ""
         def _u(w):
             w["fit_mode"] = fmode
         atomic_update_config(wid, _u)
-        res = get_widget_state(wid)
+        res = get_widget_state(wid, requested_photo=cur or None)
         print(json.dumps(res, ensure_ascii=False))
 
     elif cmd == "photos-set-interval":
@@ -1165,10 +1169,11 @@ def main():
             sec = int(sys.argv[3]) if len(sys.argv) > 3 else 30
         except ValueError:
             sec = 30
+        cur = sys.argv[4] if len(sys.argv) > 4 else ""
         def _u(w):
             w["interval"] = sec
         atomic_update_config(wid, _u)
-        res = get_widget_state(wid)
+        res = get_widget_state(wid, requested_photo=cur or None)
         print(json.dumps(res, ensure_ascii=False))
 
     elif cmd == "albums-list":
