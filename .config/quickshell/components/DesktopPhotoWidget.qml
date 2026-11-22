@@ -51,7 +51,6 @@ Item {
     property bool multiSelectMode: true
     property int activeTab: 0 // 0 = Albums, 1 = Playback
     readonly property bool isPaused: intervalSecs <= 0
-    readonly property bool controlsHover: photoMouseArea.containsMouse || pillHoverArea.containsMouse
 
     function currentPhotoRaw() {
         return (root.currentPhoto || "").replace(/^file:\/\//, "");
@@ -528,7 +527,7 @@ Item {
     MouseArea {
         id: photoMouseArea
         anchors.fill: parent
-        hoverEnabled: true
+        hoverEnabled: false
         cursorShape: isDragging ? Qt.ClosedHandCursor : Qt.ArrowCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         z: 2
@@ -600,150 +599,6 @@ Item {
             if (isDragging) {
                 isDragging = false;
                 if (root.wrapper) root.wrapper.endDrag();
-            }
-        }
-    }
-
-    // Floating Frosted Quick Controls Pill (Prev / Pause-Play / Next / Options)
-    // Visible on hover, or minimal Paused indicator when paused
-    Rectangle {
-        id: quickPill
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.margins: 10
-        z: 5
-        height: 28
-        width: root.controlsHover ? quickRow.implicitWidth + 12 : (root.isPaused ? pausedOnlyRow.implicitWidth + 14 : 28)
-        radius: 14
-        color: Qt.rgba(0.05, 0.05, 0.08, 0.80)
-        border.color: root.isPaused ? Qt.rgba(255, 159, 10, 0.50) : Qt.rgba(255, 255, 255, 0.18)
-        border.width: 1
-        visible: !root.selectorOpen && (root.controlsHover || root.isPaused)
-        opacity: root.controlsHover ? 1.0 : (root.isPaused ? 0.85 : 0.0)
-        clip: true
-
-        Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-        Behavior on opacity { NumberAnimation { duration: 160 } }
-
-        MouseArea {
-            id: pillHoverArea
-            anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.LeftButton
-            onClicked: (mouse) => mouse.accepted = true
-        }
-
-        // Minimal Paused micro-badge (when not hovered)
-        Row {
-            id: pausedOnlyRow
-            anchors.centerIn: parent
-            spacing: 4
-            visible: root.isPaused && !root.controlsHover
-
-            Text {
-                text: "󰏤"
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 10
-                color: "#ff9f0a"
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            Text {
-                text: "Paused"
-                color: "#ffffff"
-                font.family: theme.fontFamily
-                font.pixelSize: 9
-                font.weight: Font.DemiBold
-                anchors.verticalCenter: parent.verticalCenter
-            }
-        }
-
-        // Full Quick Controls (when hovered)
-        Row {
-            id: quickRow
-            anchors.centerIn: parent
-            spacing: 2
-            visible: root.controlsHover
-
-            // Prev
-            Rectangle {
-                width: 22; height: 22; radius: 11
-                color: qPrevMa.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : "transparent"
-                Text {
-                    anchors.centerIn: parent
-                    text: "󰒮"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 11
-                    color: "#ffffff"
-                }
-                MouseArea {
-                    id: qPrevMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.prevPhoto()
-                }
-            }
-
-            // Pause / Resume right on the photo without changing it!
-            Rectangle {
-                width: 22; height: 22; radius: 11
-                color: root.isPaused ? Qt.rgba(255, 159, 10, 0.28) : (qPauseMa.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : "transparent")
-                Text {
-                    anchors.centerIn: parent
-                    text: root.isPaused ? "󰐊" : "󰏤"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 11
-                    color: root.isPaused ? "#ff9f0a" : "#ffffff"
-                }
-                MouseArea {
-                    id: qPauseMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.togglePause()
-                }
-            }
-
-            // Next
-            Rectangle {
-                width: 22; height: 22; radius: 11
-                color: qNextMa.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : "transparent"
-                Text {
-                    anchors.centerIn: parent
-                    text: "󰒭"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 11
-                    color: "#ffffff"
-                }
-                MouseArea {
-                    id: qNextMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.nextPhoto()
-                }
-            }
-
-            Rectangle { width: 1; height: 12; color: Qt.rgba(1, 1, 1, 0.16); anchors.verticalCenter: parent.verticalCenter }
-
-            // Open Settings / Albums Panel
-            Rectangle {
-                width: 22; height: 22; radius: 11
-                color: qOptMa.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : "transparent"
-                Text {
-                    anchors.centerIn: parent
-                    text: "󰒓"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 11
-                    color: theme.textSub
-                }
-                MouseArea {
-                    id: qOptMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.selectorOpen = true
-                }
             }
         }
     }
