@@ -114,14 +114,28 @@ def parse_payload(raw, username):
 
     today_subs = utc_dates.get(today_utc, 0) or utc_dates.get(daily_date, 0) or utc_dates.get(today_local, 0)
 
+    # Compute true current active streak backwards from today UTC (keep yesterday alive if today is 0)
+    today_utc_date = datetime.datetime.now(datetime.timezone.utc).date()
+    current_streak = 0
+    check_day = today_utc_date
+    if utc_dates.get(check_day.strftime("%Y-%m-%d"), 0) == 0:
+        check_day = today_utc_date - datetime.timedelta(days=1)
+    while utc_dates.get(check_day.strftime("%Y-%m-%d"), 0) > 0:
+        current_streak += 1
+        check_day -= datetime.timedelta(days=1)
+
+    last_active_date = max(utc_dates.keys()) if utc_dates else ""
+
     return {
         "username": user.get("username") or username,
         "totalSolved": counts.get("All", 0),
         "easySolved": counts.get("Easy", 0),
         "mediumSolved": counts.get("Medium", 0),
         "hardSolved": counts.get("Hard", 0),
-        "streak": int(cal.get("streak") or 0),
+        "streak": current_streak,
+        "bestStreak": int(cal.get("streak") or 0),
         "totalActiveDays": int(cal.get("totalActiveDays") or 0),
+        "lastActiveDate": last_active_date,
         "ranking": int((user.get("profile") or {}).get("ranking") or 0),
         "solvedToday": today_subs > 0,
         "todaySubmissions": today_subs,

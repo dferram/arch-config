@@ -17,9 +17,22 @@ Rectangle {
     radius: 20
     // Obsidian Translucent Glass matching GitHub & Sonoma widgets
     color: theme.widgetGlass
-    border.color: theme.borderSubtle
+    border.color: hoverArea.containsMouse ? theme.border : theme.borderSubtle
     border.width: 1
     clip: true
+
+    Behavior on border.color { ColorAnimation { duration: 180 } }
+
+    function findWrapper() {
+        let p = root.parent;
+        while (p) {
+            if (p.overlay !== undefined && p.startDrag !== undefined) return p;
+            if (p.wrapperRef !== undefined) return p.wrapperRef;
+            p = p.parent;
+        }
+        return null;
+    }
+    readonly property var wrapper: findWrapper()
 
     readonly property string leetcodeSvg: Quickshell.shellPath("icons/leetcode.svg")
     readonly property color lcAmber: "#ffa116"
@@ -34,6 +47,7 @@ Rectangle {
     property int mediumSolved: 0
     property int hardSolved: 0
     property int streak: 0
+    property int bestStreak: 0
     property bool solvedToday: false
     property string dailyTitle: "Loading daily..."
     property string dailyDifficulty: "Medium"
@@ -67,6 +81,7 @@ Rectangle {
                     if (d.mediumSolved !== undefined) root.mediumSolved = d.mediumSolved;
                     if (d.hardSolved !== undefined) root.hardSolved = d.hardSolved;
                     if (d.streak !== undefined) root.streak = d.streak;
+                    if (d.bestStreak !== undefined) root.bestStreak = d.bestStreak;
                     if (d.solvedToday !== undefined) root.solvedToday = !!d.solvedToday;
                     if (d.daily) {
                         if (d.daily.title) root.dailyTitle = d.daily.title;
@@ -103,11 +118,68 @@ Rectangle {
         }
     }
 
-    // Click anywhere on the widget background to refresh
+    function handleDragPress(item, mouse) {
+        if (mouse.button === Qt.RightButton) {
+            if (root.wrapper) root.wrapper.menuOpen = !root.wrapper.menuOpen;
+            return;
+        }
+        if (mouse.button !== Qt.LeftButton) return;
+        if (root.wrapper && root.wrapper.menuOpen) root.wrapper.menuOpen = false;
+        let canvasPt = item.mapToItem(root.wrapper ? root.wrapper.parent : root.parent, mouse.x, mouse.y);
+        item.startScreenX = canvasPt.x;
+        item.startScreenY = canvasPt.y;
+        item.isDragging = false;
+    }
+
+    function handleDragMove(item, mouse) {
+        if (!item.pressed || (mouse.buttons & Qt.LeftButton) === 0) {
+            if (item.isDragging) {
+                item.isDragging = false;
+                if (root.wrapper) root.wrapper.endDrag();
+            }
+            return;
+        }
+        let canvasPt = item.mapToItem(root.wrapper ? root.wrapper.parent : root.parent, mouse.x, mouse.y);
+        let dx = canvasPt.x - item.startScreenX;
+        let dy = canvasPt.y - item.startScreenY;
+        if (!item.isDragging && Math.hypot(dx, dy) > 4) {
+            item.isDragging = true;
+            if (root.wrapper) root.wrapper.startDrag(mouse.x, mouse.y);
+        }
+        if (item.isDragging && root.wrapper) {
+            root.wrapper.updateDrag(dx, dy);
+        }
+    }
+
+    function handleDragEnd(item) {
+        if (item.isDragging) {
+            item.isDragging = false;
+            if (root.wrapper) root.wrapper.endDrag();
+        }
+    }
+
+    // Drag, right-click menu, and click-to-refresh MouseArea (Sonoma grid integration)
     MouseArea {
+        id: hoverArea
         anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.refreshData(true)
+        hoverEnabled: true
+        cursorShape: isDragging ? Qt.ClosedHandCursor : (containsMouse ? Qt.PointingHandCursor : Qt.ArrowCursor)
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+        property real startScreenX: 0
+        property real startScreenY: 0
+        property bool isDragging: false
+
+        onPressed: (mouse) => root.handleDragPress(hoverArea, mouse)
+        onPositionChanged: (mouse) => root.handleDragMove(hoverArea, mouse)
+        onReleased: root.handleDragEnd(hoverArea)
+        onCanceled: root.handleDragEnd(hoverArea)
+
+        onClicked: (mouse) => {
+            if (mouse.button !== Qt.LeftButton || isDragging) return;
+            if (root.wrapper && root.wrapper.overlay && root.wrapper.overlay.showGridGuide) return;
+            root.refreshData(true);
+        }
     }
 
     // Specular top hairline highlight (Apple Sonoma aesthetic)
@@ -160,8 +232,19 @@ Rectangle {
                     id: iconMa
                     anchors.fill: parent
                     hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: Quickshell.execDetached(["xdg-open", "https://leetcode.com/u/" + root.username])
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    cursorShape: isDragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+                    property real startScreenX: 0
+                    property real startScreenY: 0
+                    property bool isDragging: false
+                    onPressed: (mouse) => root.handleDragPress(iconMa, mouse)
+                    onPositionChanged: (mouse) => root.handleDragMove(iconMa, mouse)
+                    onReleased: root.handleDragEnd(iconMa)
+                    onCanceled: root.handleDragEnd(iconMa)
+                    onClicked: (mouse) => {
+                        if (mouse.button !== Qt.LeftButton || isDragging) return;
+                        Quickshell.execDetached(["xdg-open", "https://leetcode.com/u/" + root.username]);
+                    }
                 }
             }
 
@@ -197,8 +280,8 @@ Rectangle {
                 }
 
                 Text {
-                    text: root.streak + "d streak"
-                    color: root.lcAmber
+                    text: root.streak > 0 ? (root.streak + "d streak") : (root.bestStreak > 0 ? ("0d · best " + root.bestStreak + "d") : "0d streak")
+                    color: root.streak > 0 ? root.lcAmber : theme.textDim
                     font.family: "sans-serif"
                     font.pixelSize: 10
                     font.bold: true
@@ -401,8 +484,19 @@ Rectangle {
                 id: dailyMa
                 anchors.fill: parent
                 hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: Quickshell.execDetached(["xdg-open", root.dailyUrl])
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                cursorShape: isDragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+                property real startScreenX: 0
+                property real startScreenY: 0
+                property bool isDragging: false
+                onPressed: (mouse) => root.handleDragPress(dailyMa, mouse)
+                onPositionChanged: (mouse) => root.handleDragMove(dailyMa, mouse)
+                onReleased: root.handleDragEnd(dailyMa)
+                onCanceled: root.handleDragEnd(dailyMa)
+                onClicked: (mouse) => {
+                    if (mouse.button !== Qt.LeftButton || isDragging) return;
+                    Quickshell.execDetached(["xdg-open", root.dailyUrl]);
+                }
             }
         }
     }
