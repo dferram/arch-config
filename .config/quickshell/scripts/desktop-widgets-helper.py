@@ -115,7 +115,8 @@ DEFAULT_GRID = {
     "nba":        { "col": 3, "row": 0, "colSpan": 2, "rowSpan": 1, "type": "nba",        "workspace": 3 },
     "github":     { "col": 1, "row": 1, "colSpan": 2, "rowSpan": 2, "type": "github",     "workspace": 3 },
     "photo3":     { "col": 3, "row": 1, "colSpan": 2, "rowSpan": 2, "type": "photo3",     "workspace": 3 },
-    "photo4":     { "col": 1, "row": 3, "colSpan": 2, "rowSpan": 1, "type": "photo4",     "workspace": 3 }
+    "photo4":     { "col": 1, "row": 3, "colSpan": 2, "rowSpan": 1, "type": "photo4",     "workspace": 3 },
+    "leetcode":   { "col": 3, "row": 3, "colSpan": 1, "rowSpan": 1, "type": "leetcode",   "workspace": 3 }
 }
 
 def get_wayland_env():

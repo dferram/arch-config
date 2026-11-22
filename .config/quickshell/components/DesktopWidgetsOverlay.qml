@@ -585,6 +585,23 @@ PanelWindow {
             }
         }
 
+        // 16b. LeetCode Stats Hub
+        GridWidgetWrapper {
+            id: itemLeetcode
+            overlay: desktopWindow
+            widgetKey: "leetcode"
+            Loader {
+                anchors.fill: parent
+                active: itemLeetcode.opacity > 0.001
+                sourceComponent: Component {
+                    DesktopLeetcodeWidget {
+                        anchors.fill: parent
+                        isLive: itemLeetcode.isLive
+                    }
+                }
+            }
+        }
+
         // 17. Avengers: Doomsday Premiere Countdown
         GridWidgetWrapper {
             id: itemDoomsday
@@ -882,6 +899,7 @@ PanelWindow {
                                 { "key": "f1",        "name": "Formula 1",    "icon": "󰀝", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "nba",       "name": "NBA Hub",      "icon": "󰊪", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "github",    "name": "GitHub Wall",  "icon": "󰊤", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "leetcode",  "name": "LeetCode",     "icon": "",  "span": "1x1", "c": 1, "r": 1 },
                                 { "key": "doomsday",  "name": "Doomsday",     "icon": "󰋑", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "nsqk",      "name": "NSQK Tour",    "icon": "󰎈", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "photo1",    "name": "Photos (1)",   "icon": "󰄀", "span": "2x2", "c": 2, "r": 2 },
