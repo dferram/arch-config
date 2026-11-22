@@ -12,7 +12,7 @@ Rectangle {
     implicitHeight: 207
 
     radius: theme.radius
-    color: theme.widgetGlass
+    color: theme.popupBg
     border.width: 0
     clip: true
 
@@ -306,15 +306,17 @@ Rectangle {
                     color: theme.textDim
                     Layout.alignment: Qt.AlignVCenter
                 }
+
+                Item { Layout.fillWidth: true }
             }
 
             // Broadcast Timing HUD Countdown Pill (tucked cleanly toward top-right corner)
             Rectangle {
                 Layout.preferredHeight: 23
                 Layout.preferredWidth: countdownRow.implicitWidth + 16
-                Layout.rightMargin: -6
+                Layout.rightMargin: -5
                 Layout.topMargin: -4
-                Layout.alignment: Qt.AlignTop
+                Layout.alignment: Qt.AlignTop | Qt.AlignRight
                 radius: 6
                 color: root.countdownStr === "LIVE NOW"
                     ? Qt.rgba(225/255, 6/255, 0/255, 0.24)

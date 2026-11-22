@@ -12,7 +12,7 @@ Rectangle {
     implicitHeight: 207
 
     radius: theme.radius
-    color: theme.widgetGlass
+    color: theme.popupBg
     border.width: 0
     clip: true
 
