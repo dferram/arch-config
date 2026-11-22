@@ -205,33 +205,6 @@ Rectangle {
         }
     }
 
-    // Surgical F1 Crimson Top Border Tracing Rounded Corners Exactly
-    Canvas {
-        id: topCrimsonAccent
-        anchors.fill: parent
-        z: 9
-        antialiasing: true
-        onWidthChanged: requestPaint()
-        onHeightChanged: requestPaint()
-        Component.onCompleted: requestPaint()
-
-        onPaint: {
-            let ctx = getContext("2d");
-            let w = width;
-            let r = root.radius;
-            if (w <= r * 2) return;
-            ctx.clearRect(0, 0, w, height);
-            ctx.strokeStyle = "#E10600";
-            ctx.lineWidth = 2.2;
-            ctx.lineCap = "round";
-            ctx.beginPath();
-            ctx.arc(r, r, r - 1.1, Math.PI, Math.PI * 1.5);
-            ctx.lineTo(w - r, 1.1);
-            ctx.arc(w - r, r, r - 1.1, Math.PI * 1.5, Math.PI * 2.0);
-            ctx.stroke();
-        }
-    }
-
     // Fetch live data process
     Process {
         id: f1Proc
@@ -401,14 +374,28 @@ Rectangle {
                 }
             }
 
-            // Official GPS Circuit Track Outline Vector (Canvas)
+            // Official GPS Circuit Track Outline Vector + Animated Racing Car Telemetry Dot
             Canvas {
                 id: trackCanvas
-                Layout.preferredWidth: 38
-                Layout.preferredHeight: 28
+                Layout.preferredWidth: 42
+                Layout.preferredHeight: 30
                 Layout.alignment: Qt.AlignVCenter
                 antialiasing: true
                 visible: root.trackPoints && root.trackPoints.length > 2
+
+                property real lapProgress: 0.0
+                onLapProgressChanged: requestPaint()
+
+                NumberAnimation {
+                    target: trackCanvas
+                    property: "lapProgress"
+                    from: 0.0
+                    to: 1.0
+                    duration: 6500
+                    easing.type: Easing.Linear
+                    loops: Animation.Infinite
+                    running: root.isLive && trackCanvas.visible
+                }
 
                 Connections {
                     target: root
@@ -416,18 +403,50 @@ Rectangle {
                 }
                 Component.onCompleted: requestPaint()
 
+                function pointOnClosedLoop(pts, tNorm, pad, drawW, drawH) {
+                    let n = pts.length;
+                    let cum = [0.0];
+                    let total = 0.0;
+                    for (let i = 0; i < n; i++) {
+                        let p0 = pts[i];
+                        let p1 = pts[(i + 1) % n];
+                        let seg = Math.hypot((p1[0] - p0[0]) * drawW, (p1[1] - p0[1]) * drawH);
+                        total += seg;
+                        cum.push(total);
+                    }
+                    if (total <= 0.001) {
+                        return { x: pad + pts[0][0] * drawW, y: pad + pts[0][1] * drawH };
+                    }
+                    let wrapped = ((tNorm % 1.0) + 1.0) % 1.0;
+                    let target = wrapped * total;
+                    for (let i = 0; i < n; i++) {
+                        if (target <= cum[i + 1]) {
+                            let segLen = cum[i + 1] - cum[i];
+                            let frac = segLen > 0.0001 ? (target - cum[i]) / segLen : 0.0;
+                            let a = pts[i];
+                            let b = pts[(i + 1) % n];
+                            return {
+                                x: pad + (a[0] + (b[0] - a[0]) * frac) * drawW,
+                                y: pad + (a[1] + (b[1] - a[1]) * frac) * drawH
+                            };
+                        }
+                    }
+                    return { x: pad + pts[0][0] * drawW, y: pad + pts[0][1] * drawH };
+                }
+
                 onPaint: {
                     let ctx = getContext("2d");
                     ctx.clearRect(0, 0, width, height);
                     let pts = root.trackPoints;
                     if (!pts || pts.length < 3) return;
 
-                    let pad = 3.5;
+                    let pad = 4.0;
                     let drawW = width - pad * 2;
                     let drawH = height - pad * 2;
 
-                    ctx.strokeStyle = "rgba(255, 255, 255, 0.58)";
-                    ctx.lineWidth = 1.8;
+                    // Circuit asphalt trace
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.48)";
+                    ctx.lineWidth = 1.7;
                     ctx.lineCap = "round";
                     ctx.lineJoin = "round";
                     ctx.beginPath();
@@ -440,10 +459,25 @@ Rectangle {
                     ctx.closePath();
                     ctx.stroke();
 
-                    // Crimson Start/Finish Sector Marker
+                    // Soft trailing slipstream behind moving dot
+                    for (let k = 3; k >= 1; k--) {
+                        let tp = pointOnClosedLoop(pts, trackCanvas.lapProgress - k * 0.022, pad, drawW, drawH);
+                        ctx.fillStyle = "rgba(225, 6, 0, " + (0.45 - k * 0.11) + ")";
+                        ctx.beginPath();
+                        ctx.arc(tp.x, tp.y, 2.2 - k * 0.35, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Active F1 Telemetry Marker racing along track
+                    let cur = pointOnClosedLoop(pts, trackCanvas.lapProgress, pad, drawW, drawH);
                     ctx.fillStyle = "#E10600";
                     ctx.beginPath();
-                    ctx.arc(pad + pts[0][0] * drawW, pad + pts[0][1] * drawH, 2.3, 0, Math.PI * 2);
+                    ctx.arc(cur.x, cur.y, 2.7, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.beginPath();
+                    ctx.arc(cur.x, cur.y, 1.0, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }

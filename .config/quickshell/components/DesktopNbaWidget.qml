@@ -13,7 +13,8 @@ Rectangle {
 
     radius: theme.radius
     color: theme.popupBg
-    border.width: 0
+    border.color: Qt.rgba(1, 1, 1, 0.16)
+    border.width: 1
     clip: true
 
     function findWrapper() {
@@ -149,53 +150,6 @@ Rectangle {
     onIsLiveChanged: {
         if (isLive && !nbaProc.running && (Date.now() - root.lastFetchMs > 55000)) {
             nbaProc.running = true;
-        }
-    }
-
-    // =========================================================================
-    // DUAL ACCENT BORDER (NBA Royal Blue left half & Official Red right half)
-    // =========================================================================
-    Item {
-        id: fullAccentBorder
-        anchors.fill: parent
-        z: 10
-
-        Item {
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.bottom: parent.bottom
-            width: parent.width / 2
-            clip: true
-
-            Rectangle {
-                anchors.top: parent.top
-                anchors.left: parent.left
-                width: root.width
-                height: root.height
-                radius: root.radius
-                color: "transparent"
-                border.color: "#1D428A"
-                border.width: 1.5
-            }
-        }
-
-        Item {
-            anchors.top: parent.top
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            width: parent.width / 2
-            clip: true
-
-            Rectangle {
-                anchors.top: parent.top
-                anchors.right: parent.right
-                width: root.width
-                height: root.height
-                radius: root.radius
-                color: "transparent"
-                border.color: "#C9082A"
-                border.width: 1.5
-            }
         }
     }
 
