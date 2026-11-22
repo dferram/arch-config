@@ -22,17 +22,6 @@ Item {
     readonly property bool isMounted: !!(overlay && overlay.gridMap && overlay.gridMap[widgetKey])
     readonly property bool isCurrentWorkspace: (widgetWorkspace === (overlay ? overlay.currentWorkspaceId : 1))
     readonly property bool shouldBeActive: isMounted && isCurrentWorkspace
-    property bool hasMountedOnce: false
-    onShouldBeActiveChanged: {
-        if (shouldBeActive) hasMountedOnce = true;
-    }
-    onIsMountedChanged: {
-        if (!isMounted) hasMountedOnce = false;
-    }
-    Component.onCompleted: {
-        if (shouldBeActive) hasMountedOnce = true;
-    }
-    readonly property bool keepLoaded: isMounted && hasMountedOnce
 
     visible: isMounted && (opacity > 0.001)
 

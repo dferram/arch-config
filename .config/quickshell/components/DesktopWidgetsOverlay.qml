@@ -376,7 +376,7 @@ PanelWindow {
             widgetKey: "clock"
             Loader {
                 anchors.fill: parent
-                active: itemClock.keepLoaded
+                active: itemClock.opacity > 0.001
                 sourceComponent: Component {
                     DesktopClockWidget {
                         anchors.fill: parent
@@ -393,7 +393,7 @@ PanelWindow {
             widgetKey: "battery"
             Loader {
                 anchors.fill: parent
-                active: itemBattery.keepLoaded
+                active: itemBattery.opacity > 0.001
                 sourceComponent: Component {
                     DesktopBatteryWidget {
                         anchors.fill: parent
@@ -410,7 +410,7 @@ PanelWindow {
             widgetKey: "calendar"
             Loader {
                 anchors.fill: parent
-                active: itemCalendar.keepLoaded
+                active: itemCalendar.opacity > 0.001
                 sourceComponent: Component {
                     DesktopCalendarWidget {
                         anchors.fill: parent
@@ -426,7 +426,7 @@ PanelWindow {
             widgetKey: "weather"
             Loader {
                 anchors.fill: parent
-                active: itemWeather.keepLoaded
+                active: itemWeather.opacity > 0.001
                 sourceComponent: Component {
                     DesktopWeatherWidget {
                         anchors.fill: parent
@@ -443,7 +443,7 @@ PanelWindow {
             widgetKey: "resources"
             Loader {
                 anchors.fill: parent
-                active: itemResources.keepLoaded
+                active: itemResources.opacity > 0.001
                 sourceComponent: Component {
                     DesktopResourcesWidget {
                         anchors.fill: parent
@@ -460,7 +460,7 @@ PanelWindow {
             widgetKey: "screentime"
             Loader {
                 anchors.fill: parent
-                active: itemScreenTime.keepLoaded
+                active: itemScreenTime.opacity > 0.001
                 sourceComponent: Component {
                     DesktopScreenTimeWidget {
                         anchors.fill: parent
@@ -477,7 +477,7 @@ PanelWindow {
             widgetKey: "media"
             Loader {
                 anchors.fill: parent
-                active: itemMedia.keepLoaded
+                active: itemMedia.opacity > 0.001
                 sourceComponent: Component {
                     DesktopMediaWidget {
                         anchors.fill: parent
@@ -493,7 +493,7 @@ PanelWindow {
             widgetKey: "reminders"
             Loader {
                 anchors.fill: parent
-                active: itemReminders.keepLoaded
+                active: itemReminders.opacity > 0.001
                 sourceComponent: Component {
                     DesktopRemindersWidget {
                         anchors.fill: parent
@@ -510,7 +510,7 @@ PanelWindow {
             widgetKey: "notes"
             Loader {
                 anchors.fill: parent
-                active: itemNotes.keepLoaded
+                active: itemNotes.opacity > 0.001
                 sourceComponent: Component {
                     DesktopNotesWidget {
                         anchors.fill: parent
@@ -527,7 +527,7 @@ PanelWindow {
                 overlay: desktopWindow
                 Loader {
                     anchors.fill: parent
-                    active: itemPhotoDyn.keepLoaded
+                    active: itemPhotoDyn.opacity > 0.001
                     sourceComponent: Component {
                         DesktopPhotoWidget {
                             anchors.fill: parent
@@ -546,7 +546,7 @@ PanelWindow {
             widgetKey: "f1"
             Loader {
                 anchors.fill: parent
-                active: itemF1.keepLoaded
+                active: itemF1.opacity > 0.001
                 sourceComponent: Component {
                     DesktopF1Widget {
                         anchors.fill: parent
@@ -563,7 +563,7 @@ PanelWindow {
             widgetKey: "nba"
             Loader {
                 anchors.fill: parent
-                active: itemNba.keepLoaded
+                active: itemNba.opacity > 0.001
                 sourceComponent: Component {
                     DesktopNbaWidget {
                         anchors.fill: parent
@@ -580,7 +580,7 @@ PanelWindow {
             widgetKey: "github"
             Loader {
                 anchors.fill: parent
-                active: itemGithub.keepLoaded
+                active: itemGithub.opacity > 0.001
                 sourceComponent: Component {
                     DesktopGithubWidget {
                         anchors.fill: parent
@@ -597,7 +597,7 @@ PanelWindow {
             widgetKey: "leetcode"
             Loader {
                 anchors.fill: parent
-                active: itemLeetcode.keepLoaded
+                active: itemLeetcode.opacity > 0.001
                 sourceComponent: Component {
                     DesktopLeetcodeWidget {
                         anchors.fill: parent
@@ -614,7 +614,7 @@ PanelWindow {
             widgetKey: "agenda"
             Loader {
                 anchors.fill: parent
-                active: itemAgenda.keepLoaded
+                active: itemAgenda.opacity > 0.001
                 sourceComponent: Component {
                     DesktopAgendaWidget {
                         anchors.fill: parent
@@ -631,7 +631,7 @@ PanelWindow {
             widgetKey: "focus"
             Loader {
                 anchors.fill: parent
-                active: itemFocus.keepLoaded
+                active: itemFocus.opacity > 0.001
                 sourceComponent: Component {
                     DesktopFocusWidget {
                         anchors.fill: parent
@@ -649,7 +649,7 @@ PanelWindow {
             widgetKey: "doomsday"
             Loader {
                 anchors.fill: parent
-                active: itemDoomsday.keepLoaded
+                active: itemDoomsday.opacity > 0.001
                 sourceComponent: Component {
                     DesktopDoomsdayWidget {
                         anchors.fill: parent
@@ -666,7 +666,7 @@ PanelWindow {
             widgetKey: "nsqk"
             Loader {
                 anchors.fill: parent
-                active: itemNsqk.keepLoaded
+                active: itemNsqk.opacity > 0.001
                 sourceComponent: Component {
                     DesktopNsqkWidget {
                         anchors.fill: parent
