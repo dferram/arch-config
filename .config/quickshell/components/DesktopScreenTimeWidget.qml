@@ -162,24 +162,17 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 15
-        spacing: 8
+        spacing: 11
 
-        // Header: Dot + Title + Productivity Badge
+        // Header: Title + Productivity Badge
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
 
-            Rectangle {
-                width: 7
-                height: 7
-                radius: 3.5
-                color: "#0a84ff"
-            }
-
             Text {
                 text: "Screen Time"
                 font.family: theme.fontFamily
-                font.pixelSize: 12
+                font.pixelSize: 13
                 font.weight: Font.DemiBold
                 color: theme.textSub
                 Layout.fillWidth: true
@@ -213,12 +206,12 @@ Rectangle {
 
             Column {
                 Layout.fillWidth: true
-                spacing: 2
+                spacing: 3
 
                 Text {
                     text: root.totalFormatted
                     font.family: theme.fontFamily
-                    font.pixelSize: 24
+                    font.pixelSize: 27
                     font.weight: Font.Bold
                     color: theme.text
                 }
@@ -226,7 +219,7 @@ Rectangle {
                 Text {
                     text: "Total Today"
                     font.family: theme.fontFamily
-                    font.pixelSize: 10
+                    font.pixelSize: 11
                     font.weight: Font.Medium
                     color: theme.textDim
                 }
@@ -234,8 +227,8 @@ Rectangle {
 
             // Mini Radial Donut (Helicopter View Chart)
             Item {
-                width: 48
-                height: 48
+                width: 56
+                height: 56
 
                 Canvas {
                     id: donutCanvas
@@ -248,8 +241,8 @@ Rectangle {
 
                         let cx = width / 2;
                         let cy = height / 2;
-                        let radius = (width - 8) / 2;
-                        let lw = 5;
+                        let radius = (width - 10) / 2;
+                        let lw = 6;
 
                         // Background ring
                         ctx.beginPath();
@@ -301,15 +294,17 @@ Rectangle {
             }
         }
 
+        Item { Layout.fillHeight: true }
+
         // Stats with individual progress graphs
         Column {
             Layout.fillWidth: true
-            spacing: 5
+            spacing: 10
 
             // Work & Dev Stat Row
             Column {
                 width: parent.width
-                spacing: 2
+                spacing: 4
 
                 RowLayout {
                     width: parent.width
@@ -326,7 +321,7 @@ Rectangle {
                         Text {
                             text: "Work"
                             font.family: theme.fontFamily
-                            font.pixelSize: 10
+                            font.pixelSize: 11
                             font.weight: Font.Medium
                             color: theme.textSub
                         }
@@ -334,7 +329,7 @@ Rectangle {
                     Text {
                         text: root.workFormatted + " (" + Math.round(root.workRatio * 100) + "%)"
                         font.family: theme.fontFamily
-                        font.pixelSize: 10
+                        font.pixelSize: 11
                         font.weight: Font.DemiBold
                         color: "#30d158"
                     }
@@ -342,13 +337,13 @@ Rectangle {
 
                 Rectangle {
                     width: parent.width
-                    height: 4
-                    radius: 2
+                    height: 6
+                    radius: 3
                     color: Qt.rgba(1, 1, 1, 0.08)
                     Rectangle {
                         height: parent.height
                         width: Math.max(0, Math.round(parent.width * root.workRatio))
-                        radius: 2
+                        radius: 3
                         color: "#30d158"
                     }
                 }
@@ -357,7 +352,7 @@ Rectangle {
             // Entertainment Stat Row
             Column {
                 width: parent.width
-                spacing: 2
+                spacing: 4
 
                 RowLayout {
                     width: parent.width
@@ -374,7 +369,7 @@ Rectangle {
                         Text {
                             text: "Entertainment"
                             font.family: theme.fontFamily
-                            font.pixelSize: 10
+                            font.pixelSize: 11
                             font.weight: Font.Medium
                             color: theme.textSub
                         }
@@ -382,7 +377,7 @@ Rectangle {
                     Text {
                         text: root.slackingFormatted + " (" + Math.round(root.slackingRatio * 100) + "%)"
                         font.family: theme.fontFamily
-                        font.pixelSize: 10
+                        font.pixelSize: 11
                         font.weight: Font.DemiBold
                         color: "#ff453a"
                     }
@@ -390,19 +385,17 @@ Rectangle {
 
                 Rectangle {
                     width: parent.width
-                    height: 4
-                    radius: 2
+                    height: 6
+                    radius: 3
                     color: Qt.rgba(1, 1, 1, 0.08)
                     Rectangle {
                         height: parent.height
                         width: Math.max(0, Math.round(parent.width * root.slackingRatio))
-                        radius: 2
+                        radius: 3
                         color: "#ff453a"
                     }
                 }
             }
         }
-
-        Item { Layout.fillHeight: true }
     }
 }
