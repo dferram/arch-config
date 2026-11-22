@@ -41,13 +41,15 @@ Rectangle {
     }
 
     property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
+    property double lastFetchMs: 0
 
     Process {
         id: resProc
         command: ["/home/ferram/.local/bin/hypr-resources"]
-        running: root.isLive
+        running: false
         stdout: StdioCollector {
             onStreamFinished: {
+                root.lastFetchMs = Date.now();
                 let txt = text.trim();
                 if (!txt) return;
                 try {
@@ -74,7 +76,7 @@ Rectangle {
     }
 
     Timer {
-        interval: 1500
+        interval: 3000
         repeat: true
         running: root.isLive
         onTriggered: {
@@ -82,8 +84,12 @@ Rectangle {
         }
     }
 
+    Component.onCompleted: {
+        if (root.isLive && !resProc.running) resProc.running = true;
+    }
+
     onIsLiveChanged: {
-        if (isLive && !resProc.running) {
+        if (isLive && !resProc.running && (Date.now() - root.lastFetchMs > 2500)) {
             resProc.running = true;
         }
     }

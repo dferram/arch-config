@@ -22,6 +22,7 @@ Rectangle {
     property var monthReminders: []
     property int currentMonthCount: 0
     property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
+    property double lastFetchMs: 0
 
     readonly property string currentMonthPrefix: {
         let now = new Date();
@@ -42,6 +43,7 @@ Rectangle {
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
+                root.lastFetchMs = Date.now();
                 let txt = text.trim();
                 if (!txt) return;
                 try {
@@ -131,7 +133,7 @@ Rectangle {
     }
 
     onIsLiveChanged: {
-        if (isLive && !readRemindersProc.running) {
+        if (isLive && !readRemindersProc.running && (Date.now() - root.lastFetchMs > 25000)) {
             readRemindersProc.running = true;
         }
     }

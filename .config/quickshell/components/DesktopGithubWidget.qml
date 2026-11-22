@@ -276,7 +276,7 @@ Rectangle {
                         color: "#30d158"
 
                         SequentialAnimation on opacity {
-                            running: root.isLoading
+                            running: root.isLive && root.isLoading
                             loops: Animation.Infinite
                             NumberAnimation { from: 0.25; to: 1.0; duration: 400 }
                             NumberAnimation { from: 1.0; to: 0.25; duration: 400 }
@@ -467,7 +467,7 @@ Rectangle {
                                 visible: cellItem.isToday
 
                                 SequentialAnimation on opacity {
-                                    running: root.visible && cellItem.isToday
+                                    running: root.isLive && cellItem.isToday
                                     loops: Animation.Infinite
                                     NumberAnimation { from: 0.2; to: 1.0; duration: 900; easing.type: Easing.InOutQuad }
                                     NumberAnimation { from: 1.0; to: 0.2; duration: 900; easing.type: Easing.InOutQuad }

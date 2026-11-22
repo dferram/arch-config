@@ -451,9 +451,11 @@ Item {
                 fillMode: root.fitMode === "fit" ? Image.PreserveAspectFit : Image.PreserveAspectCrop
                 horizontalAlignment: Image.AlignHCenter
                 verticalAlignment: Image.AlignVCenter
+                sourceSize.width: 900
+                sourceSize.height: 900
                 autoTransform: true
                 asynchronous: true
-                cache: true
+                cache: false
                 opacity: (root.useImageA && status === Image.Ready) ? 1.0 : 0.0
 
                 Behavior on opacity {
@@ -467,9 +469,11 @@ Item {
                 fillMode: root.fitMode === "fit" ? Image.PreserveAspectFit : Image.PreserveAspectCrop
                 horizontalAlignment: Image.AlignHCenter
                 verticalAlignment: Image.AlignVCenter
+                sourceSize.width: 900
+                sourceSize.height: 900
                 autoTransform: true
                 asynchronous: true
-                cache: true
+                cache: false
                 opacity: (!root.useImageA && status === Image.Ready) ? 1.0 : 0.0
 
                 Behavior on opacity {

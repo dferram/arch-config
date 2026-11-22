@@ -9,6 +9,7 @@ Backend service helper for Quickshell Apple Sonoma Desktop Widgets:
 
 import sys
 import os
+import copy
 import json
 import hashlib
 import random
@@ -116,7 +117,9 @@ DEFAULT_GRID = {
     "github":     { "col": 1, "row": 1, "colSpan": 2, "rowSpan": 2, "type": "github",     "workspace": 3 },
     "photo3":     { "col": 3, "row": 1, "colSpan": 2, "rowSpan": 2, "type": "photo3",     "workspace": 3 },
     "photo4":     { "col": 1, "row": 3, "colSpan": 2, "rowSpan": 1, "type": "photo4",     "workspace": 3 },
-    "leetcode":   { "col": 3, "row": 3, "colSpan": 1, "rowSpan": 1, "type": "leetcode",   "workspace": 3 }
+    "leetcode":   { "col": 3, "row": 3, "colSpan": 1, "rowSpan": 1, "type": "leetcode",   "workspace": 3 },
+    "agenda":     { "col": 4, "row": 2, "colSpan": 1, "rowSpan": 1, "type": "agenda",     "workspace": 3 },
+    "focus":      { "col": 5, "row": 2, "colSpan": 1, "rowSpan": 1, "type": "focus",      "workspace": 3 }
 }
 
 def get_wayland_env():
@@ -190,7 +193,7 @@ def atomic_update_config(widget_id: str, update_fn):
         fcntl.flock(lf, fcntl.LOCK_EX)
         try:
             cfg = load_config()
-            w_cfg = cfg.get(widget_id, DEFAULT_CONFIG.get(widget_id, DEFAULT_CONFIG["1"]).copy())
+            w_cfg = cfg.get(widget_id, copy.deepcopy(DEFAULT_CONFIG.get(widget_id, DEFAULT_CONFIG["1"])))
             update_fn(w_cfg)
             cfg[widget_id] = w_cfg
             save_config(cfg)

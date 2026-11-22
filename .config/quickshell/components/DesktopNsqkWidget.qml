@@ -225,9 +225,9 @@ Rectangle {
         onTriggered: root.updateCountdown()
     }
 
-    // RF Static & Interference Flicker Driver
+    // RF Static & Interference Flicker Driver (throttled to reduce Canvas CPU usage)
     Timer {
-        interval: 130
+        interval: 450
         running: root.isLive
         repeat: true
         onTriggered: {

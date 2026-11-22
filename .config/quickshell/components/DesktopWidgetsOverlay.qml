@@ -43,6 +43,7 @@ PanelWindow {
     property int currentWorkspaceId: monitorActiveWorkspace ? monitorActiveWorkspace.id : (screenName.indexOf("eDP") !== -1 ? 1 : 6)
     
     property bool enabled: true
+    property var timerService: null
     readonly property bool shouldBeVisible: enabled
 
     visible: shouldBeVisible || canvasItem.opacity > 0.01
@@ -375,7 +376,7 @@ PanelWindow {
             widgetKey: "clock"
             Loader {
                 anchors.fill: parent
-                active: itemClock.opacity > 0.001
+                active: itemClock.keepLoaded
                 sourceComponent: Component {
                     DesktopClockWidget {
                         anchors.fill: parent
@@ -392,7 +393,7 @@ PanelWindow {
             widgetKey: "battery"
             Loader {
                 anchors.fill: parent
-                active: itemBattery.opacity > 0.001
+                active: itemBattery.keepLoaded
                 sourceComponent: Component {
                     DesktopBatteryWidget {
                         anchors.fill: parent
@@ -409,7 +410,7 @@ PanelWindow {
             widgetKey: "calendar"
             Loader {
                 anchors.fill: parent
-                active: itemCalendar.opacity > 0.001
+                active: itemCalendar.keepLoaded
                 sourceComponent: Component {
                     DesktopCalendarWidget {
                         anchors.fill: parent
@@ -425,7 +426,7 @@ PanelWindow {
             widgetKey: "weather"
             Loader {
                 anchors.fill: parent
-                active: itemWeather.opacity > 0.001
+                active: itemWeather.keepLoaded
                 sourceComponent: Component {
                     DesktopWeatherWidget {
                         anchors.fill: parent
@@ -442,7 +443,7 @@ PanelWindow {
             widgetKey: "resources"
             Loader {
                 anchors.fill: parent
-                active: itemResources.opacity > 0.001
+                active: itemResources.keepLoaded
                 sourceComponent: Component {
                     DesktopResourcesWidget {
                         anchors.fill: parent
@@ -459,7 +460,7 @@ PanelWindow {
             widgetKey: "screentime"
             Loader {
                 anchors.fill: parent
-                active: itemScreenTime.opacity > 0.001
+                active: itemScreenTime.keepLoaded
                 sourceComponent: Component {
                     DesktopScreenTimeWidget {
                         anchors.fill: parent
@@ -476,7 +477,7 @@ PanelWindow {
             widgetKey: "media"
             Loader {
                 anchors.fill: parent
-                active: itemMedia.opacity > 0.001
+                active: itemMedia.keepLoaded
                 sourceComponent: Component {
                     DesktopMediaWidget {
                         anchors.fill: parent
@@ -492,7 +493,7 @@ PanelWindow {
             widgetKey: "reminders"
             Loader {
                 anchors.fill: parent
-                active: itemReminders.opacity > 0.001
+                active: itemReminders.keepLoaded
                 sourceComponent: Component {
                     DesktopRemindersWidget {
                         anchors.fill: parent
@@ -509,7 +510,7 @@ PanelWindow {
             widgetKey: "notes"
             Loader {
                 anchors.fill: parent
-                active: itemNotes.opacity > 0.001
+                active: itemNotes.keepLoaded
                 sourceComponent: Component {
                     DesktopNotesWidget {
                         anchors.fill: parent
@@ -526,7 +527,7 @@ PanelWindow {
                 overlay: desktopWindow
                 Loader {
                     anchors.fill: parent
-                    active: itemPhotoDyn.opacity > 0.001
+                    active: itemPhotoDyn.keepLoaded
                     sourceComponent: Component {
                         DesktopPhotoWidget {
                             anchors.fill: parent
@@ -545,7 +546,7 @@ PanelWindow {
             widgetKey: "f1"
             Loader {
                 anchors.fill: parent
-                active: itemF1.opacity > 0.001
+                active: itemF1.keepLoaded
                 sourceComponent: Component {
                     DesktopF1Widget {
                         anchors.fill: parent
@@ -562,7 +563,7 @@ PanelWindow {
             widgetKey: "nba"
             Loader {
                 anchors.fill: parent
-                active: itemNba.opacity > 0.001
+                active: itemNba.keepLoaded
                 sourceComponent: Component {
                     DesktopNbaWidget {
                         anchors.fill: parent
@@ -579,7 +580,7 @@ PanelWindow {
             widgetKey: "github"
             Loader {
                 anchors.fill: parent
-                active: itemGithub.opacity > 0.001
+                active: itemGithub.keepLoaded
                 sourceComponent: Component {
                     DesktopGithubWidget {
                         anchors.fill: parent
@@ -596,11 +597,46 @@ PanelWindow {
             widgetKey: "leetcode"
             Loader {
                 anchors.fill: parent
-                active: itemLeetcode.opacity > 0.001
+                active: itemLeetcode.keepLoaded
                 sourceComponent: Component {
                     DesktopLeetcodeWidget {
                         anchors.fill: parent
                         isLive: itemLeetcode.isLive
+                    }
+                }
+            }
+        }
+
+        // 16c. Today's Agenda / Next Up
+        GridWidgetWrapper {
+            id: itemAgenda
+            overlay: desktopWindow
+            widgetKey: "agenda"
+            Loader {
+                anchors.fill: parent
+                active: itemAgenda.keepLoaded
+                sourceComponent: Component {
+                    DesktopAgendaWidget {
+                        anchors.fill: parent
+                        isLive: itemAgenda.isLive
+                    }
+                }
+            }
+        }
+
+        // 16d. Focus / Pomodoro Timer
+        GridWidgetWrapper {
+            id: itemFocus
+            overlay: desktopWindow
+            widgetKey: "focus"
+            Loader {
+                anchors.fill: parent
+                active: itemFocus.keepLoaded
+                sourceComponent: Component {
+                    DesktopFocusWidget {
+                        anchors.fill: parent
+                        timerService: desktopWindow.timerService
+                        isLive: itemFocus.isLive
                     }
                 }
             }
@@ -613,7 +649,7 @@ PanelWindow {
             widgetKey: "doomsday"
             Loader {
                 anchors.fill: parent
-                active: itemDoomsday.opacity > 0.001
+                active: itemDoomsday.keepLoaded
                 sourceComponent: Component {
                     DesktopDoomsdayWidget {
                         anchors.fill: parent
@@ -630,7 +666,7 @@ PanelWindow {
             widgetKey: "nsqk"
             Loader {
                 anchors.fill: parent
-                active: itemNsqk.opacity > 0.001
+                active: itemNsqk.keepLoaded
                 sourceComponent: Component {
                     DesktopNsqkWidget {
                         anchors.fill: parent
@@ -904,6 +940,8 @@ PanelWindow {
                                 { "key": "nba",       "name": "NBA Hub",      "icon": "󰊪", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "github",    "name": "GitHub Wall",  "icon": "󰊤", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "leetcode",  "name": "LeetCode",     "icon": "",  "span": "1x1", "c": 1, "r": 1 },
+                                { "key": "agenda",    "name": "Today Agenda", "icon": "󰃰", "span": "1x1", "c": 1, "r": 1 },
+                                { "key": "focus",     "name": "Focus Timer",  "icon": "󱎫", "span": "1x1", "c": 1, "r": 1 },
                                 { "key": "doomsday",  "name": "Doomsday",     "icon": "󰋑", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "nsqk",      "name": "NSQK Tour",    "icon": "󰎈", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "photo",     "name": "Photos",       "icon": "󰄀", "span": "2x2", "c": 2, "r": 2, "multi": true }

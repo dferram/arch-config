@@ -35,6 +35,7 @@ Rectangle {
     property string currentClass: ""
     property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
     property string currentCategory: "Other"
+    property double lastFetchMs: 0
 
     // Ratios
     readonly property real workRatio: totalSeconds > 0 ? Math.min(1.0, workSeconds / totalSeconds) : 0
@@ -45,9 +46,10 @@ Rectangle {
     Process {
         id: statsProc
         command: ["/home/ferram/.local/bin/hypr-screentime", "stats", "--json"]
-        running: true
+        running: false
         stdout: StdioCollector {
             onTextChanged: {
+                root.lastFetchMs = Date.now();
                 let txt = text.trim();
                 if (!txt) return;
                 try {
@@ -70,7 +72,7 @@ Rectangle {
     }
 
     Timer {
-        interval: 5000
+        interval: 15000
         repeat: true
         running: root.isLive
         onTriggered: {
@@ -78,8 +80,12 @@ Rectangle {
         }
     }
 
+    Component.onCompleted: {
+        if (!statsProc.running) statsProc.running = true;
+    }
+
     onIsLiveChanged: {
-        if (isLive && !statsProc.running) {
+        if (isLive && !statsProc.running && (Date.now() - root.lastFetchMs > 10000)) {
             statsProc.running = true;
         }
     }

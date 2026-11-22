@@ -415,6 +415,7 @@ ShellRoot {
                 modelData: modelData
                 enabled: shell.widgetsVisible
                 showGridGuide: shell.showGridGuide
+                timerService: sharedTimerService
             }
         }
     }

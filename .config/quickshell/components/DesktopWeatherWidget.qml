@@ -27,6 +27,7 @@ Rectangle {
     property string currentWind: "-- km/h"
     property string weatherIcon: "󰖐"
     property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
+    property double lastFetchMs: 0
 
     function mapWeatherIcon(desc) {
         let d = (desc || "").toLowerCase();
@@ -43,9 +44,10 @@ Rectangle {
     Process {
         id: weatherProc
         command: ["curl", "-s", "--max-time", "4", "wttr.in/?format=j1"]
-        running: true
+        running: false
         stdout: StdioCollector {
             onStreamFinished: {
+                root.lastFetchMs = Date.now();
                 let txt = text.trim();
                 if (txt.length > 0 && txt.startsWith("{")) {
                     try {
@@ -81,8 +83,12 @@ Rectangle {
         }
     }
 
+    Component.onCompleted: {
+        if (!weatherProc.running) weatherProc.running = true;
+    }
+
     onIsLiveChanged: {
-        if (isLive && !weatherProc.running) {
+        if (isLive && !weatherProc.running && (Date.now() - root.lastFetchMs > 900000)) {
             weatherProc.running = true;
         }
     }

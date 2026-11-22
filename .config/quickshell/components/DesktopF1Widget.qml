@@ -270,7 +270,7 @@ Rectangle {
                         Layout.alignment: Qt.AlignVCenter
 
                         SequentialAnimation on opacity {
-                            running: root.visible
+                            running: root.isLive
                             loops: Animation.Infinite
                             NumberAnimation { from: 1.0; to: 0.25; duration: 600 }
                             NumberAnimation { from: 0.25; to: 1.0; duration: 600 }

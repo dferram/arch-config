@@ -36,14 +36,16 @@ Rectangle {
     property var eastStandings: []
     property var westStandings: []
     property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
+    property double lastFetchMs: 0
 
     // Fetch data process
     Process {
         id: nbaProc
         command: ["python3", Quickshell.shellPath("scripts/desktop-widgets-helper.py"), "nba-data"]
-        running: root.isLive
+        running: false
         stdout: StdioCollector {
             onStreamFinished: {
+                root.lastFetchMs = Date.now();
                 let txt = text.trim();
                 if (!txt || !txt.startsWith("{")) return;
                 try {
@@ -85,8 +87,12 @@ Rectangle {
         }
     }
 
+    Component.onCompleted: {
+        if (!nbaProc.running) nbaProc.running = true;
+    }
+
     onIsLiveChanged: {
-        if (isLive && !nbaProc.running) {
+        if (isLive && !nbaProc.running && (Date.now() - root.lastFetchMs > 55000)) {
             nbaProc.running = true;
         }
     }
@@ -300,7 +306,7 @@ Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         visible: root.activeGame && root.activeGame.state === "in"
                         SequentialAnimation on opacity {
-                            running: root.visible && root.activeGame && root.activeGame.state === "in"
+                            running: root.isLive && root.activeGame && root.activeGame.state === "in"
                             loops: Animation.Infinite
                             NumberAnimation { from: 1.0; to: 0.2; duration: 500 }
                             NumberAnimation { from: 0.2; to: 1.0; duration: 500 }
