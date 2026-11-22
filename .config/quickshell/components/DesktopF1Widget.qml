@@ -28,11 +28,13 @@ Rectangle {
         return null;
     }
     readonly property var wrapper: findWrapper()
-    readonly property string f1WhitePng: Quickshell.shellPath("icons/f1-white.png")
+    readonly property string f1WhiteSvg: Quickshell.shellPath("icons/f1-white-tight.svg")
 
     // Live F1 API state
     property string raceName: "Las Vegas Grand Prix"
     property string shortName: "Las Vegas GP"
+    property string circuitId: "vegas"
+    property var trackPoints: []
     property string circuitName: "Las Vegas Strip Street Circuit"
     property string location: "Las Vegas, USA"
     property string raceDate: "Sunday, Nov 22"
@@ -169,18 +171,30 @@ Rectangle {
         }
     }
 
-    // Surgical F1 Crimson Racing Stripe along top edge (Pit-Wall Broadcast signature)
-    Rectangle {
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: 2.5
+    // Surgical F1 Crimson Top Border Tracing Rounded Corners Exactly
+    Canvas {
+        id: topCrimsonAccent
+        anchors.fill: parent
         z: 9
-        gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: "#E10600" }
-            GradientStop { position: 0.55; color: Qt.rgba(225/255, 6/255, 0, 0.55) }
-            GradientStop { position: 1.0; color: Qt.rgba(225/255, 6/255, 0, 0.08) }
+        antialiasing: true
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        Component.onCompleted: requestPaint()
+
+        onPaint: {
+            let ctx = getContext("2d");
+            let w = width;
+            let r = root.radius;
+            if (w <= r * 2) return;
+            ctx.clearRect(0, 0, w, height);
+            ctx.strokeStyle = "#E10600";
+            ctx.lineWidth = 2.2;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.arc(r, r, r - 1.1, Math.PI, Math.PI * 1.5);
+            ctx.lineTo(w - r, 1.1);
+            ctx.arc(w - r, r, r - 1.1, Math.PI * 1.5, Math.PI * 2.0);
+            ctx.stroke();
         }
     }
 
@@ -198,6 +212,10 @@ Rectangle {
                     if (d.nextRace) {
                         root.raceName = d.nextRace.name || root.raceName;
                         root.shortName = d.nextRace.shortName || root.shortName;
+                        root.circuitId = d.nextRace.circuitId || root.circuitId;
+                        if (d.nextRace.trackPoints && d.nextRace.trackPoints.length > 0) {
+                            root.trackPoints = d.nextRace.trackPoints;
+                        }
                         root.circuitName = d.nextRace.circuit || root.circuitName;
                         root.location = d.nextRace.location || root.location;
                         root.raceDate = d.nextRace.date || root.raceDate;
@@ -284,22 +302,23 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 10
 
-            // Large Official F1 Crest Badge
+            // Large Official F1 Crest Badge (tight SVG fills badge boldly)
             Rectangle {
-                Layout.preferredWidth: 56
-                Layout.preferredHeight: 28
+                Layout.preferredWidth: 66
+                Layout.preferredHeight: 30
                 radius: 6
                 color: "#E10600"
                 Layout.alignment: Qt.AlignVCenter
 
                 Image {
                     anchors.centerIn: parent
-                    source: root.f1WhitePng
-                    width: 44
-                    height: 20
-                    sourceSize: Qt.size(96, 48)
+                    source: root.f1WhiteSvg
+                    width: 54
+                    height: 16
+                    sourceSize: Qt.size(108, 32)
                     fillMode: Image.PreserveAspectFit
                     mipmap: true
+                    smooth: true
                     asynchronous: true
                 }
             }
@@ -346,48 +365,49 @@ Rectangle {
                 }
             }
 
-            // Mini Circuit Track Outline Vector (Canvas)
+            // Official GPS Circuit Track Outline Vector (Canvas)
             Canvas {
                 id: trackCanvas
-                Layout.preferredWidth: 34
-                Layout.preferredHeight: 24
+                Layout.preferredWidth: 38
+                Layout.preferredHeight: 28
                 Layout.alignment: Qt.AlignVCenter
                 antialiasing: true
+                visible: root.trackPoints && root.trackPoints.length > 2
 
+                Connections {
+                    target: root
+                    function onTrackPointsChanged() { trackCanvas.requestPaint(); }
+                }
                 Component.onCompleted: requestPaint()
 
                 onPaint: {
                     let ctx = getContext("2d");
                     ctx.clearRect(0, 0, width, height);
-                    let gp = (root.shortName || "").toLowerCase();
-                    let pts;
-                    if (gp.includes("vegas")) {
-                        pts = [[4,18],[12,18],[13,12],[18,12],[22,6],[30,6],[30,11],[23,13],[22,19],[7,20],[4,18]];
-                    } else if (gp.includes("qatar") || gp.includes("lusail")) {
-                        pts = [[5,18],[18,19],[28,15],[29,8],[22,5],[14,9],[11,6],[6,10],[5,18]];
-                    } else if (gp.includes("abu")) {
-                        pts = [[4,14],[11,5],[25,5],[30,10],[27,18],[17,17],[13,20],[6,19],[4,14]];
-                    } else if (gp.includes("mexico")) {
-                        pts = [[4,17],[22,17],[26,12],[29,12],[29,17],[24,20],[11,11],[7,12],[4,17]];
-                    } else {
-                        pts = [[4,17],[15,17],[20,7],[29,7],[28,16],[19,15],[12,20],[4,17]];
-                    }
+                    let pts = root.trackPoints;
+                    if (!pts || pts.length < 3) return;
 
-                    ctx.strokeStyle = "rgba(255, 255, 255, 0.50)";
+                    let pad = 3.5;
+                    let drawW = width - pad * 2;
+                    let drawH = height - pad * 2;
+
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.58)";
                     ctx.lineWidth = 1.8;
                     ctx.lineCap = "round";
                     ctx.lineJoin = "round";
                     ctx.beginPath();
                     for (let i = 0; i < pts.length; i++) {
-                        if (i === 0) ctx.moveTo(pts[i][0], pts[i][1]);
-                        else ctx.lineTo(pts[i][0], pts[i][1]);
+                        let px = pad + pts[i][0] * drawW;
+                        let py = pad + pts[i][1] * drawH;
+                        if (i === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
                     }
+                    ctx.closePath();
                     ctx.stroke();
 
-                    // Red Start/Finish Line Marker
+                    // Crimson Start/Finish Sector Marker
                     ctx.fillStyle = "#E10600";
                     ctx.beginPath();
-                    ctx.arc(pts[0][0], pts[0][1], 2.2, 0, Math.PI * 2);
+                    ctx.arc(pad + pts[0][0] * drawW, pad + pts[0][1] * drawH, 2.3, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }

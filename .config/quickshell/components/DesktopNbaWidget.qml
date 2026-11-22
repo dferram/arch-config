@@ -26,7 +26,7 @@ Rectangle {
         return null;
     }
     readonly property var wrapper: findWrapper()
-    readonly property string nbaPng: Quickshell.shellPath("icons/nba.png")
+    readonly property string nbaSvg: Quickshell.shellPath("icons/nba.svg")
 
     // State properties
     property var games: []
@@ -204,36 +204,28 @@ Rectangle {
     // =========================================================================
     ColumnLayout {
         anchors.fill: parent
-        anchors.topMargin: 13
-        anchors.bottomMargin: 12
+        anchors.topMargin: 10
+        anchors.bottomMargin: 11
         anchors.leftMargin: 14
         anchors.rightMargin: 14
-        spacing: 8
+        spacing: 7
         z: 2
 
-        // 1. Header: Larger NBA Emblem + Title + Counter + Status Pill
+        // 1. Header: Large Standalone NBA Official Logo + Title + Counter + Status Pill
         RowLayout {
             Layout.fillWidth: true
-            spacing: 10
+            spacing: 11
 
-            Rectangle {
-                Layout.preferredWidth: 42
-                Layout.preferredHeight: 32
-                radius: 7
-                color: "#1D428A"
-                border.color: Qt.rgba(1, 1, 1, 0.18)
-                border.width: 1
-
-                Image {
-                    anchors.centerIn: parent
-                    source: root.nbaPng
-                    width: 30
-                    height: 26
-                    sourceSize: Qt.size(64, 64)
-                    fillMode: Image.PreserveAspectFit
-                    mipmap: true
-                    asynchronous: true
-                }
+            Image {
+                Layout.preferredWidth: 21
+                Layout.preferredHeight: 42
+                Layout.alignment: Qt.AlignVCenter
+                source: root.nbaSvg
+                sourceSize: Qt.size(42, 84)
+                fillMode: Image.PreserveAspectFit
+                mipmap: true
+                smooth: true
+                asynchronous: true
             }
 
             ColumnLayout {

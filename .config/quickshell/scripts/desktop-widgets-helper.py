@@ -772,6 +772,7 @@ def get_f1_data():
         now_utc = datetime.now(timezone.utc)
         clean_name = "Mexico City Grand Prix"
         short_name = "Mexico City GP"
+        circuit_id = "vegas"
         circuit_full = "Autodromo Hermanos Rodriguez"
         location_str = "Mexico City, Mexico"
         round_no = 20
@@ -795,6 +796,7 @@ def get_f1_data():
                 clean_name = r_info.get("raceName", clean_name)
                 short_name = clean_name.replace("Grand Prix", "GP").strip()
                 c_obj = r_info.get("Circuit", {})
+                circuit_id = c_obj.get("circuitId", circuit_id)
                 circuit_full = c_obj.get("circuitName", circuit_full)
                 loc_obj = c_obj.get("Location", {})
                 city = loc_obj.get("locality", "Mexico City")
@@ -850,6 +852,15 @@ def get_f1_data():
         except Exception:
             pass
 
+        track_points = []
+        try:
+            tracks_path = Path(__file__).resolve().parent / "f1_tracks.json"
+            if tracks_path.exists():
+                with open(tracks_path, "r", encoding="utf-8") as tf:
+                    track_points = json.load(tf).get(circuit_id, [])
+        except Exception:
+            pass
+
         payload = {
             "status": "ok",
             "sport": "f1",
@@ -857,6 +868,8 @@ def get_f1_data():
             "nextRace": {
                 "name": clean_name,
                 "shortName": short_name,
+                "circuitId": circuit_id,
+                "trackPoints": track_points,
                 "circuit": circuit_full,
                 "location": location_str,
                 "date": session_date,
