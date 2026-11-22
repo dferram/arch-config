@@ -408,28 +408,13 @@ Rectangle {
                 anchors.bottomMargin: 6
                 spacing: 2
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 5
-
-                    Text {
-                        text: "DAILY"
-                        color: root.lcAmber
-                        font.family: "sans-serif"
-                        font.pixelSize: 7
-                        font.bold: true
-                        font.letterSpacing: 0.6
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Text {
-                        text: "↗"
-                        color: dailyMa.containsMouse ? root.lcAmber : theme.textDim
-                        font.family: "sans-serif"
-                        font.pixelSize: 10
-                        font.bold: true
-                    }
+                Text {
+                    text: "DAILY"
+                    color: root.lcAmber
+                    font.family: "sans-serif"
+                    font.pixelSize: 7
+                    font.bold: true
+                    font.letterSpacing: 0.6
                 }
 
                 Text {

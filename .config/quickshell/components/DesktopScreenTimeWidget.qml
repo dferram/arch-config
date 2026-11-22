@@ -404,39 +404,5 @@ Rectangle {
         }
 
         Item { Layout.fillHeight: true }
-
-        // Bottom Footer: Active App Pill / Action Hint
-        Rectangle {
-            Layout.fillWidth: true
-            height: 24
-            radius: 8
-            color: Qt.rgba(1, 1, 1, 0.06)
-            border.color: Qt.rgba(255, 255, 255, 0.08)
-            border.width: 1
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
-
-                Text {
-                    text: root.currentClass ? ("● " + root.currentClass) : "Idle"
-                    font.family: theme.fontFamily
-                    font.pixelSize: 10
-                    font.weight: Font.Medium
-                    color: theme.textMuted
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: "Details →"
-                    font.family: theme.fontFamily
-                    font.pixelSize: 9
-                    font.weight: Font.DemiBold
-                    color: theme.blueLight != "" ? theme.blueLight : "#0a84ff"
-                }
-            }
-        }
     }
 }

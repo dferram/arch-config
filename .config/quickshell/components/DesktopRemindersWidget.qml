@@ -239,28 +239,6 @@ Rectangle {
                     }
                 }
             }
-
-            // Month Counter Badge
-            Rectangle {
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                height: 18
-                width: countTxt.implicitWidth + 12
-                radius: 9
-                color: Qt.rgba(1, 1, 1, 0.08)
-                border.color: Qt.rgba(255, 255, 255, 0.10)
-                border.width: 1
-
-                Text {
-                    id: countTxt
-                    anchors.centerIn: parent
-                    text: root.currentMonthCount.toString()
-                    color: theme.textSub
-                    font.family: theme.fontFamily
-                    font.pixelSize: 10
-                    font.weight: Font.Bold
-                }
-            }
         }
 
         // Reminders List for Current Month (Clean display - No clicks)
