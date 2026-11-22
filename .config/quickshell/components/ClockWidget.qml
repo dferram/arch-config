@@ -152,8 +152,12 @@ Item {
         { id: "yearly", label: "Yearly" }
     ]
 
-    function getRepeatLabel(repId) {
+    function getRepeatLabel(repId, repDays) {
         let r = (repId || "none").toLowerCase();
+        if (r === "weekly" && Array.isArray(repDays) && repDays.length > 0) {
+            let map = { "MO": "Mo", "TU": "Tu", "WE": "We", "TH": "Th", "FR": "Fr", "SA": "Sa", "SU": "Su" };
+            return repDays.map(d => map[d] || d).join(",");
+        }
         for (let i = 0; i < repeatOptions.length; i++) {
             if (repeatOptions[i].id === r) return repeatOptions[i].label;
         }
@@ -502,6 +506,8 @@ Item {
 
     function matchesReminderOnDate(rem, dStr) {
         if (!rem || !rem.date || !dStr) return false;
+        if (Array.isArray(rem.exdates) && rem.exdates.indexOf(dStr) !== -1) return false;
+
         let rep = (rem.repeat || "none").toLowerCase();
         if (rep === "" || rep === "none") return rem.date === dStr;
 
@@ -510,13 +516,25 @@ Item {
         if (!s || !t) return rem.date === dStr;
         if (t.utcMs < s.utcMs) return false;
 
+        if (rem.repeat_until) {
+            let u = parseDateParts(rem.repeat_until);
+            if (u && t.utcMs > u.utcMs) return false;
+        }
+
         let diffDays = Math.round((t.utcMs - s.utcMs) / 86400000);
         if (rep === "daily") return true;
         if (rep === "weekdays") {
             let dow = new Date(t.utcMs).getUTCDay();
             return dow >= 1 && dow <= 5;
         }
-        if (rep === "weekly") return diffDays % 7 === 0;
+        if (rep === "weekly") {
+            if (Array.isArray(rem.repeat_days) && rem.repeat_days.length > 0) {
+                let dayCodes = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+                let dow = new Date(t.utcMs).getUTCDay();
+                return rem.repeat_days.indexOf(dayCodes[dow]) !== -1;
+            }
+            return diffDays % 7 === 0;
+        }
         if (rep === "biweekly") return diffDays % 14 === 0;
         if (rep === "monthly") {
             let maxDay = new Date(Date.UTC(t.y, t.m, 0)).getUTCDate();
@@ -3255,7 +3273,7 @@ Item {
                                                             smooth: true
                                                         }
                                                         Text {
-                                                            text: modelData.time
+                                                            text: modelData.all_day ? "All day" : modelData.time
                                                             color: theme.textSub
                                                             font.family: theme.fontFamily
                                                             font.pixelSize: 11
@@ -3312,7 +3330,7 @@ Item {
 
                                                     Text {
                                                         visible: !!(modelData.repeat && modelData.repeat !== "none")
-                                                        text: "󰑖 " + root.getRepeatLabel(modelData.repeat)
+                                                        text: "󰑖 " + root.getRepeatLabel(modelData.repeat, modelData.repeat_days)
                                                         color: theme.blueLight
                                                         font.family: "GeistMono Nerd Font Propo"
                                                         font.pixelSize: 9

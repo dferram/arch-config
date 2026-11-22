@@ -17,21 +17,65 @@ Rectangle {
     implicitHeight: 56 + upcoming.length * 40
     visible: upcoming.length > 0
 
-    function toDate(r) {
-        const d = r.date.split("-");
+    function toDate(r, dateOverride) {
+        const d = (dateOverride || r.date).split("-");
         const t = (r.time || "00:00").split(":");
         return new Date(+d[0], +d[1] - 1, +d[2], +t[0] || 0, +t[1] || 0);
+    }
+    function occursOnDate(r, dateObj) {
+        const dStr = dateObj.getFullYear() + "-" + String(dateObj.getMonth() + 1).padStart(2, '0') + "-" + String(dateObj.getDate()).padStart(2, '0');
+        const rep = (r.repeat || "none").toLowerCase();
+        if (rep === "" || rep === "none") return r.date === dStr;
+        const sp = (r.date || "").split("-");
+        if (sp.length !== 3) return false;
+        const sUtc = Date.UTC(+sp[0], +sp[1] - 1, +sp[2]);
+        const tUtc = Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+        if (tUtc < sUtc) return false;
+        if (r.repeat_until) {
+            const up = r.repeat_until.split("-");
+            if (up.length === 3 && tUtc > Date.UTC(+up[0], +up[1] - 1, +up[2])) return false;
+        }
+        if (Array.isArray(r.exdates) && r.exdates.indexOf(dStr) !== -1) return false;
+        const diffDays = Math.round((tUtc - sUtc) / 86400000);
+        const dow = dateObj.getDay();
+        const dayCodes = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+        if (rep === "daily") return true;
+        if (rep === "weekdays") return dow >= 1 && dow <= 5;
+        if (rep === "weekly") {
+            if (Array.isArray(r.repeat_days) && r.repeat_days.length > 0) return r.repeat_days.indexOf(dayCodes[dow]) !== -1;
+            return diffDays % 7 === 0;
+        }
+        if (rep === "biweekly") return diffDays % 14 === 0;
+        if (rep === "monthly") {
+            const maxDay = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
+            return dateObj.getDate() === Math.min(+sp[2], maxDay);
+        }
+        if (rep === "yearly") {
+            if (dateObj.getMonth() + 1 !== +sp[1]) return false;
+            const maxDay = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
+            return dateObj.getDate() === Math.min(+sp[2], maxDay);
+        }
+        return false;
     }
     readonly property var upcoming: {
         // Only surface what is imminent: due within the next 2 hours (or up to 15 min late)
         const from = now.getTime() - 15 * 60000;
         const to = now.getTime() + 120 * 60000;
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
         const list = [];
         for (let i = 0; i < reminders.length; i++) {
             const r = reminders[i];
             if (!r.date) continue;
-            const dt = toDate(r);
-            if (dt.getTime() >= from && dt.getTime() <= to) list.push({ title: r.title, category: r.category || "", dt: dt });
+            const cands = [today, tomorrow];
+            for (let c = 0; c < cands.length; c++) {
+                if (!occursOnDate(r, cands[c])) continue;
+                const cStr = cands[c].getFullYear() + "-" + String(cands[c].getMonth() + 1).padStart(2, '0') + "-" + String(cands[c].getDate()).padStart(2, '0');
+                const dt = toDate(r, cStr);
+                if (dt.getTime() >= from && dt.getTime() <= to) {
+                    list.push({ title: r.title, category: r.category || "", dt: dt });
+                }
+            }
         }
         list.sort((a, b) => a.dt - b.dt);
         return list.slice(0, maxItems);

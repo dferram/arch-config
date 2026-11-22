@@ -36,3 +36,6 @@ __pycache__/
 *.pem
 *.key
 .gitconfig-local
+gcal_*.json
+gcal_sync_state.json
+reminders.json*

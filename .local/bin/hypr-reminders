@@ -7,19 +7,29 @@ Supports adding, listing, toggling, deleting reminders, and 5-min-before desktop
 
 import sys
 import os
+import re
 import json
 import time
+import fcntl
 import calendar
 import argparse
 import subprocess
-from datetime import datetime, date, timedelta
+from difflib import SequenceMatcher
+from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 
 DATA_DIR = Path.home() / ".local" / "share" / "hypr-reminders"
 DATA_FILE = DATA_DIR / "reminders.json"
 CATEGORIES_FILE = DATA_DIR / "categories.json"
 TIMERS_FILE = DATA_DIR / "timers.json"
+GCAL_TOKEN_FILE = DATA_DIR / "gcal_token.json"
+GCAL_CREDS_FILE = DATA_DIR / "gcal_credentials.json"
+GCAL_TV_CREDS_FILE = DATA_DIR / "gcal_tv_credentials.json"
+GCAL_SYNC_STATE_FILE = DATA_DIR / "gcal_sync_state.json"
+SYNC_LOCK_FILE = DATA_DIR / ".sync.lock"
+BACKUP_PRE_MERGE_FILE = DATA_DIR / "reminders.json.pre-gcal-backup"
 
+DAY_CODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
 VALID_REPEATS = {"none", "daily", "weekdays", "weekly", "biweekly", "monthly", "yearly"}
 
 DEFAULT_CATEGORIES = {
@@ -97,6 +107,30 @@ def normalize_repeat(rep):
     return val if val in VALID_REPEATS else "none"
 
 
+def normalize_repeat_days(days):
+    if not days:
+        return []
+    if isinstance(days, str):
+        days = [d.strip().upper() for d in days.split(",") if d.strip()]
+    out = []
+    for d in days:
+        code = str(d).strip().upper()[:2]
+        if code in DAY_CODES and code not in out:
+            out.append(code)
+    return out
+
+
+def normalize_repeat_until(until_str):
+    if not until_str:
+        return ""
+    s = str(until_str).strip()
+    try:
+        datetime.strptime(s, "%Y-%m-%d")
+        return s
+    except ValueError:
+        return ""
+
+
 def occurs_on(rem, target_date: date) -> bool:
     d_str = rem.get("date", "")
     try:
@@ -107,6 +141,19 @@ def occurs_on(rem, target_date: date) -> bool:
     if target_date < start_date:
         return False
 
+    until_str = rem.get("repeat_until") or ""
+    if until_str:
+        try:
+            until_date = datetime.strptime(until_str, "%Y-%m-%d").date()
+            if target_date > until_date:
+                return False
+        except ValueError:
+            pass
+
+    exdates = rem.get("exdates") or []
+    if target_date.strftime("%Y-%m-%d") in exdates:
+        return False
+
     rep = normalize_repeat(rem.get("repeat"))
     if rep == "none":
         return target_date == start_date
@@ -115,6 +162,9 @@ def occurs_on(rem, target_date: date) -> bool:
     if rep == "weekdays":
         return target_date.weekday() < 5
     if rep == "weekly":
+        rep_days = normalize_repeat_days(rem.get("repeat_days"))
+        if rep_days:
+            return DAY_CODES[target_date.weekday()] in rep_days
         return (target_date - start_date).days % 7 == 0
     if rep == "biweekly":
         return (target_date - start_date).days % 14 == 0
@@ -129,9 +179,27 @@ def occurs_on(rem, target_date: date) -> bool:
     return target_date == start_date
 
 
-def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes="", photo="", repeat="none", logo=""):
+def utc_now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def spawn_background_sync():
+    try:
+        if not GCAL_TOKEN_FILE.exists():
+            return
+        subprocess.Popen(
+            [sys.executable, str(Path(__file__).resolve()), "sync"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception:
+        pass
+
+
+def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes="", photo="", repeat="none", logo="", repeat_days=None, repeat_until="", sync_bg=True):
     reminders = load_reminders()
-    
+
     # Validate date
     try:
         datetime.strptime(date_str, "%Y-%m-%d")
@@ -146,6 +214,9 @@ def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes=
 
     rem_id = f"rem_{int(time.time())}_{len(reminders) + 1}"
     cat = category.strip() if (category and category.strip()) else "Personal"
+    rep = normalize_repeat(repeat)
+    rep_days = normalize_repeat_days(repeat_days) if rep == "weekly" else []
+    rep_until = normalize_repeat_until(repeat_until) if rep != "none" else ""
 
     item = {
         "id": rem_id,
@@ -155,20 +226,28 @@ def add_reminder(title, date_str, time_str, category="Colgate-Palmolive", notes=
         "category": cat,
         "notes": notes.strip(),
         "photo": photo.strip() if photo else "",
-        "repeat": normalize_repeat(repeat),
+        "repeat": rep,
         "logo": (logo or "").strip().lower(),
         "done": False,
         "created_at": datetime.now().isoformat(),
+        "local_updated": utc_now_iso(),
         "notified_5min": False,
         "notified_due": False
     }
+    if rep_days:
+        item["repeat_days"] = rep_days
+    if rep_until:
+        item["repeat_until"] = rep_until
 
     reminders.append(item)
     reminders.sort(key=lambda x: (x.get("date", ""), x.get("time", "")))
     save_reminders(reminders)
+    if sync_bg:
+        spawn_background_sync()
     return item
 
-def edit_reminder(rem_id, title=None, date_str=None, time_str=None, category=None, notes=None, photo=None, repeat=None, logo=None):
+
+def edit_reminder(rem_id, title=None, date_str=None, time_str=None, category=None, notes=None, photo=None, repeat=None, logo=None, repeat_days=None, repeat_until=None, sync_bg=True):
     reminders = load_reminders()
     for r in reminders:
         if r.get("id") == rem_id:
@@ -178,6 +257,7 @@ def edit_reminder(rem_id, title=None, date_str=None, time_str=None, category=Non
                 r["date"] = date_str.strip()
             if time_str is not None and time_str.strip():
                 r["time"] = time_str.strip()
+                r["all_day"] = False
             if category is not None and category.strip():
                 r["category"] = category.strip()
             if notes is not None:
@@ -185,7 +265,26 @@ def edit_reminder(rem_id, title=None, date_str=None, time_str=None, category=Non
             if photo is not None:
                 r["photo"] = photo.strip()
             if repeat is not None:
-                r["repeat"] = normalize_repeat(repeat)
+                new_rep = normalize_repeat(repeat)
+                r["repeat"] = new_rep
+                if new_rep != "weekly":
+                    r.pop("repeat_days", None)
+                if new_rep == "none":
+                    r.pop("repeat_until", None)
+                    r.pop("gcal_rrule", None)
+            if repeat_days is not None:
+                days_norm = normalize_repeat_days(repeat_days)
+                if days_norm and r.get("repeat") == "weekly":
+                    r["repeat_days"] = days_norm
+                else:
+                    r.pop("repeat_days", None)
+            if repeat_until is not None:
+                until_norm = normalize_repeat_until(repeat_until)
+                if until_norm and r.get("repeat") != "none":
+                    r["repeat_until"] = until_norm
+                else:
+                    r.pop("repeat_until", None)
+            r["local_updated"] = utc_now_iso()
             if logo is not None:
                 r["logo"] = logo.strip().lower()
             r["notified_5min"] = False
@@ -194,14 +293,33 @@ def edit_reminder(rem_id, title=None, date_str=None, time_str=None, category=Non
             r.pop("last_notified_due_date", None)
             reminders.sort(key=lambda x: (x.get("date", ""), x.get("time", "")))
             save_reminders(reminders)
+            if sync_bg:
+                spawn_background_sync()
             return r
     return None
 
-def delete_reminder(rem_id):
+
+def queue_gcal_delete(gcal_id):
+    if not gcal_id:
+        return
+    state = load_sync_state()
+    pending = state.get("pending_deletes", [])
+    if gcal_id not in pending:
+        pending.append(gcal_id)
+    state["pending_deletes"] = pending
+    save_sync_state(state)
+
+
+def delete_reminder(rem_id, sync_bg=True):
     reminders = load_reminders()
+    deleted_item = next((r for r in reminders if r.get("id") == rem_id), None)
     new_rems = [r for r in reminders if r.get("id") != rem_id]
     if len(new_rems) != len(reminders):
         save_reminders(new_rems)
+        if deleted_item and deleted_item.get("gcal_id"):
+            queue_gcal_delete(deleted_item["gcal_id"])
+            if sync_bg:
+                spawn_background_sync()
         return True
     return False
 
@@ -391,9 +509,753 @@ def check_and_notify(reminders=None):
     if changed:
         save_reminders(reminders)
 
+GCAL_API_BASE = "https://www.googleapis.com/calendar/v3"
+
+GCAL_TAG_TO_CAT = {
+    "work": "Colgate-Palmolive",
+    "colgate": "Colgate-Palmolive",
+    "colgate-palmolive": "Colgate-Palmolive",
+    "freelance": "Free Lance",
+    "free lance": "Free Lance",
+    "free-lance": "Free Lance",
+    "school": "School",
+    "personal": "Personal",
+    "sara": "Sara",
+    "marvel": "Marvel",
+    "community": "Community",
+    "projects": "Projects",
+    "project": "Projects",
+    "workshops": "Workshops",
+    "workshop": "Workshops",
+    "f1": "F1",
+}
+
+CAT_TO_GCAL_TAG = {
+    "Colgate-Palmolive": "Work",
+    "Free Lance": "Freelance",
+}
+
+SYNONYM_MAP = {
+    "alcacio": "alcasio",
+    "estevez": "esteves",
+    "deadline": "delivery",
+    "f-up": "followup",
+    "fup": "followup",
+    "kosher": "coaching",
+    "touchpoint": "meeting",
+    "presenta": "tour",
+    "months": "month",
+    "claude": "cloud",
+}
+
+
+def load_sync_state():
+    ensure_data()
+    if not GCAL_SYNC_STATE_FILE.exists():
+        return {"known_gcal_ids": [], "pending_deletes": [], "last_sync": ""}
+    try:
+        data = json.loads(GCAL_SYNC_STATE_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            data.setdefault("known_gcal_ids", [])
+            data.setdefault("pending_deletes", [])
+            data.setdefault("last_sync", "")
+            return data
+    except Exception:
+        pass
+    return {"known_gcal_ids": [], "pending_deletes": [], "last_sync": ""}
+
+
+def save_sync_state(state):
+    ensure_data()
+    tmp = GCAL_SYNC_STATE_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(GCAL_SYNC_STATE_FILE)
+
+
+def get_local_tz():
+    return datetime.now().astimezone().tzinfo
+
+
+def get_local_tz_name():
+    try:
+        tz_link = Path("/etc/localtime")
+        if tz_link.is_symlink():
+            target = str(tz_link.resolve())
+            if "/zoneinfo/" in target:
+                return target.split("/zoneinfo/", 1)[1]
+    except Exception:
+        pass
+    return "America/Mexico_City"
+
+
+def load_gcal_auth():
+    if not GCAL_TOKEN_FILE.exists():
+        raise FileNotFoundError(f"Missing token file: {GCAL_TOKEN_FILE}")
+    tok = json.loads(GCAL_TOKEN_FILE.read_text(encoding="utf-8"))
+    creds = {}
+    for cand in (GCAL_CREDS_FILE, GCAL_TV_CREDS_FILE):
+        if cand.exists():
+            raw = json.loads(cand.read_text(encoding="utf-8"))
+            creds = raw.get("installed") or raw.get("web") or raw
+            break
+    client_id = tok.get("client_id") or creds.get("client_id")
+    client_secret = tok.get("client_secret") or creds.get("client_secret")
+    token_uri = tok.get("token_uri") or creds.get("token_uri") or "https://oauth2.googleapis.com/token"
+    return tok, {"client_id": client_id, "client_secret": client_secret, "token_uri": token_uri}
+
+
+def save_gcal_token(tok):
+    tmp = GCAL_TOKEN_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(tok, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    tmp.replace(GCAL_TOKEN_FILE)
+
+
+def is_token_expired(tok):
+    exp = tok.get("expiry")
+    if not exp:
+        return False
+    try:
+        clean = exp.replace("+00:00Z", "Z")
+        if clean.endswith("Z"):
+            clean = clean[:-1] + "+00:00"
+        exp_dt = datetime.fromisoformat(clean)
+        if exp_dt.tzinfo is None:
+            exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+        return exp_dt <= datetime.now(timezone.utc) + timedelta(seconds=90)
+    except Exception:
+        return True
+
+
+def refresh_gcal_token(tok, creds):
+    import requests
+    if not tok.get("refresh_token"):
+        raise RuntimeError("No refresh_token available in gcal_token.json")
+    resp = requests.post(
+        creds["token_uri"],
+        data={
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "refresh_token": tok["refresh_token"],
+            "grant_type": "refresh_token",
+        },
+        timeout=20,
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f"Token refresh failed ({resp.status_code}): {resp.text[:300]}")
+    data = resp.json()
+    tok["token"] = data["access_token"]
+    expires_in = int(data.get("expires_in", 3600))
+    tok["expiry"] = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
+    save_gcal_token(tok)
+    return tok
+
+
+class GCalClient:
+    def __init__(self):
+        import requests
+        self._requests = requests
+        self.tok, self.creds = load_gcal_auth()
+        if is_token_expired(self.tok):
+            self.tok = refresh_gcal_token(self.tok, self.creds)
+
+    def request(self, method, path, params=None, json_body=None):
+        url = f"{GCAL_API_BASE}{path}"
+        headers = {"Authorization": f"Bearer {self.tok['token']}"}
+        resp = self._requests.request(method, url, headers=headers, params=params, json=json_body, timeout=25)
+        if resp.status_code == 401:
+            self.tok = refresh_gcal_token(self.tok, self.creds)
+            headers = {"Authorization": f"Bearer {self.tok['token']}"}
+            resp = self._requests.request(method, url, headers=headers, params=params, json=json_body, timeout=25)
+        return resp
+
+    def list_events(self, calendar_id="primary"):
+        items = []
+        page_token = None
+        while True:
+            params = {"maxResults": 250, "singleEvents": "false", "showDeleted": "true"}
+            if page_token:
+                params["pageToken"] = page_token
+            resp = self.request("GET", f"/calendars/{calendar_id}/events", params=params)
+            if resp.status_code != 200:
+                raise RuntimeError(f"GCal list_events failed ({resp.status_code}): {resp.text[:300]}")
+            data = resp.json()
+            items.extend(data.get("items", []))
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                break
+        return items
+
+    def insert_event(self, payload, calendar_id="primary"):
+        resp = self.request("POST", f"/calendars/{calendar_id}/events", json_body=payload)
+        if resp.status_code not in (200, 201):
+            raise RuntimeError(f"GCal insert failed ({resp.status_code}): {resp.text[:300]}")
+        return resp.json()
+
+    def patch_event(self, gcal_id, payload, calendar_id="primary"):
+        resp = self.request("PATCH", f"/calendars/{calendar_id}/events/{gcal_id}", json_body=payload)
+        if resp.status_code not in (200, 201):
+            raise RuntimeError(f"GCal patch failed ({resp.status_code}): {resp.text[:300]}")
+        return resp.json()
+
+    def delete_event(self, gcal_id, calendar_id="primary"):
+        resp = self.request("DELETE", f"/calendars/{calendar_id}/events/{gcal_id}")
+        if resp.status_code not in (200, 204, 404, 410):
+            raise RuntimeError(f"GCal delete failed ({resp.status_code}): {resp.text[:300]}")
+        return True
+
+
+def parse_gcal_category_and_title(summary, description):
+    raw_title = (summary or "Untitled Event").strip()
+    desc = description or ""
+    m = re.match(r'^\[([^\]]+)\]\s*(.+)$', raw_title)
+    if m:
+        tag = m.group(1).strip()
+        rest = m.group(2).strip()
+        cat = GCAL_TAG_TO_CAT.get(tag.lower(), tag)
+        return cat, rest
+
+    cat_m = re.search(r'Category:\s*([A-Za-z0-9 _-]+)\.?', desc, re.IGNORECASE)
+    if cat_m:
+        tag = cat_m.group(1).strip()
+        return GCAL_TAG_TO_CAT.get(tag.lower(), tag), raw_title
+
+    low = f"{raw_title} {desc}".lower()
+    if any(k in low for k in ("colgate", "evenplan", "procurement", "on-boarding", "onboarding", "packaking", "non-conformance")):
+        return "Colgate-Palmolive", raw_title
+    if any(k in low for k in ("devfest", "gdg", "figma", "fof", "google cloud", "build with ai", "build hour", "meetup", "taller", "hackathon", "gitkon", "aws summit", "odoo", "oracle", "devin", "luma.com", "grupo de estudio", "google \"get certified\"", "google keynote", "developer keynote", "responsible ai", "building trustable ai", "ai fest", "tech week", "bits, bytes", "la nueva alquimia", "soft skills meet", "innovation pit stop", "social tech run", "make-a-thon", "design & prompt")):
+        return "Community", raw_title
+    return "Personal", raw_title
+
+
+def clean_gcal_notes(description):
+    if not description:
+        return ""
+    txt = re.sub(r'\s*Category:\s*[A-Za-z0-9 _-]+\.?\s*$', '', description.strip(), flags=re.IGNORECASE)
+    return txt.strip()
+
+
+def parse_gcal_datetime(ev):
+    start = ev.get("start", {})
+    end = ev.get("end", {})
+    local_tz = get_local_tz()
+    if "dateTime" in start:
+        s_dt = datetime.fromisoformat(start["dateTime"].replace("Z", "+00:00")).astimezone(local_tz)
+        duration_min = 60
+        if "dateTime" in end:
+            try:
+                e_dt = datetime.fromisoformat(end["dateTime"].replace("Z", "+00:00")).astimezone(local_tz)
+                diff = int((e_dt - s_dt).total_seconds() // 60)
+                if diff > 0:
+                    duration_min = diff
+            except Exception:
+                pass
+        return s_dt.strftime("%Y-%m-%d"), s_dt.strftime("%H:%M"), False, duration_min
+    d_str = start.get("date", datetime.now().strftime("%Y-%m-%d"))
+    return d_str, "00:00", True, 1440
+
+
+def parse_gcal_rrule(recurrence_list, start_date_str=""):
+    if not recurrence_list:
+        return "none", [], "", ""
+    rrule = ""
+    for line in recurrence_list:
+        if line.upper().startswith("RRULE:"):
+            rrule = line.strip()
+            break
+    if not rrule:
+        return "none", [], "", ""
+
+    parts = {}
+    for seg in rrule[6:].split(";"):
+        if "=" in seg:
+            k, v = seg.split("=", 1)
+            parts[k.upper()] = v
+
+    freq = parts.get("FREQ", "").upper()
+    interval = int(parts.get("INTERVAL", "1") or "1")
+    byday = normalize_repeat_days(parts.get("BYDAY", "").split(",")) if parts.get("BYDAY") else []
+    until_str = ""
+    raw_until = parts.get("UNTIL", "")
+    if raw_until:
+        try:
+            if "T" in raw_until:
+                dt = datetime.strptime(raw_until[:15], "%Y%m%dT%H%M%S")
+                if raw_until.endswith("Z"):
+                    dt = dt.replace(tzinfo=timezone.utc).astimezone(get_local_tz())
+                until_str = dt.strftime("%Y-%m-%d")
+            else:
+                until_str = datetime.strptime(raw_until[:8], "%Y%m%d").strftime("%Y-%m-%d")
+        except Exception:
+            until_str = ""
+    elif parts.get("COUNT") and start_date_str:
+        try:
+            cnt = max(1, int(parts["COUNT"]))
+            sd = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            if freq == "DAILY":
+                until_str = (sd + timedelta(days=(cnt - 1) * interval)).strftime("%Y-%m-%d")
+            elif freq == "WEEKLY":
+                if byday:
+                    seen = 0
+                    cur = sd
+                    while seen < cnt and (cur - sd).days < 3650:
+                        if DAY_CODES[cur.weekday()] in byday:
+                            seen += 1
+                            if seen == cnt:
+                                until_str = cur.strftime("%Y-%m-%d")
+                                break
+                        cur += timedelta(days=1)
+                else:
+                    until_str = (sd + timedelta(weeks=(cnt - 1) * interval)).strftime("%Y-%m-%d")
+            elif freq == "YEARLY":
+                until_str = sd.replace(year=sd.year + (cnt - 1) * interval).strftime("%Y-%m-%d")
+        except Exception:
+            pass
+
+    if freq == "DAILY":
+        return "daily", [], until_str, rrule
+    if freq == "WEEKLY":
+        if interval == 2:
+            return "biweekly", [], until_str, rrule
+        if set(byday) == {"MO", "TU", "WE", "TH", "FR"} and not until_str:
+            return "weekdays", [], until_str, rrule
+        return "weekly", byday, until_str, rrule
+    if freq == "MONTHLY":
+        return "monthly", [], until_str, rrule
+    if freq == "YEARLY":
+        return "yearly", [], until_str, rrule
+    return "none", [], "", rrule
+
+
+def build_gcal_rrule(rem):
+    rep = normalize_repeat(rem.get("repeat"))
+    if rep == "none":
+        return []
+    rep_days = normalize_repeat_days(rem.get("repeat_days"))
+    until_str = normalize_repeat_until(rem.get("repeat_until"))
+
+    if rep == "daily":
+        rule = "RRULE:FREQ=DAILY"
+    elif rep == "weekdays":
+        rule = "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
+    elif rep == "weekly":
+        rule = "RRULE:FREQ=WEEKLY"
+        if rep_days:
+            rule += f";BYDAY={','.join(rep_days)}"
+    elif rep == "biweekly":
+        rule = "RRULE:FREQ=WEEKLY;INTERVAL=2"
+    elif rep == "monthly":
+        rule = "RRULE:FREQ=MONTHLY"
+    elif rep == "yearly":
+        rule = "RRULE:FREQ=YEARLY"
+    else:
+        return []
+
+    if until_str:
+        local_end = datetime.strptime(until_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=get_local_tz())
+        utc_end = local_end.astimezone(timezone.utc)
+        rule += f";UNTIL={utc_end.strftime('%Y%m%dT%H%M%SZ')}"
+    return [rule]
+
+
+def gcal_payload_from_reminder(rem):
+    cat = (rem.get("category") or "Personal").strip()
+    title = (rem.get("title") or "Reminder").strip()
+    if title.startswith("["):
+        summary = title
+    else:
+        tag = CAT_TO_GCAL_TAG.get(cat, cat)
+        summary = f"[{tag}] {title}"
+
+    notes = (rem.get("notes") or "").strip()
+    if f"Category: {cat}" not in notes:
+        desc = f"{notes}\n\nCategory: {cat}.".strip() if notes else f"Category: {cat}."
+    else:
+        desc = notes
+
+    d_str = rem.get("date") or datetime.now().strftime("%Y-%m-%d")
+    tz_name = get_local_tz_name()
+    if rem.get("all_day"):
+        end_d = (datetime.strptime(d_str, "%Y-%m-%d").date() + timedelta(days=1)).strftime("%Y-%m-%d")
+        start_obj = {"date": d_str}
+        end_obj = {"date": end_d}
+    else:
+        t_str = (rem.get("time") or "12:00").strip()
+        try:
+            hh, mm = [int(p) for p in t_str.split(":")[:2]]
+        except Exception:
+            hh, mm = 12, 0
+        s_dt = datetime.strptime(d_str, "%Y-%m-%d").replace(hour=hh, minute=mm, tzinfo=get_local_tz())
+        dur = int(rem.get("duration_min") or 60)
+        e_dt = s_dt + timedelta(minutes=max(15, dur))
+        start_obj = {"dateTime": s_dt.isoformat(), "timeZone": tz_name}
+        end_obj = {"dateTime": e_dt.isoformat(), "timeZone": tz_name}
+
+    payload = {
+        "summary": summary,
+        "description": desc,
+        "start": start_obj,
+        "end": end_obj,
+    }
+    rrule = build_gcal_rrule(rem)
+    if rrule:
+        payload["recurrence"] = rrule
+    else:
+        payload["recurrence"] = []
+    return payload
+
+
+def _norm_tokens(text):
+    t = re.sub(r'^\[[^\]]+\]\s*', '', text or '')
+    words = re.findall(r'[a-z0-9]+', t.lower())
+    stop = {"with", "the", "and", "for", "of", "on", "at", "in", "de", "la", "el", "con", "prof"}
+    out = []
+    for w in words:
+        w = SYNONYM_MAP.get(w, w)
+        if w not in stop:
+            out.append(w)
+    return out
+
+
+def match_score_local_gcal(rem, ev):
+    ev_date, ev_time, ev_all_day, _ = parse_gcal_datetime(ev)
+    if rem.get("date") != ev_date:
+        return 0.0
+
+    _, ev_title = parse_gcal_category_and_title(ev.get("summary"), ev.get("description"))
+    loc_title = rem.get("title", "")
+
+    loc_norm = " ".join(_norm_tokens(loc_title))
+    ev_norm = " ".join(_norm_tokens(ev_title))
+    if not loc_norm or not ev_norm:
+        return 0.0
+    if loc_norm == ev_norm:
+        return 1.0
+
+    seq = SequenceMatcher(None, loc_norm, ev_norm).ratio()
+    lt = set(loc_norm.split())
+    et = set(ev_norm.split())
+    overlap = len(lt & et) / max(1, min(len(lt), len(et)))
+
+    # Time proximity check
+    loc_t = (rem.get("time") or "").zfill(5)
+    same_time = (loc_t == ev_time)
+    close_time = same_time
+    if not close_time and not ev_all_day:
+        try:
+            lh, lm = int(loc_t[:2]), int(loc_t[3:5])
+            eh, em = int(ev_time[:2]), int(ev_time[3:5])
+            close_time = abs((lh * 60 + lm) - (eh * 60 + em)) <= 60
+        except Exception:
+            pass
+
+    if "class" in et and "deadline" in loc_title.lower():
+        return 0.0
+
+    score = max(seq, overlap * 0.9)
+    if same_time:
+        score += 0.15
+    elif close_time:
+        score += 0.08
+    elif ev_all_day:
+        score += 0.05
+    else:
+        score -= 0.25
+
+    return min(1.0, max(0.0, score))
+
+
+def reminder_fields_from_gcal(ev):
+    cat, title = parse_gcal_category_and_title(ev.get("summary"), ev.get("description"))
+    d_str, t_str, all_day, duration_min = parse_gcal_datetime(ev)
+    rep, rep_days, rep_until, raw_rrule = parse_gcal_rrule(ev.get("recurrence"), d_str)
+    notes = clean_gcal_notes(ev.get("description"))
+    fields = {
+        "title": title,
+        "date": d_str,
+        "time": t_str,
+        "category": cat,
+        "notes": notes,
+        "repeat": rep,
+        "all_day": all_day,
+        "duration_min": duration_min,
+        "gcal_id": ev.get("id", ""),
+        "gcal_updated": ev.get("updated", ""),
+    }
+    if rep_days:
+        fields["repeat_days"] = rep_days
+    if rep_until:
+        fields["repeat_until"] = rep_until
+    if raw_rrule:
+        fields["gcal_rrule"] = raw_rrule
+    return fields
+
+
+def _iso_gt(a, b):
+    if not a:
+        return False
+    if not b:
+        return True
+    try:
+        da = datetime.fromisoformat(a.replace("Z", "+00:00"))
+        db = datetime.fromisoformat(b.replace("Z", "+00:00"))
+        if da.tzinfo is None:
+            da = da.replace(tzinfo=timezone.utc)
+        if db.tzinfo is None:
+            db = db.replace(tzinfo=timezone.utc)
+        return da > db
+    except Exception:
+        return a > b
+
+
+def sync_gcal(dry_run=False):
+    ensure_data()
+    with open(SYNC_LOCK_FILE, "w", encoding="utf-8") as lock_fp:
+        fcntl.flock(lock_fp.fileno(), fcntl.LOCK_EX)
+        if not dry_run and DATA_FILE.exists() and not BACKUP_PRE_MERGE_FILE.exists():
+            BACKUP_PRE_MERGE_FILE.write_text(DATA_FILE.read_text(encoding="utf-8"), encoding="utf-8")
+
+        client = GCalClient()
+        state = load_sync_state()
+        known_ids = set(state.get("known_gcal_ids", []))
+        pending_deletes = list(state.get("pending_deletes", []))
+        reminders = load_reminders()
+
+        stats = {
+            "dry_run": dry_run,
+            "linked_existing": 0,
+            "pushed_new": 0,
+            "pulled_new": 0,
+            "updated_from_gcal": 0,
+            "updated_to_gcal": 0,
+            "deleted_local": 0,
+            "deleted_gcal": 0,
+            "pairs_linked": [],
+        }
+
+        # 1. Process pending local deletes on GCal
+        remaining_deletes = []
+        for gid in pending_deletes:
+            if dry_run:
+                stats["deleted_gcal"] += 1
+            else:
+                try:
+                    client.delete_event(gid)
+                    known_ids.discard(gid)
+                    stats["deleted_gcal"] += 1
+                except Exception:
+                    remaining_deletes.append(gid)
+
+        # 2. Fetch all Google Calendar events
+        raw_events = client.list_events("primary")
+        parent_ids = {ev["id"] for ev in raw_events if ev.get("id") and not ev.get("recurringEventId") and ev.get("status") != "cancelled"}
+
+        exdates_by_parent = {}
+        active_gcal = {}
+        cancelled_gcal_ids = set()
+
+        for ev in raw_events:
+            gid = ev.get("id")
+            if not gid:
+                continue
+            rec_parent = ev.get("recurringEventId")
+            if ev.get("status") == "cancelled":
+                if rec_parent:
+                    orig = ev.get("originalStartTime", {})
+                    orig_d = orig.get("date") or (orig.get("dateTime", "")[:10])
+                    if orig_d:
+                        exdates_by_parent.setdefault(rec_parent, set()).add(orig_d)
+                else:
+                    cancelled_gcal_ids.add(gid)
+                continue
+
+            # Skip redundant expanded instances if parent recurring event is present
+            if rec_parent and rec_parent in parent_ids:
+                continue
+            active_gcal[gid] = ev
+
+        # 3. Match unlinked local reminders to unlinked GCal events (dedup during merge)
+        already_linked_gids = {r.get("gcal_id") for r in reminders if r.get("gcal_id")}
+        unlinked_gids = [gid for gid in active_gcal if gid not in already_linked_gids]
+
+        candidates = []
+        for idx, rem in enumerate(reminders):
+            if rem.get("gcal_id"):
+                continue
+            for gid in unlinked_gids:
+                score = match_score_local_gcal(rem, active_gcal[gid])
+                if score >= 0.62:
+                    candidates.append((score, idx, gid))
+
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        matched_rem_idxs = set()
+        matched_gids = set()
+        now_sync = utc_now_iso()
+
+        for score, idx, gid in candidates:
+            if idx in matched_rem_idxs or gid in matched_gids:
+                continue
+            matched_rem_idxs.add(idx)
+            matched_gids.add(gid)
+            ev = active_gcal[gid]
+            rem = reminders[idx]
+            stats["linked_existing"] += 1
+            stats["pairs_linked"].append(f"{rem.get('date')} | {rem.get('title')} <-> {ev.get('summary')} ({score:.2f})")
+            rem["gcal_id"] = gid
+            rem["gcal_updated"] = ev.get("updated", "")
+            rem["synced_at"] = now_sync
+            if not dry_run:
+                known_ids.add(gid)
+
+        # 4. Sync already-linked reminders (pull updates, push updates, handle remote deletes)
+        kept_reminders = []
+        today_str = datetime.now().strftime("%Y-%m-%d")
+
+        for rem in reminders:
+            gid = rem.get("gcal_id")
+            if not gid:
+                kept_reminders.append(rem)
+                continue
+
+            if gid in cancelled_gcal_ids or (gid not in active_gcal and gid in known_ids):
+                # Deleted on GCal
+                if _iso_gt(rem.get("local_updated"), rem.get("synced_at")):
+                    # Recreate on GCal since edited locally more recently
+                    if not dry_run:
+                        created = client.insert_event(gcal_payload_from_reminder(rem))
+                        rem["gcal_id"] = created["id"]
+                        rem["gcal_updated"] = created.get("updated", "")
+                        rem["synced_at"] = now_sync
+                        known_ids.add(created["id"])
+                    stats["pushed_new"] += 1
+                    kept_reminders.append(rem)
+                else:
+                    stats["deleted_local"] += 1
+                    known_ids.discard(gid)
+                continue
+
+            if gid not in active_gcal:
+                kept_reminders.append(rem)
+                continue
+
+            ev = active_gcal[gid]
+            remote_newer = _iso_gt(ev.get("updated"), rem.get("gcal_updated"))
+            local_newer = _iso_gt(rem.get("local_updated"), rem.get("synced_at"))
+
+            if local_newer and not remote_newer:
+                stats["updated_to_gcal"] += 1
+                if not dry_run:
+                    patched = client.patch_event(gid, gcal_payload_from_reminder(rem))
+                    rem["gcal_updated"] = patched.get("updated", "")
+                    rem["synced_at"] = now_sync
+            elif remote_newer and not local_newer:
+                stats["updated_from_gcal"] += 1
+                if not dry_run:
+                    gfields = reminder_fields_from_gcal(ev)
+                    for k in ("title", "date", "time", "category", "notes", "repeat", "all_day", "duration_min", "gcal_updated"):
+                        if k in gfields:
+                            rem[k] = gfields[k]
+                    if "repeat_days" in gfields:
+                        rem["repeat_days"] = gfields["repeat_days"]
+                    else:
+                        rem.pop("repeat_days", None)
+                    if "repeat_until" in gfields:
+                        rem["repeat_until"] = gfields["repeat_until"]
+                    else:
+                        rem.pop("repeat_until", None)
+                    if "gcal_rrule" in gfields:
+                        rem["gcal_rrule"] = gfields["gcal_rrule"]
+                    else:
+                        rem.pop("gcal_rrule", None)
+                    rem["synced_at"] = now_sync
+                    rem["notified_5min"] = False
+                    rem["notified_due"] = False
+            if not dry_run and gid in exdates_by_parent:
+                rem["exdates"] = sorted(exdates_by_parent[gid])
+            known_ids.add(gid)
+            kept_reminders.append(rem)
+
+        # 5. Push unlinked local reminders to Google Calendar
+        for rem in kept_reminders:
+            if rem.get("gcal_id"):
+                continue
+            stats["pushed_new"] += 1
+            if not dry_run:
+                created = client.insert_event(gcal_payload_from_reminder(rem))
+                rem["gcal_id"] = created["id"]
+                rem["gcal_updated"] = created.get("updated", "")
+                rem["synced_at"] = now_sync
+                known_ids.add(created["id"])
+
+        # 6. Pull new Google Calendar events into local reminders.json
+        current_gids = {r.get("gcal_id") for r in kept_reminders if r.get("gcal_id")}
+        seq_counter = len(kept_reminders)
+        for gid, ev in active_gcal.items():
+            if gid in current_gids:
+                continue
+            stats["pulled_new"] += 1
+            if not dry_run:
+                seq_counter += 1
+                gfields = reminder_fields_from_gcal(ev)
+                is_past_oneoff = (gfields["repeat"] == "none") and (gfields["date"] < today_str)
+                new_item = {
+                    "id": f"rem_gcal_{int(time.time())}_{seq_counter}",
+                    "title": gfields["title"],
+                    "date": gfields["date"],
+                    "time": gfields["time"],
+                    "category": gfields["category"],
+                    "notes": gfields["notes"],
+                    "photo": "",
+                    "repeat": gfields["repeat"],
+                    "logo": "",
+                    "done": False,
+                    "created_at": ev.get("created") or datetime.now().isoformat(),
+                    "notified_5min": is_past_oneoff,
+                    "notified_due": is_past_oneoff,
+                    "all_day": gfields["all_day"],
+                    "duration_min": gfields["duration_min"],
+                    "gcal_id": gid,
+                    "gcal_updated": gfields["gcal_updated"],
+                    "synced_at": now_sync,
+                }
+                if gfields.get("repeat_days"):
+                    new_item["repeat_days"] = gfields["repeat_days"]
+                if gfields.get("repeat_until"):
+                    new_item["repeat_until"] = gfields["repeat_until"]
+                if gfields.get("gcal_rrule"):
+                    new_item["gcal_rrule"] = gfields["gcal_rrule"]
+                if gid in exdates_by_parent:
+                    new_item["exdates"] = sorted(exdates_by_parent[gid])
+                kept_reminders.append(new_item)
+                known_ids.add(gid)
+
+        if not dry_run:
+            kept_reminders.sort(key=lambda x: (x.get("date", ""), x.get("time", "")))
+            save_reminders(kept_reminders)
+            state["known_gcal_ids"] = sorted(known_ids)
+            state["pending_deletes"] = remaining_deletes
+            state["last_sync"] = now_sync
+            save_sync_state(state)
+
+        stats["total_reminders"] = len(kept_reminders) if not dry_run else (len(kept_reminders) + stats["pulled_new"])
+        return stats
+
+
 def run_daemon():
-    print("Starting hypr-reminders notification daemon...", flush=True)
+    print("Starting hypr-reminders notification & Google Calendar sync daemon...", flush=True)
+    last_sync_ts = 0.0
+    sync_interval = 180.0  # 3 minutes
     while True:
+        now_ts = time.monotonic()
+        if GCAL_TOKEN_FILE.exists() and (now_ts - last_sync_ts >= sync_interval):
+            try:
+                res = sync_gcal(dry_run=False)
+                last_sync_ts = now_ts
+                if any(res[k] for k in ("pushed_new", "pulled_new", "updated_from_gcal", "updated_to_gcal", "deleted_local", "deleted_gcal")):
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] GCal sync: +{res['pulled_new']} pulled, +{res['pushed_new']} pushed, ~{res['updated_from_gcal']}/{res['updated_to_gcal']} updated", flush=True)
+            except Exception as e:
+                last_sync_ts = now_ts
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] GCal sync error: {e}", file=sys.stderr, flush=True)
         try:
             check_and_notify()
         except Exception as e:
@@ -419,6 +1281,8 @@ def main():
     add_p.add_argument("--notes", default="", help="Optional notes")
     add_p.add_argument("--photo", default="", help="Optional photo / image path or URL")
     add_p.add_argument("--repeat", default="none", help="Recurrence: none, daily, weekdays, weekly, biweekly, monthly, yearly")
+    add_p.add_argument("--repeat-days", default="", help="Comma-separated weekdays (MO,TU,WE,TH,FR,SA,SU) for weekly repeat")
+    add_p.add_argument("--repeat-until", default="", help="End date YYYY-MM-DD for recurring event")
     add_p.add_argument("--logo", default="", help="Optional logo key (e.g. fof-qro, claude, devin, gdg)")
 
     # edit
@@ -431,6 +1295,8 @@ def main():
     edit_p.add_argument("--notes", default=None, help="New notes")
     edit_p.add_argument("--photo", default=None, help="New photo path or URL")
     edit_p.add_argument("--repeat", default=None, help="Recurrence: none, daily, weekdays, weekly, biweekly, monthly, yearly")
+    edit_p.add_argument("--repeat-days", default=None, help="Comma-separated weekdays (MO,TU,...)")
+    edit_p.add_argument("--repeat-until", default=None, help="End date YYYY-MM-DD")
     edit_p.add_argument("--logo", default=None, help="Optional logo key")
 
     # toggle
@@ -456,6 +1322,13 @@ def main():
     # timers-save
     tsave_p = subparsers.add_parser("timers-save")
     tsave_p.add_argument("--data", required=True, help="JSON array of timers")
+
+    # sync
+    sync_p = subparsers.add_parser("sync")
+    sync_p.add_argument("--dry-run", action="store_true", help="Preview merge/sync without modifying files or Google Calendar")
+
+    # gcal-status
+    subparsers.add_parser("gcal-status")
 
     # daemon
     subparsers.add_parser("daemon")
@@ -505,7 +1378,13 @@ def main():
         photo_val = getattr(args, "photo", "") or ""
         rep_val = getattr(args, "repeat", "none") or "none"
         logo_val = getattr(args, "logo", "") or ""
-        item = add_reminder(args.title, args.date, args.time, args.category, args.notes, photo_val, rep_val, logo_val)
+        rep_days_val = getattr(args, "repeat_days", "") or ""
+        rep_until_val = getattr(args, "repeat_until", "") or ""
+        item = add_reminder(
+            args.title, args.date, args.time, args.category, args.notes,
+            photo_val, rep_val, logo_val,
+            repeat_days=rep_days_val, repeat_until=rep_until_val
+        )
         print(json.dumps(item, ensure_ascii=False))
 
     elif args.command == "edit":
@@ -518,7 +1397,9 @@ def main():
             notes=getattr(args, "notes", None),
             photo=getattr(args, "photo", None),
             repeat=getattr(args, "repeat", None),
-            logo=getattr(args, "logo", None)
+            logo=getattr(args, "logo", None),
+            repeat_days=getattr(args, "repeat_days", None),
+            repeat_until=getattr(args, "repeat_until", None),
         )
         print(json.dumps({"success": bool(res), "item": res}, ensure_ascii=False))
 
@@ -529,6 +1410,37 @@ def main():
     elif args.command == "delete":
         res = delete_reminder(args.id)
         print(json.dumps({"success": res}, ensure_ascii=False))
+
+    elif args.command == "sync":
+        try:
+            res = sync_gcal(dry_run=getattr(args, "dry_run", False))
+            print(json.dumps({"success": True, **res}, indent=2, ensure_ascii=False))
+        except Exception as e:
+            print(json.dumps({"success": False, "error": str(e)}, indent=2, ensure_ascii=False))
+            sys.exit(1)
+
+    elif args.command == "gcal-status":
+        rems = load_reminders()
+        linked = sum(1 for r in rems if r.get("gcal_id"))
+        state = load_sync_state()
+        tok_ok = GCAL_TOKEN_FILE.exists()
+        creds_ok = GCAL_CREDS_FILE.exists() or GCAL_TV_CREDS_FILE.exists()
+        account = ""
+        if tok_ok:
+            try:
+                account = json.loads(GCAL_TOKEN_FILE.read_text(encoding="utf-8")).get("account", "")
+            except Exception:
+                pass
+        print(json.dumps({
+            "token_present": tok_ok,
+            "credentials_present": creds_ok,
+            "account": account,
+            "total_reminders": len(rems),
+            "linked_to_gcal": linked,
+            "unlinked_local": len(rems) - linked,
+            "last_sync": state.get("last_sync", ""),
+            "pending_deletes": len(state.get("pending_deletes", [])),
+        }, indent=2, ensure_ascii=False))
 
     elif args.command == "daemon":
         run_daemon()

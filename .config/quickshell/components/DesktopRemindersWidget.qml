@@ -53,10 +53,12 @@ Rectangle {
                         let curD = now.getDate();
                         let daysInCurM = new Date(curY, curM, 0).getDate();
 
+                        let dayCodes = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
                         let expanded = [];
                         for (let i = 0; i < list.length; i++) {
                             let r = list[i];
                             if (!r.date) continue;
+                            let exdates = Array.isArray(r.exdates) ? r.exdates : [];
                             let rep = (r.repeat || "none").toLowerCase();
                             if (rep === "" || rep === "none") {
                                 let y = curY;
@@ -72,20 +74,32 @@ Rectangle {
                                 let startUtc = Date.UTC(parseInt(sp[0], 10), parseInt(sp[1], 10) - 1, parseInt(sp[2], 10));
                                 let startM = parseInt(sp[1], 10);
                                 let startD = parseInt(sp[2], 10);
+                                let untilUtc = null;
+                                if (r.repeat_until) {
+                                    let up = r.repeat_until.split("-");
+                                    if (up.length === 3) {
+                                        untilUtc = Date.UTC(parseInt(up[0], 10), parseInt(up[1], 10) - 1, parseInt(up[2], 10));
+                                    }
+                                }
+                                let repDays = Array.isArray(r.repeat_days) ? r.repeat_days : [];
                                 for (let day = curD; day <= daysInCurM; day++) {
+                                    let candStr = root.currentMonthPrefix + "-" + String(day).padStart(2, '0');
+                                    if (exdates.indexOf(candStr) !== -1) continue;
                                     let tUtc = Date.UTC(curY, curM - 1, day);
                                     if (tUtc < startUtc) continue;
+                                    if (untilUtc !== null && tUtc > untilUtc) continue;
                                     let diffDays = Math.round((tUtc - startUtc) / 86400000);
+                                    let dow = new Date(tUtc).getUTCDay();
                                     let match = false;
                                     if (rep === "daily") match = true;
-                                    else if (rep === "weekdays") { let dow = new Date(tUtc).getUTCDay(); match = (dow >= 1 && dow <= 5); }
-                                    else if (rep === "weekly") match = (diffDays % 7 === 0);
+                                    else if (rep === "weekdays") match = (dow >= 1 && dow <= 5);
+                                    else if (rep === "weekly") match = (repDays.length > 0) ? (repDays.indexOf(dayCodes[dow]) !== -1) : (diffDays % 7 === 0);
                                     else if (rep === "biweekly") match = (diffDays % 14 === 0);
                                     else if (rep === "monthly") match = (day === Math.min(startD, daysInCurM));
                                     else if (rep === "yearly") match = (curM === startM && day === Math.min(startD, daysInCurM));
                                     if (match) {
                                         let occ = Object.assign({}, r);
-                                        occ.date = root.currentMonthPrefix + "-" + String(day).padStart(2, '0');
+                                        occ.date = candStr;
                                         expanded.push(occ);
                                         break; // show next upcoming occurrence in this month
                                     }
