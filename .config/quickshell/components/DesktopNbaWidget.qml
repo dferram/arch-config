@@ -11,9 +11,8 @@ Rectangle {
     implicitWidth: 448
     implicitHeight: 207
 
-    radius: 20
-    // Flat clean dark obsidian glass - NO gradients
-    color: Qt.rgba(0.05, 0.05, 0.08, 0.90)
+    radius: theme.radius
+    color: theme.widgetGlass
     border.width: 0
     clip: true
 
@@ -32,11 +31,79 @@ Rectangle {
     // State properties
     property var games: []
     property int selectedGameIndex: 0
+    property int pendingGameIndex: 0
+    property int slideDirection: 1
     property var activeGame: (games && games.length > selectedGameIndex) ? games[selectedGameIndex] : null
     property var eastStandings: []
     property var westStandings: []
     property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
     property double lastFetchMs: 0
+
+    function switchGame(delta) {
+        if (!games || games.length <= 1) return;
+        let nextIdx = (selectedGameIndex + delta + games.length) % games.length;
+        if (nextIdx === selectedGameIndex) return;
+        slideDirection = delta >= 0 ? 1 : -1;
+        pendingGameIndex = nextIdx;
+        gameSlideAnim.restart();
+    }
+
+    SequentialAnimation {
+        id: gameSlideAnim
+
+        ParallelAnimation {
+            NumberAnimation {
+                target: matchupSlideContainer
+                property: "xOffset"
+                to: -root.slideDirection * 32
+                duration: 110
+                easing.type: Easing.InCubic
+            }
+            NumberAnimation {
+                target: matchupSlideContainer
+                property: "slideOpacity"
+                to: 0.0
+                duration: 110
+                easing.type: Easing.InCubic
+            }
+        }
+
+        ScriptAction {
+            script: {
+                root.selectedGameIndex = root.pendingGameIndex;
+                matchupSlideContainer.xOffset = root.slideDirection * 32;
+            }
+        }
+
+        ParallelAnimation {
+            NumberAnimation {
+                target: matchupSlideContainer
+                property: "xOffset"
+                to: 0
+                duration: 240
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                target: matchupSlideContainer
+                property: "slideOpacity"
+                to: 1.0
+                duration: 240
+                easing.type: Easing.OutCubic
+            }
+        }
+    }
+
+    // Smoked Obsidian Liquid Glass 3-stop surface sheen
+    Rectangle {
+        anchors.fill: parent
+        radius: root.radius
+        z: 0
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.09) }
+            GradientStop { position: 0.45; color: Qt.rgba(1, 1, 1, 0.015) }
+            GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.035) }
+        }
+    }
 
     // Fetch data process
     Process {
@@ -65,19 +132,7 @@ Rectangle {
         }
     }
 
-    // Auto rotate games disabled per user preference (game stays static where user left it)
-    Timer {
-        interval: 12000
-        running: false
-        repeat: true
-        onTriggered: {
-            if (root.games && root.games.length > 1) {
-                root.selectedGameIndex = (root.selectedGameIndex + 1) % root.games.length;
-            }
-        }
-    }
-
-    // Periodic refresh from ESPN API every 60 seconds
+    // Periodic refresh from ESPN API every 60 seconds when visible
     Timer {
         interval: 60000
         running: root.isLive
@@ -98,14 +153,13 @@ Rectangle {
     }
 
     // =========================================================================
-    // DUAL ACCENT FULL BORDER (NBA Royal Blue left half & Official Red right half)
+    // DUAL ACCENT BORDER (NBA Royal Blue left half & Official Red right half)
     // =========================================================================
     Item {
         id: fullAccentBorder
         anchors.fill: parent
         z: 10
 
-        // Left half: NBA Royal Blue
         Item {
             anchors.top: parent.top
             anchors.left: parent.left
@@ -121,11 +175,10 @@ Rectangle {
                 radius: root.radius
                 color: "transparent"
                 border.color: "#1D428A"
-                border.width: 2
+                border.width: 1.5
             }
         }
 
-        // Right half: NBA Official Red
         Item {
             anchors.top: parent.top
             anchors.right: parent.right
@@ -141,7 +194,7 @@ Rectangle {
                 radius: root.radius
                 color: "transparent"
                 border.color: "#C9082A"
-                border.width: 2
+                border.width: 1.5
             }
         }
     }
@@ -151,36 +204,38 @@ Rectangle {
     // =========================================================================
     ColumnLayout {
         anchors.fill: parent
-        anchors.topMargin: 16
+        anchors.topMargin: 13
         anchors.bottomMargin: 12
-        anchors.leftMargin: 16
-        anchors.rightMargin: 16
-        spacing: 9
-        z: 1
+        anchors.leftMargin: 14
+        anchors.rightMargin: 14
+        spacing: 8
+        z: 2
 
-        // 1. Header: NBA Logo + Title + Interactive Game Navigation + Status Pill
+        // 1. Header: NBA Badge + Title + Switcher + Status Pill
         RowLayout {
             Layout.fillWidth: true
-            spacing: 10
+            spacing: 9
 
-            // NBA Jerry West Badge
             Rectangle {
-                Layout.preferredWidth: 32
-                Layout.preferredHeight: 24
-                radius: 5
+                Layout.preferredWidth: 28
+                Layout.preferredHeight: 22
+                radius: 6
                 color: "#1D428A"
+                border.color: Qt.rgba(1, 1, 1, 0.16)
+                border.width: 1
 
                 Image {
                     anchors.centerIn: parent
                     source: root.nbaPng
-                    width: 22
-                    height: 20
+                    width: 20
+                    height: 18
+                    sourceSize: Qt.size(40, 40)
                     fillMode: Image.PreserveAspectFit
+                    mipmap: true
                     asynchronous: true
                 }
             }
 
-            // Title & Matchup Details
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 1
@@ -189,120 +244,72 @@ Rectangle {
                     spacing: 8
 
                     Text {
-                        text: "NBA SCOREBOARD"
+                        text: "NBA"
                         font.family: theme.fontFamily
-                        font.pixelSize: 12
+                        font.pixelSize: 13
                         font.weight: Font.Black
                         color: "#FFFFFF"
                     }
 
+                    // Clean Game Index Counter
                     Rectangle {
-                        Layout.preferredWidth: 4
-                        Layout.preferredHeight: 4
-                        radius: 2
-                        color: "#C9082A"
-                    }
-
-                    // Interactive Game Switcher (< 1 of 9 >)
-                    Row {
-                        spacing: 4
+                        height: 17
+                        width: counterText.implicitWidth + 12
+                        radius: 5
+                        color: Qt.rgba(1, 1, 1, 0.08)
+                        border.color: Qt.rgba(1, 1, 1, 0.12)
+                        border.width: 1
                         Layout.alignment: Qt.AlignVCenter
 
-                        Rectangle {
-                            width: 18
-                            height: 18
-                            radius: 9
-                            color: prevBtnMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(1, 1, 1, 0.08)
-                            anchors.verticalCenter: parent.verticalCenter
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "‹"
-                                font.pixelSize: 13
-                                font.weight: Font.Bold
-                                color: "#FFFFFF"
-                            }
-
-                            MouseArea {
-                                id: prevBtnMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (root.games.length > 0) {
-                                        root.selectedGameIndex = (root.selectedGameIndex - 1 + root.games.length) % root.games.length;
-                                    }
-                                }
-                            }
-                        }
-
                         Text {
-                            text: (root.selectedGameIndex + 1) + " of " + Math.max(1, root.games.length)
+                            id: counterText
+                            anchors.centerIn: parent
+                            text: (root.selectedGameIndex + 1) + " / " + Math.max(1, root.games.length)
                             font.family: theme.fontFamily
-                            font.pixelSize: 10
-                            font.weight: Font.DemiBold
-                            color: theme.textDim
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Rectangle {
-                            width: 18
-                            height: 18
-                            radius: 9
-                            color: nextBtnMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(1, 1, 1, 0.08)
-                            anchors.verticalCenter: parent.verticalCenter
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "›"
-                                font.pixelSize: 13
-                                font.weight: Font.Bold
-                                color: "#FFFFFF"
-                            }
-
-                            MouseArea {
-                                id: nextBtnMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (root.games.length > 0) {
-                                        root.selectedGameIndex = (root.selectedGameIndex + 1) % root.games.length;
-                                    }
-                                }
-                            }
+                            font.pixelSize: 9
+                            font.weight: Font.Bold
+                            color: theme.textMuted
                         }
                     }
                 }
 
                 Text {
-                    text: root.activeGame ? (root.activeGame.name || "Live Matchup") : "Matchup"
+                    text: root.activeGame ? (root.activeGame.name || "Matchup") : "No games scheduled"
                     font.family: theme.fontFamily
                     font.pixelSize: 10
-                    color: Qt.rgba(1, 1, 1, 0.65)
+                    color: theme.textDim
                     elide: Text.ElideRight
                     Layout.fillWidth: true
                 }
             }
 
-            // Status Pill (Final / Live / Scheduled)
+            // Status Pill (LIVE / FINAL / SCHEDULED)
             Rectangle {
-                Layout.preferredHeight: 24
-                Layout.preferredWidth: statusText.implicitWidth + 20
-                radius: 12
-                color: root.activeGame && root.activeGame.state === "in" ? Qt.rgba(201, 8, 42, 0.22) : (root.activeGame && root.activeGame.state === "post" ? Qt.rgba(255, 255, 255, 0.08) : Qt.rgba(29, 66, 138, 0.25))
-                border.color: root.activeGame && root.activeGame.state === "in" ? "#C9082A" : (root.activeGame && root.activeGame.state === "post" ? Qt.rgba(255, 255, 255, 0.20) : "#1D428A")
+                Layout.preferredHeight: 22
+                Layout.preferredWidth: statusRow.implicitWidth + 16
+                radius: 6
+                color: {
+                    if (root.activeGame && root.activeGame.state === "in") return Qt.rgba(201/255, 8/255, 42/255, 0.24);
+                    if (root.activeGame && root.activeGame.state === "post") return Qt.rgba(0, 0, 0, 0.30);
+                    return Qt.rgba(29/255, 66/255, 138/255, 0.28);
+                }
+                border.color: {
+                    if (root.activeGame && root.activeGame.state === "in") return "#C9082A";
+                    if (root.activeGame && root.activeGame.state === "post") return Qt.rgba(1, 1, 1, 0.16);
+                    return "#3B82F6";
+                }
                 border.width: 1
 
                 Row {
+                    id: statusRow
                     anchors.centerIn: parent
-                    spacing: 6
+                    spacing: 5
 
                     Rectangle {
                         width: 6
                         height: 6
                         radius: 3
-                        color: root.activeGame && root.activeGame.state === "in" ? "#C9082A" : (theme.blueLight != "" ? theme.blueLight : theme.blue)
+                        color: "#FF3B5C"
                         anchors.verticalCenter: parent.verticalCenter
                         visible: root.activeGame && root.activeGame.state === "in"
                         SequentialAnimation on opacity {
@@ -314,14 +321,13 @@ Rectangle {
                     }
 
                     Text {
-                        id: statusText
                         text: {
-                            if (!root.activeGame) return "Scheduled";
+                            if (!root.activeGame) return "SCHEDULED";
                             if (root.activeGame.state === "in") return "LIVE • " + root.activeGame.status;
                             if (root.activeGame.state === "post") return "FINAL";
                             return "SCHEDULED";
                         }
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.family: theme.fontFamily
                         font.pixelSize: 10
                         font.weight: Font.Bold
                         color: "#FFFFFF"
@@ -331,197 +337,318 @@ Rectangle {
             }
         }
 
-        // 2. Arena LED Scoreboard Matchup Box (With Official Team Logos)
+        // 2. Hero Matchup Card (Deep Smoked Glass + Smooth Lateral Slide Transition)
         Rectangle {
+            id: matchupBox
             Layout.fillWidth: true
-            Layout.preferredHeight: 56
-            radius: 10
-            color: Qt.rgba(0, 0, 0, 0.42)
-            border.color: Qt.rgba(255, 255, 255, 0.09)
+            Layout.preferredHeight: 68
+            radius: 9
+            color: Qt.rgba(0.03, 0.04, 0.07, 0.56)
+            border.color: Qt.rgba(1, 1, 1, 0.12)
             border.width: 1
+            clip: true
 
-            RowLayout {
+            readonly property color awayCol: (root.activeGame && root.activeGame.away && root.activeGame.away.color) ? root.activeGame.away.color : "#1D428A"
+            readonly property color homeCol: (root.activeGame && root.activeGame.home && root.activeGame.home.color) ? root.activeGame.home.color : "#C9082A"
+
+            // Subtle dual team-color ambient wash
+            Rectangle {
                 anchors.fill: parent
-                anchors.leftMargin: 16
-                anchors.rightMargin: 16
-
-                // Away Team
-                RowLayout {
-                    Layout.preferredWidth: 140
-                    spacing: 10
-
-                    Rectangle {
-                        Layout.preferredWidth: 42
-                        Layout.preferredHeight: 34
-                        radius: 8
-                        color: Qt.rgba(1, 1, 1, 0.06)
-                        border.color: root.activeGame && root.activeGame.away && root.activeGame.away.color ? root.activeGame.away.color : Qt.rgba(255, 255, 255, 0.20)
-                        border.width: 1.5
-
-                        Image {
-                            anchors.centerIn: parent
-                            width: 26
-                            height: 26
-                            source: Quickshell.shellPath("icons/nba-teams/" + (root.activeGame && root.activeGame.away ? root.activeGame.away.team.toLowerCase() : "nba") + ".png")
-                            fillMode: Image.PreserveAspectFit
-                            cache: false
-                            asynchronous: true
-                        }
-                    }
-
-                    ColumnLayout {
-                        spacing: 1
-                        Text {
-                            text: root.activeGame && root.activeGame.away ? root.activeGame.away.name : "Away"
-                            font.family: theme.fontFamily
-                            font.pixelSize: 12
-                            font.weight: Font.Bold
-                            color: "#FFFFFF"
-                            elide: Text.ElideRight
-                        }
-                        Text {
-                            text: root.activeGame && root.activeGame.away && root.activeGame.away.record ? ("AWAY • " + root.activeGame.away.record) : "AWAY"
-                            font.family: theme.fontFamily
-                            font.pixelSize: 9
-                            font.weight: Font.DemiBold
-                            color: theme.textDim
-                        }
-                    }
+                radius: parent.radius
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: Qt.rgba(matchupBox.awayCol.r, matchupBox.awayCol.g, matchupBox.awayCol.b, 0.14) }
+                    GradientStop { position: 0.45; color: "transparent" }
+                    GradientStop { position: 0.55; color: "transparent" }
+                    GradientStop { position: 1.0; color: Qt.rgba(matchupBox.homeCol.r, matchupBox.homeCol.g, matchupBox.homeCol.b, 0.14) }
                 }
+            }
 
-                Item { Layout.fillWidth: true }
+            // Sliding matchup content
+            Item {
+                id: matchupSlideContainer
+                width: parent.width
+                height: parent.height
+                property real xOffset: 0
+                property real slideOpacity: 1.0
+                x: xOffset
+                opacity: slideOpacity
 
-                // Center Scoreboard or Pre-game VS + Time Badge
-                Item {
-                    Layout.preferredWidth: 110
-                    Layout.fillHeight: true
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    spacing: 8
 
-                    // Case A: Pre-game (Scheduled for Tonight)
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 2
-                        visible: !root.activeGame || root.activeGame.state === "pre"
-
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "VS"
-                            font.family: theme.fontFamily
-                            font.pixelSize: 13
-                            font.weight: Font.Black
-                            color: theme.textDim
-                        }
+                    // Away Team
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 145
+                        spacing: 9
 
                         Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            height: 18
-                            width: schedTimeText.implicitWidth + 12
+                            Layout.preferredWidth: 42
+                            Layout.preferredHeight: 42
                             radius: 9
-                            color: Qt.rgba(1, 1, 1, 0.08)
-                            border.color: Qt.rgba(255, 255, 255, 0.12)
+                            color: Qt.rgba(matchupBox.awayCol.r, matchupBox.awayCol.g, matchupBox.awayCol.b, 0.18)
+                            border.color: Qt.rgba(matchupBox.awayCol.r, matchupBox.awayCol.g, matchupBox.awayCol.b, 0.55)
                             border.width: 1
 
-                            Text {
-                                id: schedTimeText
+                            Image {
                                 anchors.centerIn: parent
-                                text: root.activeGame ? (root.activeGame.status.replace(/^[0-9\/]+\s*-\s*/, "")) : "Tonight"
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 9
+                                width: 32
+                                height: 32
+                                sourceSize: Qt.size(64, 64)
+                                source: Quickshell.shellPath("icons/nba-teams/" + (root.activeGame && root.activeGame.away ? root.activeGame.away.team.toLowerCase() : "nba") + ".png")
+                                fillMode: Image.PreserveAspectFit
+                                mipmap: true
+                                asynchronous: true
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 1
+
+                            Text {
+                                text: root.activeGame && root.activeGame.away ? root.activeGame.away.name : "Away"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 12
                                 font.weight: Font.Bold
                                 color: "#FFFFFF"
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                            Text {
+                                text: root.activeGame && root.activeGame.away && root.activeGame.away.record ? (root.activeGame.away.record + " • AWAY") : "AWAY"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 9
+                                font.weight: Font.DemiBold
+                                color: theme.textDim
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
                             }
                         }
                     }
 
-                    // Case B: In-progress or Final (Live Scores)
+                    // Center Score / Schedule
+                    Item {
+                        Layout.preferredWidth: 112
+                        Layout.fillHeight: true
+
+                        // Case A: Scheduled
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 3
+                            visible: !root.activeGame || root.activeGame.state === "pre"
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "VS"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 12
+                                font.weight: Font.Black
+                                color: theme.textDim
+                            }
+
+                            Rectangle {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                height: 18
+                                width: schedTimeText.implicitWidth + 12
+                                radius: 5
+                                color: Qt.rgba(1, 1, 1, 0.08)
+                                border.color: Qt.rgba(1, 1, 1, 0.14)
+                                border.width: 1
+
+                                Text {
+                                    id: schedTimeText
+                                    anchors.centerIn: parent
+                                    text: root.activeGame ? (root.activeGame.status.replace(/^[0-9\/]+\s*-\s*/, "")) : "Tonight"
+                                    font.family: theme.fontFamily
+                                    font.pixelSize: 9
+                                    font.weight: Font.Bold
+                                    color: "#FFFFFF"
+                                }
+                            }
+                        }
+
+                        // Case B: Live or Final Score
+                        RowLayout {
+                            id: scoreRow
+                            anchors.centerIn: parent
+                            spacing: 8
+                            visible: root.activeGame && root.activeGame.state !== "pre"
+
+                            readonly property int awayScore: root.activeGame && root.activeGame.away ? parseInt(root.activeGame.away.score || "0") : 0
+                            readonly property int homeScore: root.activeGame && root.activeGame.home ? parseInt(root.activeGame.home.score || "0") : 0
+
+                            Text {
+                                text: root.activeGame && root.activeGame.away ? root.activeGame.away.score : "--"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 23
+                                font.weight: Font.Black
+                                color: (scoreRow.awayScore >= scoreRow.homeScore) ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.48)
+                            }
+
+                            Text {
+                                text: "-"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 16
+                                font.weight: Font.Bold
+                                color: theme.textDim
+                            }
+
+                            Text {
+                                text: root.activeGame && root.activeGame.home ? root.activeGame.home.score : "--"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 23
+                                font.weight: Font.Black
+                                color: (scoreRow.homeScore >= scoreRow.awayScore) ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.48)
+                            }
+                        }
+                    }
+
+                    // Home Team
                     RowLayout {
-                        id: scoreRow
-                        anchors.centerIn: parent
-                        spacing: 10
-                        visible: root.activeGame && root.activeGame.state !== "pre"
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 145
+                        Layout.alignment: Qt.AlignRight
+                        spacing: 9
 
-                        readonly property int awayScore: root.activeGame && root.activeGame.away ? parseInt(root.activeGame.away.score || "0") : 0
-                        readonly property int homeScore: root.activeGame && root.activeGame.home ? parseInt(root.activeGame.home.score || "0") : 0
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 1
 
-                        Text {
-                            text: root.activeGame && root.activeGame.away ? root.activeGame.away.score : "--"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 22
-                            font.weight: Font.Black
-                            color: (scoreRow.awayScore >= scoreRow.homeScore) ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.65)
+                            Text {
+                                text: root.activeGame && root.activeGame.home ? root.activeGame.home.name : "Home"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
+                                color: "#FFFFFF"
+                                horizontalAlignment: Text.AlignRight
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                text: root.activeGame && root.activeGame.home && root.activeGame.home.record ? (root.activeGame.home.record + " • HOME") : "HOME"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 9
+                                font.weight: Font.DemiBold
+                                color: theme.textDim
+                                horizontalAlignment: Text.AlignRight
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                            }
                         }
 
-                        Text {
-                            text: "—"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 16
-                            color: theme.textDim
-                        }
+                        Rectangle {
+                            Layout.preferredWidth: 42
+                            Layout.preferredHeight: 42
+                            radius: 9
+                            color: Qt.rgba(matchupBox.homeCol.r, matchupBox.homeCol.g, matchupBox.homeCol.b, 0.18)
+                            border.color: Qt.rgba(matchupBox.homeCol.r, matchupBox.homeCol.g, matchupBox.homeCol.b, 0.55)
+                            border.width: 1
 
-                        Text {
-                            text: root.activeGame && root.activeGame.home ? root.activeGame.home.score : "--"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 22
-                            font.weight: Font.Black
-                            color: (scoreRow.homeScore >= scoreRow.awayScore) ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.65)
+                            Image {
+                                anchors.centerIn: parent
+                                width: 32
+                                height: 32
+                                sourceSize: Qt.size(64, 64)
+                                source: Quickshell.shellPath("icons/nba-teams/" + (root.activeGame && root.activeGame.home ? root.activeGame.home.team.toLowerCase() : "nba") + ".png")
+                                fillMode: Image.PreserveAspectFit
+                                mipmap: true
+                                asynchronous: true
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Left/Right half click navigation + drag support
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: isDragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+                property real startScreenX: 0
+                property real startScreenY: 0
+                property bool isDragging: false
+
+                onPressed: (mouse) => {
+                    if (mouse.button === Qt.RightButton) {
+                        nbaProc.running = true;
+                        return;
+                    }
+                    if (mouse.button !== Qt.LeftButton) return;
+                    let w = root.wrapper || root.findWrapper();
+                    let target = (w && w.parent) ? w.parent : null;
+                    if (target) {
+                        let pt = mapToItem(target, mouse.x, mouse.y);
+                        startScreenX = pt.x;
+                        startScreenY = pt.y;
+                    } else {
+                        startScreenX = mouse.x;
+                        startScreenY = mouse.y;
+                    }
+                    isDragging = false;
+                }
+
+                onPositionChanged: (mouse) => {
+                    if (!pressed || (mouse.buttons & Qt.LeftButton) === 0) {
+                        if (isDragging) {
+                            isDragging = false;
+                            let w = root.wrapper || root.findWrapper();
+                            if (w) w.endDrag();
+                        }
+                        return;
+                    }
+                    let w = root.wrapper || root.findWrapper();
+                    let target = (w && w.parent) ? w.parent : null;
+                    let curX = mouse.x;
+                    let curY = mouse.y;
+                    if (target) {
+                        let pt = mapToItem(target, mouse.x, mouse.y);
+                        curX = pt.x;
+                        curY = pt.y;
+                    }
+                    let dx = curX - startScreenX;
+                    let dy = curY - startScreenY;
+
+                    if (!isDragging && Math.hypot(dx, dy) > 5) {
+                        isDragging = true;
+                        if (w) w.startDrag(mouse.x, mouse.y);
+                    }
+                    if (isDragging && w) {
+                        w.updateDrag(dx, dy);
+                    }
+                }
+
+                onReleased: (mouse) => {
+                    let w = root.wrapper || root.findWrapper();
+                    if (isDragging) {
+                        isDragging = false;
+                        if (w) w.endDrag();
+                    } else if (mouse.button === Qt.LeftButton) {
+                        if (mouse.x < matchupBox.width * 0.5) {
+                            root.switchGame(-1);
+                        } else {
+                            root.switchGame(1);
                         }
                     }
                 }
 
-                Item { Layout.fillWidth: true }
-
-                // Home Team
-                RowLayout {
-                    Layout.preferredWidth: 140
-                    Layout.alignment: Qt.AlignRight
-                    spacing: 10
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 1
-                        Text {
-                            text: root.activeGame && root.activeGame.home ? root.activeGame.home.name : "Home"
-                            font.family: theme.fontFamily
-                            font.pixelSize: 12
-                            font.weight: Font.Bold
-                            color: "#FFFFFF"
-                            horizontalAlignment: Text.AlignRight
-                            Layout.fillWidth: true
-                            elide: Text.ElideRight
-                        }
-                        Text {
-                            text: root.activeGame && root.activeGame.home && root.activeGame.home.record ? (root.activeGame.home.record + " • HOME") : "HOME"
-                            font.family: theme.fontFamily
-                            font.pixelSize: 9
-                            font.weight: Font.DemiBold
-                            color: theme.textDim
-                            horizontalAlignment: Text.AlignRight
-                            Layout.fillWidth: true
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.preferredWidth: 42
-                        Layout.preferredHeight: 34
-                        radius: 8
-                        color: Qt.rgba(1, 1, 1, 0.06)
-                        border.color: root.activeGame && root.activeGame.home && root.activeGame.home.color ? root.activeGame.home.color : Qt.rgba(255, 255, 255, 0.20)
-                        border.width: 1.5
-
-                        Image {
-                            anchors.centerIn: parent
-                            width: 26
-                            height: 26
-                            source: Quickshell.shellPath("icons/nba-teams/" + (root.activeGame && root.activeGame.home ? root.activeGame.home.team.toLowerCase() : "nba") + ".png")
-                            fillMode: Image.PreserveAspectFit
-                            cache: false
-                            asynchronous: true
-                        }
+                onCanceled: {
+                    if (isDragging) {
+                        isDragging = false;
+                        let w = root.wrapper || root.findWrapper();
+                        if (w) w.endDrag();
                     }
                 }
             }
         }
 
-        // 3. Conference Standings Preview (East vs West Top Seeds with Official Team Logos)
+        // 3. Conference Top Seeds (Clean Obsidian Glass Strips)
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
@@ -529,68 +656,65 @@ Rectangle {
             // Eastern Conference Leader
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 40
+                Layout.preferredHeight: 38
                 radius: 8
-                color: Qt.rgba(1, 1, 1, 0.04)
-                border.color: Qt.rgba(255, 255, 255, 0.08)
+                color: Qt.rgba(0.03, 0.04, 0.07, 0.45)
+                border.color: Qt.rgba(1, 1, 1, 0.10)
                 border.width: 1
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.margins: 8
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 9
+                    anchors.topMargin: 6
+                    anchors.bottomMargin: 6
                     spacing: 8
 
                     Rectangle {
-                        Layout.preferredWidth: 4
+                        Layout.preferredWidth: 3
                         Layout.fillHeight: true
-                        radius: 2
-                        color: "#1D428A"
+                        radius: 1.5
+                        color: "#3B82F6"
                     }
 
                     Image {
-                        Layout.preferredWidth: 20
-                        Layout.preferredHeight: 20
+                        Layout.preferredWidth: 22
+                        Layout.preferredHeight: 22
+                        sourceSize: Qt.size(48, 48)
                         source: Quickshell.shellPath("icons/nba-teams/" + ((root.eastStandings && root.eastStandings.length > 0) ? root.eastStandings[0].team.toLowerCase() : "det") + ".png")
                         fillMode: Image.PreserveAspectFit
-                        cache: false
+                        mipmap: true
                         asynchronous: true
                         Layout.alignment: Qt.AlignVCenter
                     }
 
                     ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 1
+                        spacing: 0
 
                         RowLayout {
                             Layout.fillWidth: true
                             Text {
-                                text: "EASTERN CONFERENCE"
+                                text: "EAST"
                                 font.family: theme.fontFamily
-                                font.pixelSize: 8
+                                font.pixelSize: 9
                                 font.weight: Font.Bold
-                                color: theme.textDim
+                                color: "#60A5FA"
                             }
                             Item { Layout.fillWidth: true }
-                            Rectangle {
-                                height: 14
-                                width: 36
-                                radius: 4
-                                color: Qt.rgba(29, 66, 138, 0.3)
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "#1 SEED"
-                                    font.family: theme.fontFamily
-                                    font.pixelSize: 7
-                                    font.weight: Font.Black
-                                    color: "#6BA4FF"
-                                }
+                            Text {
+                                text: "#1 SEED"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 8
+                                font.weight: Font.Black
+                                color: "#60A5FA"
                             }
                         }
 
                         Text {
                             text: (root.eastStandings && root.eastStandings.length > 0) ? (root.eastStandings[0].name + " (" + root.eastStandings[0].record + ")") : "Pistons (3-0)"
                             font.family: theme.fontFamily
-                            font.pixelSize: 10
+                            font.pixelSize: 11
                             font.weight: Font.Bold
                             color: "#FFFFFF"
                             elide: Text.ElideRight
@@ -603,68 +727,65 @@ Rectangle {
             // Western Conference Leader
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 40
+                Layout.preferredHeight: 38
                 radius: 8
-                color: Qt.rgba(1, 1, 1, 0.04)
-                border.color: Qt.rgba(255, 255, 255, 0.08)
+                color: Qt.rgba(0.03, 0.04, 0.07, 0.45)
+                border.color: Qt.rgba(1, 1, 1, 0.10)
                 border.width: 1
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.margins: 8
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 9
+                    anchors.topMargin: 6
+                    anchors.bottomMargin: 6
                     spacing: 8
 
                     Rectangle {
-                        Layout.preferredWidth: 4
+                        Layout.preferredWidth: 3
                         Layout.fillHeight: true
-                        radius: 2
-                        color: "#C9082A"
+                        radius: 1.5
+                        color: "#EF4444"
                     }
 
                     Image {
-                        Layout.preferredWidth: 20
-                        Layout.preferredHeight: 20
+                        Layout.preferredWidth: 22
+                        Layout.preferredHeight: 22
+                        sourceSize: Qt.size(48, 48)
                         source: Quickshell.shellPath("icons/nba-teams/" + ((root.westStandings && root.westStandings.length > 0) ? root.westStandings[0].team.toLowerCase() : "min") + ".png")
                         fillMode: Image.PreserveAspectFit
-                        cache: false
+                        mipmap: true
                         asynchronous: true
                         Layout.alignment: Qt.AlignVCenter
                     }
 
                     ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 1
+                        spacing: 0
 
                         RowLayout {
                             Layout.fillWidth: true
                             Text {
-                                text: "WESTERN CONFERENCE"
+                                text: "WEST"
                                 font.family: theme.fontFamily
-                                font.pixelSize: 8
+                                font.pixelSize: 9
                                 font.weight: Font.Bold
-                                color: theme.textDim
+                                color: "#F87171"
                             }
                             Item { Layout.fillWidth: true }
-                            Rectangle {
-                                height: 14
-                                width: 36
-                                radius: 4
-                                color: Qt.rgba(201, 8, 42, 0.3)
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "#1 SEED"
-                                    font.family: theme.fontFamily
-                                    font.pixelSize: 7
-                                    font.weight: Font.Black
-                                    color: "#FF6B81"
-                                }
+                            Text {
+                                text: "#1 SEED"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 8
+                                font.weight: Font.Black
+                                color: "#F87171"
                             }
                         }
 
                         Text {
                             text: (root.westStandings && root.westStandings.length > 0) ? (root.westStandings[0].name + " (" + root.westStandings[0].record + ")") : "Timberwolves (3-0)"
                             font.family: theme.fontFamily
-                            font.pixelSize: 10
+                            font.pixelSize: 11
                             font.weight: Font.Bold
                             color: "#FFFFFF"
                             elide: Text.ElideRight
@@ -676,11 +797,11 @@ Rectangle {
         }
     }
 
-    // Drag / Interaction MouseArea (Apple Sonoma smooth dragging)
+    // Background Drag / Interaction MouseArea
     MouseArea {
         id: bgDragArea
         anchors.fill: parent
-        z: 0
+        z: 1
         hoverEnabled: true
         cursorShape: isDragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -744,11 +865,7 @@ Rectangle {
                 isDragging = false;
                 if (w) w.endDrag();
             } else if (mouse.button === Qt.LeftButton) {
-                if (root.games.length > 1) {
-                    root.selectedGameIndex = (root.selectedGameIndex + 1) % root.games.length;
-                } else {
-                    Quickshell.execDetached(["xdg-open", "https://www.nba.com/games"]);
-                }
+                Quickshell.execDetached(["xdg-open", "https://www.nba.com/games"]);
             }
         }
 

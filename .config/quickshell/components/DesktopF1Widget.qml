@@ -11,9 +11,8 @@ Rectangle {
     implicitWidth: 448
     implicitHeight: 207
 
-    radius: 20
-    // Flat clean dark obsidian glass - NO gradients
-    color: Qt.rgba(0.05, 0.05, 0.08, 0.90)
+    radius: theme.radius
+    color: theme.widgetGlass
     border.width: 0
     clip: true
 
@@ -28,33 +27,133 @@ Rectangle {
     }
     readonly property var wrapper: findWrapper()
     readonly property string f1WhitePng: Quickshell.shellPath("icons/f1-white.png")
-    readonly property string f1Png: Quickshell.shellPath("icons/f1.png")
 
-    // State properties (dynamically populated from live ESPN/Jolpica F1 API)
-    property string raceName: "Mexico City Grand Prix"
-    property string shortName: "Mexico City GP"
-    property string circuitName: "Autodromo Hermanos Rodriguez"
-    property string location: "Mexico City, Mexico"
-    property string raceDate: "Friday, Oct 30"
-    property string raceTime: "18:30 UTC"
-    property string roundStr: "Round 21 / 25"
-    property string sessionLabel: "FP1"
-    property string sessionFullLabel: "Práctica 1"
-    property string countdownStr: "02h 30m 00s"
+    // State properties (dynamically populated from live Jolpica / ESPN F1 API)
+    property string raceName: "Las Vegas Grand Prix"
+    property string shortName: "Las Vegas GP"
+    property string circuitName: "Las Vegas Strip Street Circuit"
+    property string location: "Las Vegas, USA"
+    property string raceDate: "Sunday, Nov 22"
+    property string raceTime: "04:00 UTC"
+    property string roundStr: "Round 21 / 24"
+    property string sessionLabel: "RACE"
+    property string sessionFullLabel: "Grand Prix Race"
+    property string countdownStr: "02d 10h 30m"
     property int remainingSecs: 9000
-    property string circuitLength: "4.304 km"
-    property int laps: 71
+    property string circuitLength: "5.8 km"
+    property int laps: 53
 
-    property var compounds: [
-        {"code": "C3", "compound": "Hard", "color": "#FFFFFF", "label": "HARD"},
-        {"code": "C4", "compound": "Medium", "color": "#FFD700", "label": "MED"},
-        {"code": "C5", "compound": "Soft", "color": "#E10600", "label": "SOFT"}
-    ]
-
+    property bool showConstructors: false
     property int selectedDriverIndex: 0
-    property var standings: []
+    property int selectedConstructorIndex: 0
+    property int pendingIndex: 0
+    property int slideDirection: 1
 
-    readonly property var currentDriver: (standings && standings.length > selectedDriverIndex) ? standings[selectedDriverIndex] : null
+    property var standings: []
+    property var constructorStandings: []
+
+    readonly property var activeList: showConstructors ? constructorStandings : standings
+    readonly property int activeIndex: showConstructors ? selectedConstructorIndex : selectedDriverIndex
+    readonly property var currentEntry: (activeList && activeList.length > activeIndex) ? activeList[activeIndex] : null
+
+    function stepStanding(delta) {
+        if (!activeList || activeList.length <= 1) return;
+        let nextIdx = (activeIndex + delta + activeList.length) % activeList.length;
+        if (nextIdx === activeIndex) return;
+        slideDirection = delta >= 0 ? 1 : -1;
+        pendingIndex = nextIdx;
+        cardSlideAnim.restart();
+    }
+
+    function toggleStandingsMode() {
+        slideDirection = 1;
+        modeFadeAnim.restart();
+    }
+
+    SequentialAnimation {
+        id: cardSlideAnim
+
+        ParallelAnimation {
+            NumberAnimation {
+                target: cardSlideContainer
+                property: "xOffset"
+                to: -root.slideDirection * 32
+                duration: 110
+                easing.type: Easing.InCubic
+            }
+            NumberAnimation {
+                target: cardSlideContainer
+                property: "slideOpacity"
+                to: 0.0
+                duration: 110
+                easing.type: Easing.InCubic
+            }
+        }
+
+        ScriptAction {
+            script: {
+                if (root.showConstructors) {
+                    root.selectedConstructorIndex = root.pendingIndex;
+                } else {
+                    root.selectedDriverIndex = root.pendingIndex;
+                }
+                cardSlideContainer.xOffset = root.slideDirection * 32;
+            }
+        }
+
+        ParallelAnimation {
+            NumberAnimation {
+                target: cardSlideContainer
+                property: "xOffset"
+                to: 0
+                duration: 240
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                target: cardSlideContainer
+                property: "slideOpacity"
+                to: 1.0
+                duration: 240
+                easing.type: Easing.OutCubic
+            }
+        }
+    }
+
+    SequentialAnimation {
+        id: modeFadeAnim
+
+        NumberAnimation {
+            target: cardSlideContainer
+            property: "slideOpacity"
+            to: 0.0
+            duration: 100
+            easing.type: Easing.InQuad
+        }
+        ScriptAction {
+            script: {
+                root.showConstructors = !root.showConstructors;
+            }
+        }
+        NumberAnimation {
+            target: cardSlideContainer
+            property: "slideOpacity"
+            to: 1.0
+            duration: 180
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    // Smoked Obsidian Liquid Glass 3-stop surface sheen
+    Rectangle {
+        anchors.fill: parent
+        radius: root.radius
+        z: 0
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.09) }
+            GradientStop { position: 0.45; color: Qt.rgba(1, 1, 1, 0.015) }
+            GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.035) }
+        }
+    }
 
     // Fetch data process
     Process {
@@ -88,39 +187,20 @@ Rectangle {
                             root.selectedDriverIndex = 0;
                         }
                     }
+                    if (d.constructorStandings && d.constructorStandings.length > 0) {
+                        root.constructorStandings = d.constructorStandings;
+                        if (root.selectedConstructorIndex >= d.constructorStandings.length) {
+                            root.selectedConstructorIndex = 0;
+                        }
+                    }
                 } catch(e) {}
             }
         }
     }
 
-    // Auto rotate drivers disabled per user preference (driver stays static)
-    Timer {
-        id: autoRotateTimer
-        interval: 12000
-        running: false
-        repeat: true
-        onTriggered: {
-            if (root.standings && root.standings.length > 1) {
-                root.selectedDriverIndex = (root.selectedDriverIndex + 1) % root.standings.length;
-            }
-        }
-    }
-
-    function prevDriver() {
-        if (root.standings && root.standings.length > 0) {
-            root.selectedDriverIndex = (root.selectedDriverIndex - 1 + root.standings.length) % root.standings.length;
-        }
-    }
-
-    function nextDriver() {
-        if (root.standings && root.standings.length > 0) {
-            root.selectedDriverIndex = (root.selectedDriverIndex + 1) % root.standings.length;
-        }
-    }
-
     property bool isLive: (parent && parent.isLive !== undefined) ? parent.isLive : true
 
-    // Live 1-second countdown ticker (only ticks when widget is mounted and visible)
+    // Live 1-second countdown ticker
     Timer {
         interval: 1000
         running: root.isLive
@@ -147,7 +227,7 @@ Rectangle {
         }
     }
 
-    // Periodic refresh (only when mounted and visible)
+    // Periodic refresh every 5 minutes
     Timer {
         interval: 300000
         running: root.isLive
@@ -166,7 +246,7 @@ Rectangle {
         radius: root.radius
         color: "transparent"
         border.color: "#E10600"
-        border.width: 2
+        border.width: 1.5
         z: 10
     }
 
@@ -175,86 +255,70 @@ Rectangle {
     // =========================================================================
     ColumnLayout {
         anchors.fill: parent
-        anchors.topMargin: 15
-        anchors.bottomMargin: 14
-        anchors.leftMargin: 16
-        anchors.rightMargin: 16
-        spacing: 10
-        z: 1
+        anchors.topMargin: 13
+        anchors.bottomMargin: 12
+        anchors.leftMargin: 14
+        anchors.rightMargin: 14
+        spacing: 8
+        z: 2
 
-        // 1. Header: F1 Logo Badge + Race Details + Countdown Pill
+        // 1. Header: F1 Logo Badge + GP Title + Round + Countdown Pill
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
 
-            // F1 Official Logo Emblem Badge
             Rectangle {
                 Layout.preferredWidth: 34
                 Layout.preferredHeight: 22
-                radius: 5
+                radius: 6
                 color: "#E10600"
 
                 Image {
                     anchors.centerIn: parent
                     source: root.f1WhitePng
-                    width: 26
-                    height: 14
+                    width: 24
+                    height: 13
+                    sourceSize: Qt.size(48, 26)
                     fillMode: Image.PreserveAspectFit
+                    mipmap: true
                     asynchronous: true
                 }
             }
 
-            // Grand Prix Name & Round Subtitle (NO circuit silhouette outline)
-            ColumnLayout {
+            RowLayout {
                 Layout.fillWidth: true
-                spacing: 1
+                spacing: 8
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-
-                    Text {
-                        text: root.shortName
-                        font.family: theme.fontFamily
-                        font.pixelSize: 13
-                        font.weight: Font.Black
-                        color: "#FFFFFF"
-                        elide: Text.ElideRight
-                    }
-
-                    Rectangle {
-                        Layout.preferredWidth: 4
-                        Layout.preferredHeight: 4
-                        radius: 2
-                        color: "#E10600"
-                    }
-
-                    Text {
-                        text: root.roundStr
-                        font.family: theme.fontFamily
-                        font.pixelSize: 10
-                        font.weight: Font.DemiBold
-                        color: theme.textDim
-                    }
+                Text {
+                    text: root.shortName
+                    font.family: theme.fontFamily
+                    font.pixelSize: 13
+                    font.weight: Font.Black
+                    color: "#FFFFFF"
+                    elide: Text.ElideRight
                 }
 
                 Text {
-                    text: root.circuitName + " • " + root.raceTime
+                    text: root.roundStr
                     font.family: theme.fontFamily
                     font.pixelSize: 10
-                    color: Qt.rgba(1, 1, 1, 0.65)
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
+                    font.weight: Font.DemiBold
+                    color: theme.textDim
+                    Layout.alignment: Qt.AlignVCenter
                 }
             }
 
-            // High-Tech F1 Broadcast Timing HUD Countdown
+            // Broadcast Timing HUD Countdown Pill
             Rectangle {
-                Layout.preferredHeight: 24
+                Layout.preferredHeight: 23
                 Layout.preferredWidth: countdownRow.implicitWidth + 16
                 radius: 6
-                color: Qt.rgba(0.08, 0.08, 0.12, 0.90)
-                border.color: Qt.rgba(225, 6, 0, 0.45)
+                color: root.countdownStr === "LIVE NOW"
+                    ? Qt.rgba(225/255, 6/255, 0/255, 0.24)
+                    : Qt.rgba(0.03, 0.04, 0.08, 0.55)
+                border.color: root.countdownStr === "LIVE NOW"
+                    ? "#E10600"
+                    : Qt.rgba(225/255, 6/255, 0/255, 0.45)
                 border.width: 1
 
                 RowLayout {
@@ -266,7 +330,7 @@ Rectangle {
                         Layout.preferredWidth: 6
                         Layout.preferredHeight: 6
                         radius: 3
-                        color: "#E10600"
+                        color: "#FF3B30"
                         Layout.alignment: Qt.AlignVCenter
 
                         SequentialAnimation on opacity {
@@ -278,11 +342,10 @@ Rectangle {
                     }
 
                     Text {
-                        id: countdownText
                         text: (root.sessionLabel ? root.sessionLabel + " • " : "") + root.countdownStr
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 11
-                        font.weight: Font.Black
+                        font.family: theme.fontFamily
+                        font.pixelSize: 10
+                        font.weight: Font.Bold
                         color: "#FFFFFF"
                         Layout.alignment: Qt.AlignVCenter
                     }
@@ -290,212 +353,119 @@ Rectangle {
             }
         }
 
-        // 2. Track & Compounds Bar (Clean & Minimalist • NO Lap record)
+        // 2. Slim Track Strip (Circuit distance + laps + location, NO Tires, NO FIA Formula 1)
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 30
-            radius: 8
-            color: Qt.rgba(1, 1, 1, 0.04)
-            border.color: Qt.rgba(255, 255, 255, 0.08)
+            Layout.preferredHeight: 26
+            radius: 7
+            color: Qt.rgba(0.03, 0.04, 0.07, 0.45)
+            border.color: Qt.rgba(1, 1, 1, 0.09)
             border.width: 1
 
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 10
                 anchors.rightMargin: 10
-                spacing: 12
-
-                // Track Distance & Laps
-                Row {
-                    Layout.alignment: Qt.AlignVCenter
-                    spacing: 6
-
-                    Rectangle {
-                        width: 3
-                        height: 14
-                        radius: 1.5
-                        color: "#E10600"
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    Text {
-                        text: "TRACK"
-                        font.family: theme.fontFamily
-                        font.pixelSize: 8
-                        font.weight: Font.Bold
-                        color: theme.textDim
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    Text {
-                        text: root.circuitLength + " (" + root.laps + " L)"
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 10
-                        font.weight: Font.Bold
-                        color: "#FFFFFF"
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
+                spacing: 8
 
                 Rectangle {
-                    width: 1
-                    height: 16
-                    color: Qt.rgba(255, 255, 255, 0.10)
+                    width: 3
+                    height: 12
+                    radius: 1.5
+                    color: "#E10600"
                     Layout.alignment: Qt.AlignVCenter
                 }
 
-                // Pirelli Tyre Compounds
-                Row {
+                Text {
+                    text: "TRACK"
+                    font.family: theme.fontFamily
+                    font.pixelSize: 9
+                    font.weight: Font.Bold
+                    color: theme.textDim
                     Layout.alignment: Qt.AlignVCenter
-                    spacing: 6
+                }
 
-                    Text {
-                        text: "TIRES"
-                        font.family: theme.fontFamily
-                        font.pixelSize: 8
-                        font.weight: Font.Bold
-                        color: theme.textDim
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    Row {
-                        spacing: 4
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        Repeater {
-                            model: root.compounds
-                            Rectangle {
-                                width: 17
-                                height: 17
-                                radius: 8.5
-                                color: "transparent"
-                                border.color: modelData.color
-                                border.width: 1.5
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: modelData.code
-                                    font.family: "JetBrainsMono Nerd Font"
-                                    font.pixelSize: 8
-                                    font.weight: Font.Black
-                                    color: modelData.color
-                                }
-                            }
-                        }
-                    }
+                Text {
+                    text: root.circuitLength + " • " + root.laps + " Laps"
+                    font.family: theme.fontFamily
+                    font.pixelSize: 10
+                    font.weight: Font.Bold
+                    color: "#FFFFFF"
+                    Layout.alignment: Qt.AlignVCenter
                 }
 
                 Item { Layout.fillWidth: true }
 
-                // Season Badge
-                Rectangle {
-                    Layout.preferredHeight: 18
-                    Layout.preferredWidth: seasonText.implicitWidth + 12
-                    radius: 4
-                    color: Qt.rgba(1, 1, 1, 0.06)
-                    border.color: Qt.rgba(255, 255, 255, 0.10)
-                    border.width: 1
+                Text {
+                    text: root.raceDate + " • " + root.raceTime
+                    font.family: theme.fontFamily
+                    font.pixelSize: 10
+                    font.weight: Font.Medium
+                    color: theme.textDim
                     Layout.alignment: Qt.AlignVCenter
-
-                    Text {
-                        id: seasonText
-                        anchors.centerIn: parent
-                        text: "FIA FORMULA 1"
-                        font.family: theme.fontFamily
-                        font.pixelSize: 8
-                        font.weight: Font.Black
-                        color: theme.textDim
-                    }
                 }
             }
         }
 
-        // 3. Driver Standings with Lateral Navigation Arrows (NBA Style)
+        // 3. Standings Section (Toggle between Driver Standings & Constructor Standings)
         ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 5
+            spacing: 6
 
-            // Subheader with Title & Interactive Lateral Arrows
+            // Subheader: Clickable Title + Clean Counter + Season
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
 
-                Text {
-                    text: "DRIVER STANDINGS"
-                    font.family: theme.fontFamily
-                    font.pixelSize: 11
-                    font.weight: Font.Black
-                    color: "#FFFFFF"
+                // Interactive Standings Mode Switcher (Drivers <-> Constructors)
+                Rectangle {
+                    id: standingsTogglePill
+                    implicitWidth: modeLabel.implicitWidth + 14
+                    implicitHeight: 20
+                    radius: 5
+                    color: modeMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+                    border.color: modeMouse.containsMouse ? Qt.rgba(225/255, 6/255, 0/255, 0.65) : Qt.rgba(1, 1, 1, 0.12)
+                    border.width: 1
+
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                    Text {
+                        id: modeLabel
+                        anchors.centerIn: parent
+                        text: root.showConstructors ? "CONSTRUCTOR STANDINGS" : "DRIVER STANDINGS"
+                        font.family: theme.fontFamily
+                        font.pixelSize: 10
+                        font.weight: Font.Black
+                        color: "#FFFFFF"
+                    }
+
+                    MouseArea {
+                        id: modeMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.toggleStandingsMode()
+                    }
                 }
 
                 Rectangle {
-                    Layout.preferredWidth: 4
-                    Layout.preferredHeight: 4
-                    radius: 2
-                    color: "#E10600"
-                }
-
-                // Interactive Driver Switcher (< 1 of 23 >)
-                Row {
-                    spacing: 4
-                    Layout.alignment: Qt.AlignVCenter
-
-                    Rectangle {
-                        width: 18
-                        height: 18
-                        radius: 9
-                        color: prevBtnMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(1, 1, 1, 0.08)
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "‹"
-                            font.pixelSize: 13
-                            font.weight: Font.Bold
-                            color: "#FFFFFF"
-                        }
-
-                        MouseArea {
-                            id: prevBtnMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.prevDriver()
-                        }
-                    }
+                    height: 17
+                    width: entryCounterText.implicitWidth + 12
+                    radius: 5
+                    color: Qt.rgba(1, 1, 1, 0.06)
+                    border.color: Qt.rgba(1, 1, 1, 0.10)
+                    border.width: 1
 
                     Text {
-                        text: (root.selectedDriverIndex + 1) + " of " + Math.max(1, root.standings.length)
+                        id: entryCounterText
+                        anchors.centerIn: parent
+                        text: (root.activeIndex + 1) + " / " + Math.max(1, root.activeList.length)
                         font.family: theme.fontFamily
-                        font.pixelSize: 10
-                        font.weight: Font.DemiBold
-                        color: theme.textDim
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    Rectangle {
-                        width: 18
-                        height: 18
-                        radius: 9
-                        color: nextBtnMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(1, 1, 1, 0.08)
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "›"
-                            font.pixelSize: 13
-                            font.weight: Font.Bold
-                            color: "#FFFFFF"
-                        }
-
-                        MouseArea {
-                            id: nextBtnMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.nextDriver()
-                        }
+                        font.pixelSize: 9
+                        font.weight: Font.Bold
+                        color: theme.textMuted
                     }
                 }
 
@@ -510,247 +480,261 @@ Rectangle {
                 }
             }
 
-            // Driver Data Card (spacious, aesthetic, dark obsidian)
+            // Standings Card (No arrows; left click = prev, right click = next; smooth horizontal slide)
             Rectangle {
                 id: driverCard
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                radius: 10
-                color: driverCardHover.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(1, 1, 1, 0.035)
-                border.color: driverCardHover.containsMouse
-                    ? (root.currentDriver ? root.currentDriver.color : "#E10600")
-                    : Qt.rgba(255, 255, 255, 0.08)
+                radius: 9
+                readonly property color teamCol: (root.currentEntry && root.currentEntry.color) ? root.currentEntry.color : "#E10600"
+                readonly property int posVal: root.currentEntry ? root.currentEntry.pos : 1
+
+                color: Qt.rgba(0.03, 0.04, 0.07, 0.56)
+                border.color: driverCardMouse.containsMouse && root.currentEntry
+                    ? Qt.rgba(teamCol.r, teamCol.g, teamCol.b, 0.70)
+                    : Qt.rgba(1, 1, 1, 0.11)
                 border.width: 1
                 clip: true
 
-                // Driver Constructor Team Left Stripe
+                Behavior on border.color { ColorAnimation { duration: 160 } }
+
+                // Subtle team-color ambient wash inside card
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: Qt.rgba(driverCard.teamCol.r, driverCard.teamCol.g, driverCard.teamCol.b, 0.16) }
+                        GradientStop { position: 0.45; color: Qt.rgba(driverCard.teamCol.r, driverCard.teamCol.g, driverCard.teamCol.b, 0.02) }
+                        GradientStop { position: 1.0; color: Qt.rgba(driverCard.teamCol.r, driverCard.teamCol.g, driverCard.teamCol.b, 0.08) }
+                    }
+                }
+
+                // Team Left Accent Bar
                 Rectangle {
                     anchors.left: parent.left
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
                     width: 3.5
-                    color: root.currentDriver ? root.currentDriver.color : "#E10600"
+                    color: driverCard.teamCol
                 }
 
-                RowLayout {
+                // Sliding Entry Content
+                Item {
+                    id: cardSlideContainer
                     anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 12
-                    spacing: 10
+                    property real xOffset: 0
+                    property real slideOpacity: 1.0
+                    transform: Translate { x: cardSlideContainer.xOffset }
+                    opacity: cardSlideContainer.slideOpacity
 
-                    // Left Side Lateral Arrow on the Card
-                    Rectangle {
-                        Layout.preferredWidth: 20
-                        Layout.preferredHeight: 28
-                        radius: 4
-                        color: cardPrevMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : "transparent"
-                        Layout.alignment: Qt.AlignVCenter
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 13
+                        anchors.rightMargin: 12
+                        spacing: 11
 
-                        Text {
-                            anchors.centerIn: parent
-                            text: "‹"
-                            font.pixelSize: 16
-                            font.weight: Font.Bold
-                            color: cardPrevMouse.containsMouse ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.45)
-                        }
+                        // Metallic Podium / Position Badge (Gold P1, Silver P2, Bronze P3, Glass P4+)
+                        Rectangle {
+                            Layout.preferredWidth: 38
+                            Layout.preferredHeight: 38
+                            Layout.alignment: Qt.AlignVCenter
+                            radius: 8
+                            border.width: 1
+                            border.color: {
+                                if (driverCard.posVal === 1) return "#FDE047";
+                                if (driverCard.posVal === 2) return "#E2E8F0";
+                                if (driverCard.posVal === 3) return "#F59E0B";
+                                return Qt.rgba(1, 1, 1, 0.14);
+                            }
+                            color: Qt.rgba(1, 1, 1, 0.08)
 
-                        MouseArea {
-                            id: cardPrevMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.prevDriver()
-                        }
-                    }
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: parent.radius
+                                visible: driverCard.posVal <= 3
+                                gradient: Gradient {
+                                    GradientStop {
+                                        position: 0.0
+                                        color: driverCard.posVal === 1 ? "#FFD84D" : (driverCard.posVal === 2 ? "#E5E7EB" : "#E59853")
+                                    }
+                                    GradientStop {
+                                        position: 0.5
+                                        color: driverCard.posVal === 1 ? "#F5B800" : (driverCard.posVal === 2 ? "#B8C1CC" : "#C8732A")
+                                    }
+                                    GradientStop {
+                                        position: 1.0
+                                        color: driverCard.posVal === 1 ? "#C98A00" : (driverCard.posVal === 2 ? "#8D96A3" : "#964E15")
+                                    }
+                                }
+                            }
 
-                    // Position Badge (P1 gold/red, P2 silver, P3 bronze)
-                    Rectangle {
-                        Layout.preferredWidth: 32
-                        Layout.preferredHeight: 32
-                        radius: 6
-                        color: {
-                            if (!root.currentDriver) return Qt.rgba(1, 1, 1, 0.08);
-                            if (root.currentDriver.pos === 1) return "#E10600";
-                            if (root.currentDriver.pos === 2) return Qt.rgba(192, 192, 192, 0.25);
-                            if (root.currentDriver.pos === 3) return Qt.rgba(205, 127, 50, 0.25);
-                            return Qt.rgba(1, 1, 1, 0.08);
-                        }
-                        border.color: {
-                            if (!root.currentDriver) return Qt.rgba(255, 255, 255, 0.12);
-                            if (root.currentDriver.pos === 1) return "transparent";
-                            if (root.currentDriver.pos === 2) return Qt.rgba(192, 192, 192, 0.45);
-                            if (root.currentDriver.pos === 3) return Qt.rgba(205, 127, 50, 0.45);
-                            return Qt.rgba(255, 255, 255, 0.12);
-                        }
-                        border.width: 1
-                        Layout.alignment: Qt.AlignVCenter
+                            // Crisp specular shine on top half of podium badge
+                            Rectangle {
+                                visible: driverCard.posVal <= 3
+                                anchors.top: parent.top
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.margins: 1
+                                height: parent.height * 0.44
+                                radius: 7
+                                gradient: Gradient {
+                                    GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.42) }
+                                    GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.0) }
+                                }
+                            }
 
-                        Text {
-                            anchors.centerIn: parent
-                            text: root.currentDriver ? ("P" + root.currentDriver.pos) : "P1"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 11
-                            font.weight: Font.Black
-                            color: "#FFFFFF"
-                        }
-                    }
-
-                    // Driver Permanent Racing Number
-                    Rectangle {
-                        Layout.preferredWidth: 26
-                        Layout.preferredHeight: 22
-                        radius: 4
-                        color: Qt.rgba(1, 1, 1, 0.06)
-                        border.color: root.currentDriver ? root.currentDriver.color : "#E10600"
-                        border.width: 1
-                        Layout.alignment: Qt.AlignVCenter
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: root.currentDriver ? ("#" + (root.currentDriver.number || "0")) : "#1"
-                            font.family: theme.fontFamily
-                            font.pixelSize: 10
-                            font.weight: Font.Black
-                            color: "#FFFFFF"
-                        }
-                    }
-
-                    // Driver Full Name & Team Details
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
-                        Layout.alignment: Qt.AlignVCenter
-
-                        RowLayout {
-                            spacing: 6
                             Text {
-                                text: root.currentDriver ? root.currentDriver.fullName : "Kimi Antonelli"
+                                anchors.centerIn: parent
+                                text: "P" + driverCard.posVal
                                 font.family: theme.fontFamily
                                 font.pixelSize: 13
-                                font.weight: Font.Bold
-                                color: "#FFFFFF"
-                                elide: Text.ElideRight
-                            }
-                            Text {
-                                text: root.currentDriver ? ("• " + root.currentDriver.code) : "• ANT"
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 11
-                                font.weight: Font.Bold
-                                color: root.currentDriver ? root.currentDriver.color : "#27F4D2"
+                                font.weight: Font.Black
+                                color: driverCard.posVal <= 3 ? "#111318" : "#FFFFFF"
                             }
                         }
 
-                        RowLayout {
-                            spacing: 5
-                            Rectangle {
-                                width: 5
-                                height: 5
-                                radius: 2.5
-                                color: root.currentDriver ? root.currentDriver.color : "#27F4D2"
-                            }
-                            Text {
-                                text: root.currentDriver ? root.currentDriver.team : "Mercedes-AMG Petronas"
-                                font.family: theme.fontFamily
-                                font.pixelSize: 10
-                                color: theme.textDim
-                                elide: Text.ElideRight
-                                Layout.fillWidth: true
-                            }
-                        }
-                    }
-
-                    // Championship Points
-                    Column {
-                        Layout.alignment: Qt.AlignVCenter
-                        spacing: 1
-
-                        Text {
-                            text: root.currentDriver ? (root.currentDriver.pts + " PTS") : "365 PTS"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 14
-                            font.weight: Font.Black
-                            color: root.currentDriver ? root.currentDriver.color : "#27F4D2"
-                            anchors.right: parent.right
-                        }
-                        Text {
-                            text: "CHAMPIONSHIP"
-                            font.family: theme.fontFamily
-                            font.pixelSize: 8
-                            font.weight: Font.Bold
-                            color: theme.textDim
-                            anchors.right: parent.right
-                        }
-                    }
-
-                    // Constructor Crest Logo
-                    Item {
-                        Layout.preferredWidth: 32
-                        Layout.preferredHeight: 32
-                        Layout.alignment: Qt.AlignVCenter
-
+                        // Large Official Constructor Crest Logo
                         Rectangle {
-                            anchors.fill: parent
-                            radius: 8
-                            color: Qt.rgba(1, 1, 1, 0.06)
-                            border.color: Qt.rgba(255, 255, 255, 0.10)
+                            Layout.preferredWidth: 48
+                            Layout.preferredHeight: 48
+                            Layout.alignment: Qt.AlignVCenter
+                            radius: 9
+                            color: Qt.rgba(driverCard.teamCol.r, driverCard.teamCol.g, driverCard.teamCol.b, 0.14)
+                            border.color: Qt.rgba(driverCard.teamCol.r, driverCard.teamCol.g, driverCard.teamCol.b, 0.42)
                             border.width: 1
 
                             Image {
                                 anchors.centerIn: parent
-                                width: 22
-                                height: 22
-                                source: Quickshell.shellPath("icons/f1-teams/" + ((root.currentDriver && root.currentDriver.teamKey) ? root.currentDriver.teamKey : "f1") + ".png")
+                                width: 38
+                                height: 38
+                                sourceSize: Qt.size(96, 96)
+                                source: Quickshell.shellPath("icons/f1-teams/" + ((root.currentEntry && root.currentEntry.teamKey) ? root.currentEntry.teamKey : "f1") + ".png")
                                 fillMode: Image.PreserveAspectFit
-                                opacity: 0.95
-                                cache: false
+                                mipmap: true
+                                smooth: true
                                 asynchronous: true
                             }
                         }
-                    }
 
-                    // Right Side Lateral Arrow on the Card
-                    Rectangle {
-                        Layout.preferredWidth: 20
-                        Layout.preferredHeight: 28
-                        radius: 4
-                        color: cardNextMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : "transparent"
-                        Layout.alignment: Qt.AlignVCenter
+                        // Center Identity (Driver Mode vs Constructor Mode)
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignVCenter
+                            spacing: 2
 
-                        Text {
-                            anchors.centerIn: parent
-                            text: "›"
-                            font.pixelSize: 16
-                            font.weight: Font.Bold
-                            color: cardNextMouse.containsMouse ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.45)
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 6
+
+                                Rectangle {
+                                    visible: !root.showConstructors
+                                    Layout.preferredWidth: numTxt.implicitWidth + 10
+                                    Layout.preferredHeight: 19
+                                    radius: 5
+                                    color: Qt.rgba(driverCard.teamCol.r, driverCard.teamCol.g, driverCard.teamCol.b, 0.18)
+                                    border.color: Qt.rgba(driverCard.teamCol.r, driverCard.teamCol.g, driverCard.teamCol.b, 0.65)
+                                    border.width: 1
+
+                                    Text {
+                                        id: numTxt
+                                        anchors.centerIn: parent
+                                        text: root.currentEntry ? ("#" + (root.currentEntry.number || "0")) : "#12"
+                                        font.family: theme.fontFamily
+                                        font.pixelSize: 10
+                                        font.weight: Font.Black
+                                        color: "#FFFFFF"
+                                    }
+                                }
+
+                                Text {
+                                    text: root.showConstructors
+                                        ? (root.currentEntry ? root.currentEntry.team : "Mercedes-AMG Petronas")
+                                        : (root.currentEntry ? root.currentEntry.fullName : "Andrea Kimi Antonelli")
+                                    font.family: theme.fontFamily
+                                    font.pixelSize: 13
+                                    font.weight: Font.Bold
+                                    color: "#FFFFFF"
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 6
+
+                                Text {
+                                    visible: !root.showConstructors
+                                    text: root.currentEntry ? root.currentEntry.code : "ANT"
+                                    font.family: theme.fontFamily
+                                    font.pixelSize: 10
+                                    font.weight: Font.Black
+                                    color: driverCard.teamCol
+                                }
+
+                                Text {
+                                    text: root.showConstructors
+                                        ? (root.currentEntry ? ((root.currentEntry.drivers || "") + (root.currentEntry.wins > 0 ? (" • " + root.currentEntry.wins + (root.currentEntry.wins === 1 ? " Win" : " Wins")) : "")) : "")
+                                        : (root.currentEntry ? root.currentEntry.team : "Mercedes-AMG Petronas")
+                                    font.family: theme.fontFamily
+                                    font.pixelSize: 10
+                                    font.weight: Font.Medium
+                                    color: theme.textMuted
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                            }
                         }
 
-                        MouseArea {
-                            id: cardNextMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.nextDriver()
+                        // Right Championship Points
+                        Row {
+                            Layout.alignment: Qt.AlignVCenter
+                            spacing: 4
+
+                            Text {
+                                text: root.currentEntry ? root.currentEntry.pts : "390"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 18
+                                font.weight: Font.Black
+                                color: "#FFFFFF"
+                                anchors.baseline: ptsSuffix.baseline
+                            }
+
+                            Text {
+                                id: ptsSuffix
+                                text: "PTS"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 10
+                                font.weight: Font.Bold
+                                color: driverCard.teamCol
+                            }
                         }
                     }
                 }
 
+                // Half-card Left/Right Click + Drag Support (No arrows needed)
                 MouseArea {
-                    id: driverCardHover
+                    id: driverCardMouse
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: isDragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
-                    z: 0
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
 
                     property real startScreenX: 0
                     property real startScreenY: 0
                     property bool isDragging: false
 
                     onPressed: (mouse) => {
+                        if (mouse.button === Qt.RightButton) {
+                            f1Proc.running = true;
+                            return;
+                        }
                         if (mouse.button !== Qt.LeftButton) return;
                         let w = root.wrapper || root.findWrapper();
                         let target = (w && w.parent) ? w.parent : null;
                         if (target) {
-                            let pt = driverCardHover.mapToItem(target, mouse.x, mouse.y);
+                            let pt = driverCardMouse.mapToItem(target, mouse.x, mouse.y);
                             startScreenX = pt.x;
                             startScreenY = pt.y;
                         } else {
@@ -774,7 +758,7 @@ Rectangle {
                         let curX = mouse.x;
                         let curY = mouse.y;
                         if (target) {
-                            let pt = driverCardHover.mapToItem(target, mouse.x, mouse.y);
+                            let pt = driverCardMouse.mapToItem(target, mouse.x, mouse.y);
                             curX = pt.x;
                             curY = pt.y;
                         }
@@ -796,7 +780,11 @@ Rectangle {
                             isDragging = false;
                             if (w) w.endDrag();
                         } else if (mouse.button === Qt.LeftButton) {
-                            root.nextDriver();
+                            if (mouse.x < driverCard.width * 0.5) {
+                                root.stepStanding(-1);
+                            } else {
+                                root.stepStanding(1);
+                            }
                         }
                     }
 
@@ -812,11 +800,11 @@ Rectangle {
         }
     }
 
-    // Drag / Interaction MouseArea (Apple Sonoma smooth dragging)
+    // Background Drag / Interaction MouseArea
     MouseArea {
         id: bgDragArea
         anchors.fill: parent
-        z: 0
+        z: 1
         hoverEnabled: true
         cursorShape: isDragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton

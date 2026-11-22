@@ -599,37 +599,53 @@ def get_f1_data():
         import urllib.request
         from datetime import timezone
 
+        CONSTRUCTOR_META = {
+            "mercedes":     {"team": "Mercedes-AMG Petronas", "short": "Mercedes",     "teamKey": "mercedes",    "color": "#27F4D2"},
+            "ferrari":      {"team": "Scuderia Ferrari",      "short": "Ferrari",      "teamKey": "ferrari",     "color": "#E80020"},
+            "red_bull":     {"team": "Red Bull Racing",       "short": "Red Bull",     "teamKey": "redbull",     "color": "#3671C6"},
+            "mclaren":      {"team": "McLaren F1 Team",       "short": "McLaren",      "teamKey": "mclaren",     "color": "#FF8000"},
+            "rb":           {"team": "Racing Bulls",          "short": "Racing Bulls", "teamKey": "rb",          "color": "#6692FF"},
+            "alpine":       {"team": "Alpine F1 Team",        "short": "Alpine",       "teamKey": "alpine",      "color": "#0093CC"},
+            "haas":         {"team": "Haas F1 Team",          "short": "Haas",         "teamKey": "haas",        "color": "#E6002B"},
+            "audi":         {"team": "Audi F1 Team",          "short": "Audi",         "teamKey": "audi",        "color": "#F50537"},
+            "sauber":       {"team": "Audi F1 Team",          "short": "Audi",         "teamKey": "audi",        "color": "#F50537"},
+            "williams":     {"team": "Williams Racing",       "short": "Williams",     "teamKey": "williams",    "color": "#00A0DE"},
+            "aston_martin": {"team": "Aston Martin Aramco",   "short": "Aston Martin", "teamKey": "astonmartin", "color": "#229971"},
+            "cadillac":     {"team": "Cadillac Formula 1",    "short": "Cadillac",     "teamKey": "cadillac",    "color": "#C5A059"},
+        }
+
         F1_DRIVERS_2026 = {
-            "antonelli": {"number": 12, "code": "ANT", "team": "Mercedes-AMG Petronas", "teamKey": "mercedes", "color": "#27F4D2"},
-            "russell":   {"number": 63, "code": "RUS", "team": "Mercedes-AMG Petronas", "teamKey": "mercedes", "color": "#27F4D2"},
-            "hamilton":  {"number": 44, "code": "HAM", "team": "Scuderia Ferrari", "teamKey": "ferrari", "color": "#E80020"},
-            "leclerc":   {"number": 16, "code": "LEC", "team": "Scuderia Ferrari", "teamKey": "ferrari", "color": "#E80020"},
-            "verstappen":{"number": 1,  "code": "VER", "team": "Red Bull Racing", "teamKey": "redbull", "color": "#3671C6"},
-            "lawson":    {"number": 30, "code": "LAW", "team": "Red Bull Racing", "teamKey": "redbull", "color": "#3671C6"},
-            "norris":    {"number": 4,  "code": "NOR", "team": "McLaren F1 Team", "teamKey": "mclaren", "color": "#FF8000"},
-            "piastri":   {"number": 81, "code": "PIA", "team": "McLaren F1 Team", "teamKey": "mclaren", "color": "#FF8000"},
-            "alonso":    {"number": 14, "code": "ALO", "team": "Aston Martin Aramco", "teamKey": "astonmartin", "color": "#229971"},
-            "stroll":    {"number": 18, "code": "STR", "team": "Aston Martin Aramco", "teamKey": "astonmartin", "color": "#229971"},
-            "gasly":     {"number": 10, "code": "GAS", "team": "Alpine F1 Team", "teamKey": "alpine", "color": "#0093CC"},
-            "colapinto": {"number": 43, "code": "COL", "team": "Alpine F1 Team", "teamKey": "alpine", "color": "#0093CC"},
-            "albon":     {"number": 23, "code": "ALB", "team": "Williams Racing", "teamKey": "williams", "color": "#00A0DE"},
-            "sainz":     {"number": 55, "code": "SAI", "team": "Williams Racing", "teamKey": "williams", "color": "#00A0DE"},
-            "tsunoda":   {"number": 22, "code": "TSU", "team": "Visa Cash App RB", "teamKey": "rb", "color": "#6692FF"},
-            "hadjar":    {"number": 6,  "code": "HAD", "team": "Visa Cash App RB", "teamKey": "rb", "color": "#6692FF"},
-            "lindblad":  {"number": 41, "code": "LIN", "team": "Visa Cash App RB", "teamKey": "rb", "color": "#6692FF"},
-            "ocon":      {"number": 31, "code": "OCO", "team": "MoneyGram Haas F1 Team", "teamKey": "haas", "color": "#B6BABD"},
-            "bearman":   {"number": 87, "code": "BEA", "team": "MoneyGram Haas F1 Team", "teamKey": "haas", "color": "#B6BABD"},
-            "hülkenberg":{"number": 27, "code": "HUL", "team": "Stake F1 Team Kick Sauber", "teamKey": "sauber", "color": "#52E252"},
-            "hulkenberg":{"number": 27, "code": "HUL", "team": "Stake F1 Team Kick Sauber", "teamKey": "sauber", "color": "#52E252"},
-            "bortoleto": {"number": 5,  "code": "BOR", "team": "Stake F1 Team Kick Sauber", "teamKey": "sauber", "color": "#52E252"},
-            "bottas":    {"number": 77, "code": "BOT", "team": "Cadillac Formula 1 Team", "teamKey": "cadillac", "color": "#C5A059"},
-            "perez":     {"number": 11, "code": "PER", "team": "Cadillac Formula 1 Team", "teamKey": "cadillac", "color": "#C5A059"},
-            "pérez":     {"number": 11, "code": "PER", "team": "Cadillac Formula 1 Team", "teamKey": "cadillac", "color": "#C5A059"},
-            "herta":     {"number": 26, "code": "HER", "team": "Cadillac Formula 1 Team", "teamKey": "cadillac", "color": "#C5A059"},
+            "antonelli": {"number": 12, "code": "ANT", "cid": "mercedes"},
+            "russell":   {"number": 63, "code": "RUS", "cid": "mercedes"},
+            "hamilton":  {"number": 44, "code": "HAM", "cid": "ferrari"},
+            "leclerc":   {"number": 16, "code": "LEC", "cid": "ferrari"},
+            "verstappen":{"number": 1,  "code": "VER", "cid": "red_bull"},
+            "hadjar":    {"number": 6,  "code": "HAD", "cid": "red_bull"},
+            "norris":    {"number": 4,  "code": "NOR", "cid": "mclaren"},
+            "piastri":   {"number": 81, "code": "PIA", "cid": "mclaren"},
+            "lawson":    {"number": 30, "code": "LAW", "cid": "rb"},
+            "lindblad":  {"number": 41, "code": "LIN", "cid": "rb"},
+            "tsunoda":   {"number": 22, "code": "TSU", "cid": "rb"},
+            "alonso":    {"number": 14, "code": "ALO", "cid": "aston_martin"},
+            "stroll":    {"number": 18, "code": "STR", "cid": "aston_martin"},
+            "gasly":     {"number": 10, "code": "GAS", "cid": "alpine"},
+            "colapinto": {"number": 43, "code": "COL", "cid": "alpine"},
+            "albon":     {"number": 23, "code": "ALB", "cid": "williams"},
+            "sainz":     {"number": 55, "code": "SAI", "cid": "williams"},
+            "ocon":      {"number": 31, "code": "OCO", "cid": "haas"},
+            "bearman":   {"number": 87, "code": "BEA", "cid": "haas"},
+            "hülkenberg":{"number": 27, "code": "HUL", "cid": "audi"},
+            "hulkenberg":{"number": 27, "code": "HUL", "cid": "audi"},
+            "bortoleto": {"number": 5,  "code": "BOR", "cid": "audi"},
+            "bottas":    {"number": 77, "code": "BOT", "cid": "cadillac"},
+            "perez":     {"number": 11, "code": "PER", "cid": "cadillac"},
+            "pérez":     {"number": 11, "code": "PER", "cid": "cadillac"},
+            "herta":     {"number": 26, "code": "HER", "cid": "cadillac"},
         }
 
         # 1. Fetch Official Live Standings from Jolpica / Ergast API (Fast & Reliable)
         standings = []
+        team_drivers_map = {}
         try:
             req_st = urllib.request.Request(
                 "https://api.jolpi.ca/ergast/f1/current/driverStandings.json",
@@ -640,33 +656,74 @@ def get_f1_data():
             st_list = st_data.get("MRData", {}).get("StandingsTable", {}).get("StandingsLists", [{}])[0].get("DriverStandings", [])
             for item in st_list:
                 drv = item.get("Driver", {})
+                ctor = item.get("Constructors", [{}])[0]
+                cid = ctor.get("constructorId", "")
                 fname = drv.get("familyName", "")
                 gname = drv.get("givenName", "")
                 full_name = f"{gname} {fname}".strip()
-                matched = F1_DRIVERS_2026.get(fname.lower())
-                if not matched:
+                dmeta = F1_DRIVERS_2026.get(fname.lower())
+                if not dmeta:
                     for k, v in F1_DRIVERS_2026.items():
                         if k in full_name.lower():
-                            matched = v
+                            dmeta = v
                             break
-                if not matched:
-                    matched = {
-                        "number": int(drv.get("permanentNumber") or 0),
-                        "code": drv.get("code") or fname[:3].upper(),
-                        "team": item.get("Constructors", [{}])[0].get("name", "Formula 1 Team"),
-                        "teamKey": "f1",
-                        "color": "#E10600"
-                    }
+                eff_cid = cid or (dmeta["cid"] if dmeta else "")
+                cmeta = CONSTRUCTOR_META.get(eff_cid, {
+                    "team": ctor.get("name", "Formula 1 Team"),
+                    "short": ctor.get("name", "Formula 1 Team"),
+                    "teamKey": "f1",
+                    "color": "#E10600"
+                })
+                num_val = int(drv.get("permanentNumber") or (dmeta["number"] if dmeta else 0) or 0)
+                code_val = drv.get("code") or (dmeta["code"] if dmeta else fname[:3].upper())
+                if eff_cid:
+                    team_drivers_map.setdefault(eff_cid, [])
+                    if fname and fname not in team_drivers_map[eff_cid]:
+                        team_drivers_map[eff_cid].append(fname)
                 standings.append({
                     "pos": int(item.get("position") or (len(standings) + 1)),
-                    "number": matched["number"],
+                    "number": num_val,
                     "driver": f"{gname[:1]}. {fname}" if gname else fname,
                     "fullName": full_name,
-                    "code": matched["code"],
-                    "team": matched["team"],
-                    "teamKey": matched["teamKey"],
+                    "code": code_val,
+                    "team": cmeta["team"],
+                    "teamKey": cmeta["teamKey"],
                     "pts": int(float(item.get("points") or 0)),
-                    "color": matched["color"]
+                    "color": cmeta["color"]
+                })
+        except Exception:
+            pass
+
+        # 1b. Fetch Official Live Constructor Standings from Jolpica / Ergast API
+        constructor_standings = []
+        try:
+            req_cs = urllib.request.Request(
+                "https://api.jolpi.ca/ergast/f1/current/constructorStandings.json",
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
+            with urllib.request.urlopen(req_cs, timeout=4) as rcs:
+                cs_data = json.loads(rcs.read().decode())
+            cs_list = cs_data.get("MRData", {}).get("StandingsTable", {}).get("StandingsLists", [{}])[0].get("ConstructorStandings", [])
+            for item in cs_list:
+                ctor = item.get("Constructor", {})
+                cid = ctor.get("constructorId", "")
+                cmeta = CONSTRUCTOR_META.get(cid, {
+                    "team": ctor.get("name", "Formula 1 Team"),
+                    "short": ctor.get("name", "Formula 1 Team"),
+                    "teamKey": "f1",
+                    "color": "#E10600"
+                })
+                drvs = team_drivers_map.get(cid, [])[:2]
+                constructor_standings.append({
+                    "pos": int(item.get("position") or (len(constructor_standings) + 1)),
+                    "team": cmeta["team"],
+                    "shortName": cmeta["short"],
+                    "teamKey": cmeta["teamKey"],
+                    "pts": int(float(item.get("points") or 0)),
+                    "wins": int(item.get("wins") or 0),
+                    "nationality": ctor.get("nationality", ""),
+                    "drivers": " • ".join(drvs) if drvs else ctor.get("nationality", ""),
+                    "color": cmeta["color"]
                 })
         except Exception:
             pass
@@ -687,27 +744,26 @@ def get_f1_data():
                         ath = e.get("athlete", {})
                         stats = {s.get("name"): s.get("displayValue") for s in e.get("stats", [])}
                         full_name = ath.get("displayName", "")
-                        matched = None
+                        dmeta = None
                         for k, v in F1_DRIVERS_2026.items():
                             if k in full_name.lower():
-                                matched = v
+                                dmeta = v
                                 break
-                        if not matched:
-                            matched = {"number": 0, "code": (ath.get("shortName") or full_name)[:3].upper(), "team": "Formula 1 Team", "teamKey": "f1", "color": "#E10600"}
+                        cmeta = CONSTRUCTOR_META.get(dmeta["cid"], {}) if dmeta else {}
                         try:
                             pts_val = int(stats.get("championshipPts") or stats.get("points") or 0)
                         except:
                             pts_val = 0
                         standings.append({
                             "pos": int(stats.get("rank") or (len(standings) + 1)),
-                            "number": matched["number"],
+                            "number": dmeta["number"] if dmeta else 0,
                             "driver": ath.get("shortName") or full_name,
                             "fullName": full_name,
-                            "code": matched["code"],
-                            "team": matched["team"],
-                            "teamKey": matched["teamKey"],
+                            "code": dmeta["code"] if dmeta else (ath.get("shortName") or full_name)[:3].upper(),
+                            "team": cmeta.get("team", "Formula 1 Team"),
+                            "teamKey": cmeta.get("teamKey", "f1"),
                             "pts": pts_val,
-                            "color": matched["color"]
+                            "color": cmeta.get("color", "#E10600")
                         })
             except Exception:
                 pass
@@ -720,8 +776,8 @@ def get_f1_data():
         location_str = "Mexico City, Mexico"
         round_no = 20
         total_rounds = 24
-        session_label = "Carrera"
-        session_full = "Gran Premio (Carrera)"
+        session_label = "RACE"
+        session_full = "Grand Prix Race"
         session_date = "Sunday, Nov 01"
         session_time = "20:00 UTC"
         session_seconds = 200000
@@ -747,12 +803,12 @@ def get_f1_data():
                 round_no = int(r_info.get("round", 20))
 
                 sess_candidates = [
-                    ("FirstPractice", "FP1", "Práctica 1"),
-                    ("SecondPractice", "FP2", "Práctica 2"),
-                    ("ThirdPractice", "FP3", "Práctica 3"),
-                    ("SprintQualifying", "Sprint Qualy", "Clasif. Sprint"),
-                    ("Sprint", "Sprint", "Carrera Sprint"),
-                    ("Qualifying", "Qualy", "Clasificación"),
+                    ("FirstPractice", "FP1", "Practice 1"),
+                    ("SecondPractice", "FP2", "Practice 2"),
+                    ("ThirdPractice", "FP3", "Practice 3"),
+                    ("SprintQualifying", "SPRINT QUALI", "Sprint Qualifying"),
+                    ("Sprint", "SPRINT", "Sprint Race"),
+                    ("Qualifying", "QUALI", "Qualifying"),
                 ]
                 parsed_sessions = []
                 for skey, slbl, sfull in sess_candidates:
@@ -766,7 +822,7 @@ def get_f1_data():
                 if "date" in r_info and "time" in r_info:
                     try:
                         rdt = datetime.fromisoformat(f"{r_info['date']}T{r_info['time'].replace('Z', '+00:00')}")
-                        parsed_sessions.append(("Race", "Carrera", "Gran Premio (Carrera)", rdt))
+                        parsed_sessions.append(("Race", "RACE", "Grand Prix Race", rdt))
                     except Exception:
                         pass
 
@@ -820,7 +876,8 @@ def get_f1_data():
                     {"code": "C5", "compound": "Soft", "color": "#E10600", "textColor": "#FFFFFF"}
                 ]
             },
-            "standings": standings
+            "standings": standings,
+            "constructorStandings": constructor_standings
         }
         try:
             with open(cache_file, "w", encoding="utf-8") as f:
@@ -857,7 +914,8 @@ def get_f1_data():
                 {"code": "C5", "compound": "Soft", "color": "#E10600", "textColor": "#FFFFFF"}
             ]
         },
-        "standings": []
+        "standings": [],
+        "constructorStandings": []
     }
 
 def get_f1_calendar():
