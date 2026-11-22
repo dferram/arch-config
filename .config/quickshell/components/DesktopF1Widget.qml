@@ -302,12 +302,13 @@ Rectangle {
         // 1. Broadcast Pit-Wall Header (Large F1 Emblem + GP Info + Track Silhouette + Status Pill)
         RowLayout {
             Layout.fillWidth: true
-            spacing: 10
+            Layout.minimumWidth: 0
+            spacing: 8
 
             // Large Official F1 Crest Badge (tight SVG fills badge boldly)
             Rectangle {
-                Layout.preferredWidth: 66
-                Layout.preferredHeight: 30
+                Layout.preferredWidth: 58
+                Layout.preferredHeight: 28
                 radius: 6
                 color: "#E10600"
                 Layout.alignment: Qt.AlignVCenter
@@ -315,9 +316,9 @@ Rectangle {
                 Image {
                     anchors.centerIn: parent
                     source: root.f1WhiteSvg
-                    width: 54
-                    height: 16
-                    sourceSize: Qt.size(108, 32)
+                    width: 46
+                    height: 15
+                    sourceSize: Qt.size(96, 32)
                     fillMode: Image.PreserveAspectFit
                     mipmap: true
                     smooth: true
@@ -328,18 +329,21 @@ Rectangle {
             // GP Title + Compact Track Telemetry Line
             ColumnLayout {
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 spacing: 1
 
                 RowLayout {
                     Layout.fillWidth: true
+                    Layout.minimumWidth: 0
                     spacing: 6
 
                     Text {
                         text: root.shortName
                         font.family: theme.fontFamily
-                        font.pixelSize: 14
+                        font.pixelSize: 13
                         font.weight: Font.Black
                         color: "#FFFFFF"
+                        Layout.minimumWidth: 0
                         elide: Text.ElideRight
                     }
 
@@ -349,10 +353,11 @@ Rectangle {
                         font.pixelSize: 10
                         font.weight: Font.DemiBold
                         color: theme.textDim
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        elide: Text.ElideRight
                         Layout.alignment: Qt.AlignVCenter
                     }
-
-                    Item { Layout.fillWidth: true }
                 }
 
                 // Telemetry line (distance, laps, start time — crisp tabular numbers)
@@ -364,14 +369,15 @@ Rectangle {
                     color: theme.textMuted
                     elide: Text.ElideRight
                     Layout.fillWidth: true
+                    Layout.minimumWidth: 0
                 }
             }
 
             // Official GPS Circuit Track Outline Vector + Animated Racing Car Telemetry Dot
             Canvas {
                 id: trackCanvas
-                Layout.preferredWidth: 42
-                Layout.preferredHeight: 30
+                Layout.preferredWidth: 36
+                Layout.preferredHeight: 28
                 Layout.alignment: Qt.AlignVCenter
                 antialiasing: true
                 visible: root.trackPoints && root.trackPoints.length > 2
@@ -555,6 +561,7 @@ Rectangle {
         // 2. Standings Header Bar (4 Modes: Drivers, Constructors, Race Positions, Qualifying)
         RowLayout {
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
             spacing: 8
 
             Rectangle {
@@ -618,6 +625,7 @@ Rectangle {
             id: towerBox
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumWidth: 0
             radius: 9
             color: Qt.rgba(0.025, 0.028, 0.042, 0.64)
             border.color: Qt.rgba(1, 1, 1, 0.11)
@@ -644,6 +652,7 @@ Rectangle {
                             id: timingRow
                             Layout.fillWidth: true
                             Layout.fillHeight: true
+                            Layout.minimumWidth: 0
                             radius: 6
 
                             readonly property var entry: root.entryAt(root.activePage * root.pageSize + index)
@@ -746,6 +755,7 @@ Rectangle {
                                     color: "#FFFFFF"
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
                                     Layout.alignment: Qt.AlignVCenter
                                 }
 
@@ -759,6 +769,7 @@ Rectangle {
                                     font.weight: Font.DemiBold
                                     color: theme.textDim
                                     elide: Text.ElideRight
+                                    Layout.minimumWidth: 0
                                     Layout.maximumWidth: root.viewMode === 1 ? 115 : 32
                                     Layout.alignment: Qt.AlignVCenter
                                 }
