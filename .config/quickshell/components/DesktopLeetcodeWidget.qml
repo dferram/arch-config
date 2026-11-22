@@ -204,14 +204,14 @@ Rectangle {
         // =====================================================================
         RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 34
-            spacing: 8
+            Layout.preferredHeight: 38
+            spacing: 9
 
             // LeetCode Icon squircle (click opens profile)
             Rectangle {
-                Layout.preferredWidth: 32
-                Layout.preferredHeight: 32
-                radius: 9
+                Layout.preferredWidth: 38
+                Layout.preferredHeight: 38
+                radius: 10
                 color: iconMa.containsMouse ? Qt.rgba(255, 161, 22, 0.18) : Qt.rgba(255, 255, 255, 0.08)
                 border.color: iconMa.containsMouse ? root.lcAmber : Qt.rgba(255, 255, 255, 0.16)
                 border.width: 1
@@ -221,8 +221,8 @@ Rectangle {
 
                 Image {
                     anchors.centerIn: parent
-                    width: 18
-                    height: 18
+                    width: 24
+                    height: 24
                     source: root.leetcodeSvg
                     fillMode: Image.PreserveAspectFit
                     smooth: true
@@ -284,26 +284,6 @@ Rectangle {
                     color: root.streak > 0 ? root.lcAmber : theme.textDim
                     font.family: "sans-serif"
                     font.pixelSize: 10
-                    font.bold: true
-                }
-            }
-
-            // Solved-today status pill
-            Rectangle {
-                Layout.preferredHeight: 20
-                Layout.preferredWidth: todayTxt.implicitWidth + 12
-                radius: 10
-                color: root.solvedToday ? Qt.rgba(48, 209, 88, 0.16) : Qt.rgba(255, 161, 22, 0.14)
-                border.color: root.solvedToday ? Qt.rgba(48, 209, 88, 0.45) : Qt.rgba(255, 161, 22, 0.35)
-                border.width: 1
-
-                Text {
-                    id: todayTxt
-                    anchors.centerIn: parent
-                    text: root.solvedToday ? "Solved today" : "Pending"
-                    color: root.solvedToday ? "#30d158" : root.lcAmber
-                    font.family: "sans-serif"
-                    font.pixelSize: 8
                     font.bold: true
                 }
             }
@@ -439,23 +419,6 @@ Rectangle {
                         font.pixelSize: 7
                         font.bold: true
                         font.letterSpacing: 0.6
-                    }
-
-                    Rectangle {
-                        Layout.preferredHeight: 13
-                        Layout.preferredWidth: diffBadgeTxt.implicitWidth + 8
-                        radius: 4
-                        color: Qt.rgba(root.difficultyColor(root.dailyDifficulty).r, root.difficultyColor(root.dailyDifficulty).g, root.difficultyColor(root.dailyDifficulty).b, 0.18)
-
-                        Text {
-                            id: diffBadgeTxt
-                            anchors.centerIn: parent
-                            text: root.dailyDifficulty
-                            color: root.difficultyColor(root.dailyDifficulty)
-                            font.family: "sans-serif"
-                            font.pixelSize: 7
-                            font.bold: true
-                        }
                     }
 
                     Item { Layout.fillWidth: true }
