@@ -539,7 +539,7 @@ Rectangle {
                         anchors.rightMargin: 12
                         spacing: 11
 
-                        // Graduated F1 Red Podium / Position Badge (vibrant P1 -> softer P2 -> subtle P3)
+                        // Official F1 Broadcast Timing Position Badge (White P1 -> Frosted Silver P2 -> Subtle Glass P3+)
                         Rectangle {
                             Layout.preferredWidth: 38
                             Layout.preferredHeight: 38
@@ -547,16 +547,16 @@ Rectangle {
                             radius: 8
                             border.width: 1
                             color: {
-                                if (driverCard.posVal === 1) return "#E10600";
-                                if (driverCard.posVal === 2) return Qt.rgba(225/255, 6/255, 0, 0.52);
-                                if (driverCard.posVal === 3) return Qt.rgba(225/255, 6/255, 0, 0.24);
-                                return Qt.rgba(1, 1, 1, 0.08);
+                                if (driverCard.posVal === 1) return "#FFFFFF";
+                                if (driverCard.posVal === 2) return Qt.rgba(1, 1, 1, 0.16);
+                                if (driverCard.posVal === 3) return Qt.rgba(1, 1, 1, 0.09);
+                                return Qt.rgba(1, 1, 1, 0.04);
                             }
                             border.color: {
-                                if (driverCard.posVal === 1) return "#FF453A";
-                                if (driverCard.posVal === 2) return Qt.rgba(225/255, 6/255, 0, 0.72);
-                                if (driverCard.posVal === 3) return Qt.rgba(225/255, 6/255, 0, 0.44);
-                                return Qt.rgba(1, 1, 1, 0.14);
+                                if (driverCard.posVal === 1) return "#FFFFFF";
+                                if (driverCard.posVal === 2) return Qt.rgba(1, 1, 1, 0.34);
+                                if (driverCard.posVal === 3) return Qt.rgba(1, 1, 1, 0.18);
+                                return Qt.rgba(1, 1, 1, 0.10);
                             }
 
                             Text {
@@ -565,7 +565,7 @@ Rectangle {
                                 font.family: theme.fontFamily
                                 font.pixelSize: 13
                                 font.weight: Font.Black
-                                color: "#FFFFFF"
+                                color: driverCard.posVal === 1 ? "#111318" : (driverCard.posVal <= 3 ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.82))
                             }
                         }
 
