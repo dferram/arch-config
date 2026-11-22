@@ -95,8 +95,8 @@ PanelWindow {
         }
 
         if (calcResult !== "") {
-            // Copy calculation result to clipboard
-            launchProc.command = ["sh", "-c", "echo -n '" + calcResult + "' | wl-copy"];
+            // Copy calculation result to clipboard without shell interpolation
+            launchProc.command = ["wl-copy", calcResult];
             launchProc.running = true;
             close();
             return;
@@ -141,6 +141,26 @@ PanelWindow {
         return "";
     }
 
+    function fuzzyScore(text, query) {
+        if (!text || !query) return -1;
+        let ti = 0;
+        let qi = 0;
+        let consecutive = 0;
+        let bonus = 0;
+        while (ti < text.length && qi < query.length) {
+            if (text[ti] === query[qi]) {
+                consecutive++;
+                bonus += consecutive * 2;
+                if (ti === 0 || text[ti - 1] === " " || text[ti - 1] === "-") bonus += 4;
+                qi++;
+            } else {
+                consecutive = 0;
+            }
+            ti++;
+        }
+        return qi === query.length ? Math.max(10, 35 + bonus - Math.floor(text.length * 0.25)) : -1;
+    }
+
     function filterList(query) {
         let q = query.trim().toLowerCase();
         selectedIndex = 0;
@@ -149,25 +169,47 @@ PanelWindow {
         calcResult = evaluateMath(query);
 
         if (q === "") {
-            filteredApps = [];
+            let recent = [];
+            for (let i = 0; i < allApps.length; i++) {
+                if ((allApps[i].lastUsed || 0) > 0) {
+                    recent.push(allApps[i]);
+                }
+            }
+            recent.sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
+            filteredApps = recent.slice(0, 6);
             return;
         }
 
+        let tokens = q.split(/\s+/).filter(t => t.length > 0);
         let matches = [];
         for (let i = 0; i < allApps.length; i++) {
             let app = allApps[i];
             let name = (app.name || "").toLowerCase();
             let comment = (app.comment || "").toLowerCase();
+            let keywords = (app.keywords || "").toLowerCase();
             let execCmd = (app.exec || "").toLowerCase();
+            let haystack = name + " " + keywords + " " + comment + " " + execCmd;
+            let frecency = app.frecency || 0;
 
             let score = -1;
-            if (name.startsWith(q)) score = 100 - name.length;
-            else if (name.indexOf(q) !== -1) score = 70 - name.indexOf(q);
-            else if (execCmd.startsWith(q)) score = 50;
-            else if (comment.indexOf(q) !== -1) score = 30;
+            if (name.startsWith(q)) {
+                score = 120 - name.length;
+            } else if (name.indexOf(q) !== -1) {
+                score = 85 - name.indexOf(q);
+            } else if (keywords.indexOf(q) !== -1) {
+                score = 65;
+            } else if (execCmd.startsWith(q) || execCmd.indexOf(q) !== -1) {
+                score = 55;
+            } else if (comment.indexOf(q) !== -1) {
+                score = 40;
+            } else if (tokens.length > 1 && tokens.every(t => haystack.indexOf(t) !== -1)) {
+                score = 50;
+            } else {
+                score = fuzzyScore(name, q);
+            }
 
             if (score > 0) {
-                matches.push({ app: app, score: score });
+                matches.push({ app: app, score: score + frecency });
             }
         }
 
@@ -220,35 +262,26 @@ PanelWindow {
     // 2. Central Spotlight Card
     Rectangle {
         id: card
-        width: 600
+        width: 580
         implicitHeight: contentColumn.implicitHeight
         anchors.horizontalCenter: parent.horizontalCenter
         y: Math.round(parent.height * 0.22)
 
-        color: theme.popupBg
-        border.color: theme.border
+        color: Qt.rgba(14 / 255, 16 / 255, 24 / 255, 0.90)
+        border.color: Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.42)
         border.width: 1
-        radius: 16
+        radius: 14
         clip: true
 
         opacity: launcherWindow.isOpen ? 1.0 : 0.0
-        scale: launcherWindow.isOpen ? 1.0 : 0.95
+        scale: launcherWindow.isOpen ? 1.0 : 0.96
         transform: Translate {
-            y: launcherWindow.isOpen ? 0 : -14
-            Behavior on y { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+            y: launcherWindow.isOpen ? 0 : -10
+            Behavior on y { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
         }
 
-        Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
-        Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
-
-        // Top specular reflection hairline
-        Rectangle {
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 1
-            color: theme.glassHighlight
-        }
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
 
         Column {
             id: contentColumn
@@ -257,28 +290,28 @@ PanelWindow {
             // --- A. Search Input Row ---
             Item {
                 width: parent.width
-                height: 56
+                height: 54
 
-                Row {
+                RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 18
                     anchors.rightMargin: 18
                     spacing: 12
 
-                    // Magnifying glass icon with theme accent
+                    // Magnifying glass icon (dynamic wallpaper accent)
                     Text {
-                        anchors.verticalCenter: parent.verticalCenter
+                        Layout.alignment: Qt.AlignVCenter
                         text: "󰍉"
                         font.family: "GeistMono Nerd Font Propo"
-                        font.pixelSize: 18
-                        color: theme.blueLight
+                        font.pixelSize: 17
+                        color: searchInput.text.length > 0 ? theme.blueLight : theme.blue
                     }
 
                     // Search input
                     TextInput {
                         id: searchInput
-                        width: parent.width - 90
-                        anchors.verticalCenter: parent.verticalCenter
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
                         color: theme.text
                         font.family: theme.fontFamily
                         font.pixelSize: 15
@@ -301,16 +334,26 @@ PanelWindow {
                         }
 
                         Keys.onPressed: event => {
+                            let moveDown = (event.key === Qt.Key_Down) ||
+                                           (event.key === Qt.Key_Tab) ||
+                                           ((event.modifiers & Qt.ControlModifier) && (event.key === Qt.Key_J || event.key === Qt.Key_N));
+                            let moveUp = (event.key === Qt.Key_Up) ||
+                                         (event.key === Qt.Key_Backtab) ||
+                                         ((event.modifiers & Qt.ControlModifier) && (event.key === Qt.Key_K || event.key === Qt.Key_P));
+
                             if (event.key === Qt.Key_Escape) {
                                 launcherWindow.close();
                                 event.accepted = true;
-                            } else if (event.key === Qt.Key_Down) {
+                            } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_U) {
+                                searchInput.text = "";
+                                event.accepted = true;
+                            } else if (moveDown) {
                                 if (launcherWindow.selectedIndex < launcherWindow.filteredApps.length - 1) {
                                     launcherWindow.selectedIndex++;
                                     appListView.positionViewAtIndex(launcherWindow.selectedIndex, ListView.Contain);
                                 }
                                 event.accepted = true;
-                            } else if (event.key === Qt.Key_Up) {
+                            } else if (moveUp) {
                                 if (launcherWindow.selectedIndex > 0) {
                                     launcherWindow.selectedIndex--;
                                     appListView.positionViewAtIndex(launcherWindow.selectedIndex, ListView.Contain);
@@ -322,36 +365,6 @@ PanelWindow {
                             }
                         }
                     }
-
-                    // ESC pill indicator or clear button
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: escTxt.implicitWidth + 12
-                        height: 22
-                        radius: 6
-                        color: theme.surface
-                        border.color: theme.borderSubtle
-                        border.width: 1
-
-                        Text {
-                            id: escTxt
-                            anchors.centerIn: parent
-                            text: searchInput.text.length > 0 ? "ESC" : "ESC"
-                            color: theme.textDim
-                            font.family: theme.fontFamily
-                            font.pixelSize: 10
-                            font.weight: Font.DemiBold
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                if (searchInput.text.length > 0) searchInput.text = "";
-                                else launcherWindow.close();
-                            }
-                        }
-                    }
                 }
             }
 
@@ -359,57 +372,63 @@ PanelWindow {
             Rectangle {
                 width: parent.width
                 height: 1
-                color: theme.borderSubtle
+                color: Qt.rgba(1, 1, 1, 0.08)
                 visible: (appListView.height > 0) || (mathCard.visible)
             }
 
             // --- B. Live Math / Calculation Result Card ---
-            Rectangle {
+            Item {
                 id: mathCard
                 visible: launcherWindow.calcResult !== ""
                 width: parent.width
-                height: 48
-                color: Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.14)
-                border.color: theme.blue
-                border.width: 1
+                height: 58
 
-                Row {
+                Rectangle {
                     anchors.fill: parent
-                    anchors.leftMargin: 18
-                    anchors.rightMargin: 18
-                    spacing: 14
+                    anchors.margins: 8
+                    radius: 10
+                    color: Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.16)
+                    border.color: Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.48)
+                    border.width: 1
 
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "󰪚"
-                        font.family: "GeistMono Nerd Font Propo"
-                        font.pixelSize: 18
-                        color: theme.blueLight
-                    }
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        spacing: 12
 
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 1
                         Text {
-                            text: "= " + launcherWindow.calcResult
-                            color: theme.text
-                            font.family: theme.fontFamily
-                            font.pixelSize: 15
-                            font.weight: Font.Bold
-                        }
-                        Text {
-                            text: "Press Enter to copy result"
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "󰪚"
+                            font.family: "GeistMono Nerd Font Propo"
+                            font.pixelSize: 17
                             color: theme.blueLight
-                            font.family: theme.fontFamily
-                            font.pixelSize: 11
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 1
+                            Text {
+                                text: "= " + launcherWindow.calcResult
+                                color: theme.text
+                                font.family: theme.fontFamily
+                                font.pixelSize: 15
+                                font.weight: Font.Bold
+                            }
+                            Text {
+                                text: "Copy result"
+                                color: theme.blueLight
+                                font.family: theme.fontFamily
+                                font.pixelSize: 11
+                            }
                         }
                     }
-                }
 
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: launcherWindow.launchSelected()
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: launcherWindow.launchSelected()
+                    }
                 }
             }
 
@@ -417,19 +436,23 @@ PanelWindow {
             ListView {
                 id: appListView
                 width: parent.width
+                topMargin: 6
+                bottomMargin: 6
                 height: {
-                    if (searchInput.text.trim().length === 0) return 0;
-                    if (launcherWindow.filteredApps.length === 0 && launcherWindow.calcResult === "") return 110;
-                    return Math.min(360, count * 50);
+                    if (searchInput.text.trim().length === 0) {
+                        return launcherWindow.filteredApps.length > 0 ? Math.min(312, count * 50 + 12) : 0;
+                    }
+                    if (launcherWindow.filteredApps.length === 0 && launcherWindow.calcResult === "") return 108;
+                    return Math.min(362, count * 50 + 12);
                 }
                 visible: height > 0
                 clip: true
                 model: launcherWindow.filteredApps
                 boundsBehavior: Flickable.StopAtBounds
 
-                Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
+                Behavior on height { NumberAnimation { duration: 140; easing.type: Easing.OutQuad } }
 
-                delegate: Rectangle {
+                delegate: Item {
                     id: itemDelegate
                     required property var modelData
                     required property int index
@@ -438,74 +461,79 @@ PanelWindow {
                     height: 50
                     readonly property bool isSelected: index === launcherWindow.selectedIndex
 
-                    color: isSelected ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.16)
-                         : itemMouse.containsMouse ? theme.surfaceHover
-                         : "transparent"
-
-                    Behavior on color { ColorAnimation { duration: 120 } }
-
-                    // Left selection indicator
                     Rectangle {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 3
-                        height: 24
-                        radius: 1.5
-                        color: theme.blue
-                        visible: itemDelegate.isSelected
-                    }
-
-                    Row {
                         anchors.fill: parent
-                        anchors.leftMargin: 16
-                        anchors.rightMargin: 16
-                        spacing: 12
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        anchors.topMargin: 1
+                        anchors.bottomMargin: 1
+                        radius: 10
 
-                        // App Icon Tile
-                        Rectangle {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 34
-                            height: 34
-                            radius: 8
-                            color: theme.surface
-                            border.color: theme.borderSubtle
-                            border.width: 1
+                        color: itemDelegate.isSelected ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.20)
+                             : itemMouse.containsMouse ? theme.surfaceHover
+                             : "transparent"
+                        border.color: itemDelegate.isSelected ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.55) : "transparent"
+                        border.width: 1
 
-                            Image {
-                                anchors.centerIn: parent
-                                width: 20
-                                height: 20
-                                source: launcherWindow.resolveIcon(modelData.icon)
-                                fillMode: Image.PreserveAspectFit
-                                sourceSize.width: 40
-                                sourceSize.height: 40
-                                mipmap: true
+                        Behavior on color { ColorAnimation { duration: 100 } }
+                        Behavior on border.color { ColorAnimation { duration: 100 } }
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 12
+                            spacing: 12
+
+                            // Clean Icon Container
+                            Rectangle {
+                                Layout.alignment: Qt.AlignVCenter
+                                Layout.preferredWidth: 32
+                                Layout.preferredHeight: 32
+                                radius: 8
+                                color: itemDelegate.isSelected
+                                    ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.20)
+                                    : Qt.rgba(1, 1, 1, 0.06)
+                                border.color: itemDelegate.isSelected
+                                    ? Qt.rgba(theme.blue.r, theme.blue.g, theme.blue.b, 0.45)
+                                    : "transparent"
+                                border.width: 1
+
+                                Image {
+                                    anchors.centerIn: parent
+                                    width: 20
+                                    height: 20
+                                    source: launcherWindow.resolveIcon(modelData.icon)
+                                    fillMode: Image.PreserveAspectFit
+                                    sourceSize.width: 40
+                                    sourceSize.height: 40
+                                    mipmap: true
+                                }
                             }
-                        }
 
-                        // App Text (Name + Comment/Exec)
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - 64
-                            spacing: 1
+                            // App Text (Name + Comment/Exec)
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.alignment: Qt.AlignVCenter
+                                spacing: 1
 
-                            Text {
-                                text: modelData.name || ""
-                                color: itemDelegate.isSelected ? theme.text : theme.textSub
-                                font.family: theme.fontFamily
-                                font.pixelSize: 13
-                                font.weight: itemDelegate.isSelected ? Font.DemiBold : Font.Normal
-                                elide: Text.ElideRight
-                                width: parent.width
-                            }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.name || ""
+                                    color: itemDelegate.isSelected ? theme.text : theme.textSub
+                                    font.family: theme.fontFamily
+                                    font.pixelSize: 13
+                                    font.weight: itemDelegate.isSelected ? Font.DemiBold : Font.Medium
+                                    elide: Text.ElideRight
+                                }
 
-                            Text {
-                                text: modelData.comment ? modelData.comment : (modelData.exec || "")
-                                color: itemDelegate.isSelected ? theme.blueLight : theme.textDim
-                                font.family: theme.fontFamily
-                                font.pixelSize: 11
-                                elide: Text.ElideRight
-                                width: parent.width
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.comment ? modelData.comment : (modelData.exec || "")
+                                    color: itemDelegate.isSelected ? theme.blueLight : theme.textDim
+                                    font.family: theme.fontFamily
+                                    font.pixelSize: 11
+                                    elide: Text.ElideRight
+                                }
                             }
                         }
                     }
@@ -536,7 +564,7 @@ PanelWindow {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "󰍉"
                             font.family: "GeistMono Nerd Font Propo"
-                            font.pixelSize: 24
+                            font.pixelSize: 22
                             color: theme.textDim
                         }
                         Text {
@@ -550,47 +578,31 @@ PanelWindow {
                 }
             }
 
-            // --- D. Bottom Status Bar ---
+            // --- D. Minimal Footer ---
             Rectangle {
                 width: parent.width
-                height: 34
-                color: theme.surface
-                border.color: theme.borderSubtle
-                border.width: 1
-                visible: searchInput.text.trim().length > 0 && launcherWindow.filteredApps.length > 0
+                height: 28
+                color: Qt.rgba(1, 1, 1, 0.03)
+                visible: launcherWindow.filteredApps.length > 0
 
-                Row {
-                    anchors.fill: parent
+                Rectangle {
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 1
+                    color: Qt.rgba(1, 1, 1, 0.07)
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
                     anchors.leftMargin: 16
-                    anchors.rightMargin: 16
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: launcherWindow.filteredApps.length + (launcherWindow.filteredApps.length === 1 ? " app" : " apps")
-                        color: theme.textDim
-                        font.family: theme.fontFamily
-                        font.pixelSize: 11
-                    }
-
-                    Item { Layout.fillWidth: true; width: parent.width - 200 }
-
-                    Row {
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 12
-
-                        Text {
-                            text: "↑↓ Navigate"
-                            color: theme.textDim
-                            font.family: theme.fontFamily
-                            font.pixelSize: 10
-                        }
-                        Text {
-                            text: "ESC Close"
-                            color: theme.textDim
-                            font.family: theme.fontFamily
-                            font.pixelSize: 10
-                        }
-                    }
+                    text: searchInput.text.trim().length === 0
+                        ? (launcherWindow.filteredApps.length + " recent")
+                        : (launcherWindow.filteredApps.length + (launcherWindow.filteredApps.length === 1 ? " app" : " apps"))
+                    color: theme.textDim
+                    font.family: theme.fontFamily
+                    font.pixelSize: 11
                 }
             }
         }

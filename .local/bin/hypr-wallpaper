@@ -12,9 +12,12 @@ import subprocess
 import colorsys
 import re
 import random
+import hashlib
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HOME = Path.home()
+PREVIEW_CACHE_DIR = HOME / ".cache/hypr-wallpaper/previews"
 THEME_QML = HOME / ".config/quickshell/theme/Theme.qml"
 HYPRPAPER_CONF = HOME / ".config/hypr/hyprpaper.conf"
 HYPRLAND_LUA = HOME / ".config/hypr/hyprland.lua"
@@ -130,7 +133,7 @@ wallpaper {{
     # 2. Update Theme.qml keeping Liquid Glass obsidian base intact
     if THEME_QML.exists():
         qml_text = THEME_QML.read_text()
-        palette_block = f"""    // Refined Accent Palette (Dynamic Wallpaper Accents)
+        palette_block = f"""    // Luminous Accent Palette (Dynamic Wallpaper Accents)
     readonly property color blue: "{hex_acc}"       // Primary Dynamic Accent
     readonly property color blueLight: "{hex_light}"  // Highlights & Glow
     readonly property color blueDeep: "{hex_deep}"   // Deep State
@@ -142,11 +145,13 @@ wallpaper {{
     readonly property color mauve: blue"""
 
         # Replace palette
-        pattern = r"    // Refined (?:Apple Accent Palette|Accent Palette).*?\n    readonly property color mauve: blue"
+        pattern = r"    // [^\n]*(?:Apple Accent Palette|Accent Palette).*?\n    readonly property color mauve: blue"
         if re.search(pattern, qml_text, flags=re.DOTALL):
             new_qml = re.sub(pattern, palette_block, qml_text, flags=re.DOTALL)
             THEME_QML.write_text(new_qml)
             print("  [OK] Theme.qml updated (Liquid Glass 100% preserved)")
+        else:
+            print("  [WARN] Theme.qml accent palette block not found", file=sys.stderr)
 
     # 3. Update window borders in Hyprland
     border_lua = f"hl.config({{ general = {{ col = {{ active_border = {{ colors = {{'rgba({hex_acc[1:]}ee)', 'rgba({hex_light[1:]}ee)'}}, angle = 45 }} }} }} }})"
@@ -246,30 +251,203 @@ def get_wallpaper_list():
             pass
     return unique
 
+def get_current_wallpaper():
+    """Return the currently configured wallpaper Path from hyprpaper.conf, if any."""
+    if not HYPRPAPER_CONF.exists():
+        return None
+    m = re.search(r'path\s*=\s*([^\n]+)', HYPRPAPER_CONF.read_text())
+    if not m:
+        return None
+    try:
+        return Path(m.group(1).strip()).resolve()
+    except Exception:
+        return None
+
+def get_preview_path(image_path: Path) -> str:
+    """Return a cached medium-res JPEG preview path for fast, uniform Rofi rendering."""
+    try:
+        resolved = image_path.resolve()
+        st = resolved.stat()
+        key = hashlib.sha256(f"{resolved}|{st.st_mtime_ns}|{st.st_size}".encode()).hexdigest()[:16]
+        PREVIEW_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cached = PREVIEW_CACHE_DIR / f"{key}.jpg"
+        if cached.exists():
+            return str(cached)
+
+        from PIL import Image, ImageOps
+        with Image.open(resolved) as im:
+            im = ImageOps.exif_transpose(im)
+            if im.mode in ("RGBA", "LA") or (im.mode == "P" and "transparency" in im.info):
+                bg = Image.new("RGB", im.size, (12, 14, 20))
+                rgba = im.convert("RGBA")
+                bg.paste(rgba, mask=rgba.split()[3])
+                im = bg
+            elif im.mode != "RGB":
+                im = im.convert("RGB")
+            im.thumbnail((960, 600), Image.Resampling.LANCZOS)
+            tmp = PREVIEW_CACHE_DIR / f".{key}.{os.getpid()}.tmp.jpg"
+            im.save(tmp, "JPEG", quality=88)
+            tmp.replace(cached)
+        return str(cached)
+    except Exception:
+        return str(image_path.resolve())
+
+ROFI_MENU_THEME = """
+* {
+    background-color: transparent;
+    text-color: #f1f5f9;
+}
+window {
+    width: 64%;
+    border: 1px;
+    border-color: #262b3a;
+    border-radius: 12px;
+    background-color: #0c0e14f2;
+    padding: 14px;
+    children: [ mainbox ];
+}
+mainbox {
+    orientation: vertical;
+    spacing: 12px;
+    children: [ inputbar, content-box ];
+}
+inputbar {
+    children: [ prompt, entry ];
+    text-color: #e22b31;
+    margin: 0;
+    padding: 4px 6px;
+    border: 0;
+}
+prompt {
+    text-color: #e22b31;
+    font: "sans-serif bold 11";
+    margin: 0 8px 0 0;
+}
+entry {
+    text-color: #f1f5f9;
+    placeholder: "Search wallpaper...";
+    placeholder-color: #64748b;
+}
+content-box {
+    orientation: horizontal;
+    spacing: 14px;
+    children: [ listview, preview-box ];
+}
+listview {
+    expand: true;
+    lines: 10;
+    fixed-height: true;
+    dynamic: false;
+    spacing: 4px;
+    scrollbar: true;
+    border: 0;
+    padding: 0;
+}
+scrollbar {
+    width: 4px;
+    handle-width: 4px;
+    handle-color: #334155;
+    border: 0;
+    padding: 0 0 0 4px;
+}
+element {
+    orientation: horizontal;
+    spacing: 10px;
+    border: 1px;
+    border-color: transparent;
+    border-radius: 8px;
+    padding: 6px 10px;
+    text-color: #f1f5f9;
+    cursor: pointer;
+    children: [ element-icon, element-text ];
+}
+element normal.normal,
+element alternate.normal {
+    background-color: transparent;
+    text-color: #f1f5f9;
+}
+element normal.active,
+element alternate.active {
+    background-color: #161a26;
+    text-color: #f1f5f9;
+}
+element selected.normal,
+element selected.active {
+    background-color: #1e2230;
+    text-color: #ffffff;
+    border: 1px;
+    border-color: #e22b31;
+}
+element-icon {
+    size: 2.0em;
+    vertical-align: 0.5;
+    cursor: inherit;
+}
+element-text {
+    expand: true;
+    vertical-align: 0.5;
+    text-color: inherit;
+    highlight: bold #e22b31;
+    cursor: inherit;
+}
+preview-box {
+    expand: true;
+    orientation: vertical;
+    spacing: 8px;
+    padding: 10px;
+    border: 1px;
+    border-color: #262b3a;
+    border-radius: 10px;
+    background-color: #121520cc;
+    children: [ icon-current-entry, textbox-current-entry ];
+}
+icon-current-entry {
+    expand: true;
+    squared: false;
+    size: 20em;
+    horizontal-align: 0.5;
+    vertical-align: 0.5;
+}
+textbox-current-entry {
+    expand: false;
+    horizontal-align: 0.5;
+    text-color: #94a3b8;
+    font: "sans-serif 10";
+}
+"""
+
 def choose_wallpaper_menu():
-    walls = get_wallpaper_list()
+    walls = sorted(get_wallpaper_list(), key=lambda x: x.name.lower())
     if not walls:
         return
-    lines = "\n".join([w.name for w in sorted(walls, key=lambda x: x.name.lower())])
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        previews = list(pool.map(get_preview_path, walls))
+
+    lines = "\n".join(
+        f"{w.name}\0icon\x1f{preview}"
+        for w, preview in zip(walls, previews)
+    )
+
     rofi_cmd = [
-        "rofi", "-dmenu", "-p", "Wallpaper",
-        "-theme-str",
-        "window {width: 35%; border: 1px; border-color: #262b3a; border-radius: 12px; background-color: #0c0e14f2; padding: 12px;} "
-        "listview {lines: 8; spacing: 4px;} "
-        "element {border-radius: 6px; padding: 8px 12px; text-color: #f1f5f9;} "
-        "element selected {background-color: #1e2230; text-color: #ffffff; border: 1px; border-color: #e22b31;} "
-        "inputbar {children: [prompt, entry]; text-color: #e22b31; margin: 0 0 10px 0;} "
-        "entry {text-color: #f1f5f9;} "
-        "prompt {text-color: #e22b31; font-weight: bold; margin: 0 8px 0 0;}"
+        "rofi", "-dmenu", "-i", "-show-icons",
+        "-no-custom", "-format", "i",
+        "-p", "Wallpaper",
+        "-theme-str", ROFI_MENU_THEME,
     ]
+
+    cur_path = get_current_wallpaper()
+    if cur_path is not None:
+        for idx, w in enumerate(walls):
+            if w.resolve() == cur_path:
+                rofi_cmd.extend(["-selected-row", str(idx), "-a", str(idx)])
+                break
+
     try:
         proc = subprocess.run(rofi_cmd, input=lines.encode(), stdout=subprocess.PIPE, check=True)
-        selected_name = proc.stdout.decode().strip()
-        if selected_name:
-            for w in walls:
-                if w.name == selected_name:
-                    apply_wallpaper(w)
-                    break
+        selected = proc.stdout.decode().strip()
+        if selected:
+            apply_wallpaper(walls[int(selected)])
     except Exception:
         pass
 
@@ -279,11 +457,7 @@ def main():
         if arg in ["random", "rand", "-r"]:
             walls = get_wallpaper_list()
             if walls:
-                cur_path = None
-                if HYPRPAPER_CONF.exists():
-                    m = re.search(r'path\s*=\s*([^\n]+)', HYPRPAPER_CONF.read_text())
-                    if m:
-                        cur_path = Path(m.group(1).strip()).resolve()
+                cur_path = get_current_wallpaper()
                 choices = [w for w in walls if w.resolve() != cur_path] or walls
                 target = random.choice(choices)
                 apply_wallpaper(target)

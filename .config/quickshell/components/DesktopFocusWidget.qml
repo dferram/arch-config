@@ -154,15 +154,6 @@ Rectangle {
         }
     }
 
-    // Specular top hairline highlight
-    Rectangle {
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: 1
-        color: Qt.rgba(255, 255, 255, 0.16)
-    }
-
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 14

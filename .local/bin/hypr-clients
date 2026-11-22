@@ -218,13 +218,30 @@ def get_chromium_title_url_maps():
             except Exception:
                 pass
 
-    events.sort(key=lambda item: (item[0], item[1]))
+    def is_auth_callback_url(url):
+        u = (url or "").lower()
+        return any(tok in u for tok in (
+            "/oidc/callback",
+            "/oauth/callback",
+            "/auth/callback",
+            "auth.meta.com/",
+            "accounts.google.com/signin",
+            "accounts.google.com/servicelogin",
+            "accounts.google.com/interactivelogin",
+        ))
+
+    # Prefer real destination pages over transient OAuth/OIDC callback redirects, then most recent.
+    ranked_events = sorted(
+        events,
+        key=lambda item: (0 if is_auth_callback_url(item[3]) else 1, item[0], item[1]),
+    )
     exact_map = {}
     norm_map = {}
-    for _, _, title, url in events:
-        exact_map[title] = url
+    for ts, seq, title, url in ranked_events:
+        rank = (0 if is_auth_callback_url(url) else 1, ts, seq)
+        exact_map[title] = (rank, url)
         norm = re.sub(r"^\(\d+\)\s+", "", title)
-        norm_map[norm] = url
+        norm_map[norm] = (rank, url)
     return exact_map, norm_map
 
 
@@ -236,10 +253,16 @@ def resolve_browser_url(title, exact_map, norm_map):
         if clean.endswith(suffix):
             clean = clean[: -len(suffix)]
             break
-    if clean in exact_map:
-        return exact_map[clean]
     norm = re.sub(r"^\(\d+\)\s+", "", clean)
-    return norm_map.get(norm, "")
+    e_hit = exact_map.get(clean)
+    n_hit = norm_map.get(norm)
+    if e_hit and n_hit:
+        return e_hit[1] if e_hit[0] >= n_hit[0] else n_hit[1]
+    if e_hit:
+        return e_hit[1]
+    if n_hit:
+        return n_hit[1]
+    return ""
 
 
 try:

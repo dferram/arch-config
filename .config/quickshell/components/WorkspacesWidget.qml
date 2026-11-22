@@ -134,8 +134,8 @@ Item {
     property string f1SvgUri: "file:///home/ferram/.local/share/icons/f1.png"
     property string nbaSvgUri: "file:///home/ferram/.local/share/icons/nba.png"
 
-    // Official Muse AI (Meta) SVG and NASA Meatball PNG
-    property string museSvgUri: "file:///home/ferram/.local/share/icons/muse.svg"
+    // Official Muse AI (Meta) Avatar PNG and NASA Meatball PNG
+    property string museSvgUri: "file:///home/ferram/.local/share/icons/muse.png"
     property string nasaSvgUri: "file:///home/ferram/.local/share/icons/nasa.png"
 
     // Rules to dynamically detect active browser tabs by window title

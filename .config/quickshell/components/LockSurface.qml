@@ -287,13 +287,15 @@ Item {
         anchors.right: parent.right
         anchors.topMargin: Math.max(18, Math.round(root.height * 0.024))
         anchors.rightMargin: Math.max(20, Math.round(root.width * 0.020))
-        height: 34
-        width: statusRow.implicitWidth + 24
-        radius: 17
+        height: 38
+        width: statusRow.implicitWidth + 12
+        radius: 19
         clip: true
-        color: statusPillMa.containsMouse ? root.glassHover : theme.popupBg
+        color: statusPillMa.containsMouse ? Qt.rgba(0.06, 0.07, 0.10, 0.92) : Qt.rgba(0.04, 0.045, 0.07, 0.86)
         border.width: 1
-        border.color: statusPillMa.containsMouse ? theme.borderGlow : theme.border
+        border.color: statusPillMa.containsMouse
+            ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45)
+            : Qt.rgba(255, 255, 255, 0.10)
         z: 30
 
         opacity: root.showControlPanel ? 1.0 : 0.0
@@ -481,114 +483,130 @@ Item {
             }
         }
 
-        // Top specular hairline (Apple liquid glass hallmark)
-        Rectangle {
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: 12
-            anchors.rightMargin: 12
-            height: 1
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: "transparent" }
-                GradientStop { position: 0.25; color: Qt.rgba(255, 255, 255, 0.22) }
-                GradientStop { position: 0.75; color: Qt.rgba(255, 255, 255, 0.22) }
-                GradientStop { position: 1.0; color: "transparent" }
-            }
-        }
-
-        // Content Row
+        // Segmented Obsidian Telemetry Content
         Row {
             id: statusRow
             anchors.centerIn: parent
-            spacing: 12
+            spacing: 6
 
-            // 1. CPU
-            Row {
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
-
-                Image {
-                    width: 15
-                    height: 15
-                    anchors.verticalCenter: parent.verticalCenter
-                    source: topStatusPill.cpuIconUri
-                    fillMode: Image.PreserveAspectFit
-                }
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: topStatusPill.cpuPct + "%"
-                    color: theme.text
-                    font.family: theme.fontFamily
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                }
-            }
-
-            // Separator 1
+            // 1. CPU Chip
             Rectangle {
-                width: 1
-                height: 12
+                height: 26
+                width: cpuChipRow.implicitWidth + 16
+                radius: 13
                 anchors.verticalCenter: parent.verticalCenter
-                color: theme.borderSubtle
+                color: topStatusPill.cpuPct > 80
+                    ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.16)
+                    : Qt.rgba(255, 255, 255, 0.045)
+                border.width: 1
+                border.color: topStatusPill.cpuPct > 80
+                    ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.35)
+                    : Qt.rgba(255, 255, 255, 0.07)
+
+                Row {
+                    id: cpuChipRow
+                    anchors.centerIn: parent
+                    spacing: 5
+
+                    Image {
+                        width: 13
+                        height: 13
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: topStatusPill.cpuIconUri
+                        fillMode: Image.PreserveAspectFit
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: topStatusPill.cpuPct + "%"
+                        color: theme.text
+                        font.family: theme.fontFamily
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                    }
+                }
             }
 
-            // 2. Wi-Fi
-            Row {
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
-
-                Image {
-                    width: 15
-                    height: 15
-                    anchors.verticalCenter: parent.verticalCenter
-                    source: topStatusPill.wifiIconUri
-                    fillMode: Image.PreserveAspectFit
-                }
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: topStatusPill.wifiConnected ? topStatusPill.wifiSsid : "Sin Wi-Fi"
-                    color: topStatusPill.wifiConnected ? theme.text : theme.textMuted
-                    font.family: theme.fontFamily
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    width: Math.min(implicitWidth, 110)
-                }
-            }
-
-            // Separator 2
+            // 2. Wi-Fi Chip
             Rectangle {
-                width: 1
-                height: 12
+                height: 26
+                width: wifiChipRow.implicitWidth + 16
+                radius: 13
                 anchors.verticalCenter: parent.verticalCenter
-                color: theme.borderSubtle
+                color: topStatusPill.wifiConnected
+                    ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.11)
+                    : Qt.rgba(255, 255, 255, 0.04)
+                border.width: 1
+                border.color: topStatusPill.wifiConnected
+                    ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.24)
+                    : Qt.rgba(255, 255, 255, 0.06)
+
+                Row {
+                    id: wifiChipRow
+                    anchors.centerIn: parent
+                    spacing: 6
+
+                    Image {
+                        width: 13
+                        height: 13
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: topStatusPill.wifiIconUri
+                        fillMode: Image.PreserveAspectFit
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: topStatusPill.wifiConnected ? topStatusPill.wifiSsid : "Sin Wi-Fi"
+                        color: topStatusPill.wifiConnected ? theme.text : theme.textMuted
+                        font.family: theme.fontFamily
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        elide: Text.ElideRight
+                        maximumLineCount: 1
+                        width: Math.min(implicitWidth, 118)
+                    }
+                }
             }
 
-            // 3. Battery
-            Row {
+            // 3. Battery Chip
+            Rectangle {
+                height: 26
+                width: batChipRow.implicitWidth + 16
+                radius: 13
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
+                color: topStatusPill.isCharging
+                    ? Qt.rgba(theme.green.r, theme.green.g, theme.green.b, 0.13)
+                    : (topStatusPill.batteryPct <= 15
+                        ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.18)
+                        : Qt.rgba(255, 255, 255, 0.045))
+                border.width: 1
+                border.color: topStatusPill.isCharging
+                    ? Qt.rgba(theme.green.r, theme.green.g, theme.green.b, 0.28)
+                    : (topStatusPill.batteryPct <= 15
+                        ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.36)
+                        : Qt.rgba(255, 255, 255, 0.07))
 
-                Image {
-                    width: 15
-                    height: 15
-                    anchors.verticalCenter: parent.verticalCenter
-                    source: topStatusPill.batteryIconUri
-                    fillMode: Image.PreserveAspectFit
-                }
+                Row {
+                    id: batChipRow
+                    anchors.centerIn: parent
+                    spacing: 5
 
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: topStatusPill.batteryPct + "%"
-                    color: theme.text
-                    font.family: theme.fontFamily
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
+                    Image {
+                        width: 14
+                        height: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: topStatusPill.batteryIconUri
+                        fillMode: Image.PreserveAspectFit
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: topStatusPill.batteryPct + "%"
+                        color: topStatusPill.isCharging ? theme.green : (topStatusPill.batteryPct <= 15 ? theme.red : theme.text)
+                        font.family: theme.fontFamily
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                    }
                 }
             }
         }

@@ -48,6 +48,8 @@ Rectangle {
     property int remainingSecs: 0
     property string circuitLength: "6.201 km"
     property int laps: 50
+    property string raceGp: ""
+    property string qualiGp: ""
 
     // 0: Driver Standings, 1: Constructor Standings, 2: Race Positions, 3: Qualifying
     property int viewMode: 0
@@ -229,6 +231,8 @@ Rectangle {
                         root.laps = d.nextRace.laps || root.laps;
                         root.currentLap = d.nextRace.currentLap !== undefined ? d.nextRace.currentLap : root.currentLap;
                         root.isRaceLive = !!d.nextRace.isRaceLive;
+                        root.raceGp = d.nextRace.raceGp || "";
+                        root.qualiGp = d.nextRace.qualiGp || "";
                         trackCanvas.requestPaint();
                     }
                     if (d.standings && d.standings.length > 0) {
@@ -612,11 +616,15 @@ Rectangle {
             Item { Layout.fillWidth: true }
 
             Text {
-                text: "2026 SEASON"
+                text: {
+                    if (root.viewMode === 2 && root.raceGp !== "") return root.raceGp;
+                    if (root.viewMode === 3 && root.qualiGp !== "") return root.qualiGp;
+                    return "2026 SEASON";
+                }
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 9
                 font.weight: Font.Bold
-                color: theme.textDim
+                color: (root.viewMode === 2 || root.viewMode === 3) ? theme.textMuted : theme.textDim
             }
         }
 
@@ -790,7 +798,14 @@ Rectangle {
                                         font.family: "JetBrainsMono Nerd Font"
                                         font.pixelSize: (root.viewMode === 2 || root.viewMode === 3) ? 11 : 12
                                         font.weight: Font.Black
-                                        color: "#FFFFFF"
+                                        color: {
+                                            if (root.viewMode === 2 && timingRow.entry && timingRow.entry.metric) {
+                                                let m = timingRow.entry.metric;
+                                                if (m === "DNF" || m === "DNS" || m === "DSQ") return theme.textDim;
+                                                if (timingRow.posVal > 1) return "#E2E8F0";
+                                            }
+                                            return "#FFFFFF";
+                                        }
                                         Layout.alignment: Qt.AlignBaseline
                                     }
 

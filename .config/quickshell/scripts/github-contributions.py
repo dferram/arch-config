@@ -114,6 +114,72 @@ def fetch_contributions_scrape(username, year):
     return None, None
 
 
+def format_relative_age(iso_str):
+    if not iso_str:
+        return ""
+    try:
+        dt = datetime.datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        now = datetime.datetime.now(datetime.timezone.utc)
+        secs = max(0, int((now - dt).total_seconds()))
+        if secs < 3600:
+            return f"{max(1, secs // 60)}m"
+        if secs < 86400:
+            return f"{secs // 3600}h"
+        days = secs // 86400
+        if days < 30:
+            return f"{days}d"
+        if days < 365:
+            return f"{days // 30}mo"
+        return f"{days // 365}y"
+    except Exception:
+        return ""
+
+
+def fetch_recent_repos(username, limit=5):
+    url = f"https://api.github.com/users/{username}/repos?sort=pushed&direction=desc&per_page={limit}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Quickshell-Widget/1.0"})
+    repos = []
+    try:
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            items = json.loads(resp.read().decode())
+            for r in items[:limit]:
+                repos.append({
+                    "name": r.get("name", ""),
+                    "language": r.get("language") or "Code",
+                    "stars": int(r.get("stargazers_count", 0)),
+                    "ago": format_relative_age(r.get("pushed_at", "")),
+                    "url": r.get("html_url", f"https://github.com/{username}"),
+                    "fork": bool(r.get("fork", False))
+                })
+    except Exception:
+        pass
+    return repos
+
+
+def fetch_open_prs(username, limit=3):
+    url = f"https://api.github.com/search/issues?q=author:{username}+type:pr+is:open&sort=updated&per_page={limit}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Quickshell-Widget/1.0"})
+    prs = []
+    total_prs = 0
+    try:
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode())
+            total_prs = int(data.get("total_count", 0))
+            for item in data.get("items", [])[:limit]:
+                repo_url = item.get("repository_url", "")
+                repo_name = repo_url.rsplit("/", 1)[-1] if repo_url else ""
+                prs.append({
+                    "title": item.get("title", ""),
+                    "repo": repo_name,
+                    "number": int(item.get("number", 0)),
+                    "url": item.get("html_url", ""),
+                    "ago": format_relative_age(item.get("updated_at", ""))
+                })
+    except Exception:
+        pass
+    return total_prs, prs
+
+
 def process_year_contributions(username, year, force_refresh=False):
     cache_file = DATA_DIR / f"github_{username}_{year}.json"
     
@@ -122,7 +188,9 @@ def process_year_contributions(username, year, force_refresh=False):
             mtime = cache_file.stat().st_mtime
             if (time.time() - mtime) < CACHE_TTL:
                 with open(cache_file, "r") as f:
-                    return json.load(f)
+                    cached = json.load(f)
+                if "repos" in cached:
+                    return cached
         except Exception:
             pass
 
@@ -226,6 +294,9 @@ def process_year_contributions(username, year, force_refresh=False):
 
     total_cols = ((d_end - d0).days + first_col_day) // 7 + 1
 
+    repos = fetch_recent_repos(username, limit=4)
+    open_prs_count, open_prs = fetch_open_prs(username, limit=3)
+
     payload = {
         "year": year,
         "username": username,
@@ -236,6 +307,9 @@ def process_year_contributions(username, year, force_refresh=False):
         "total": total if (total is not None and total > 0) else total_count,
         "currentStreak": current_streak,
         "longestStreak": longest_streak,
+        "repos": repos,
+        "openPrsCount": open_prs_count,
+        "openPrs": open_prs,
         "today": today_str,
         "totalCols": total_cols,
         "months": months_list,

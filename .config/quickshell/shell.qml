@@ -406,6 +406,33 @@ ShellRoot {
 
     property int gridReloadTick: 0
 
+    // Full-screen freeze overlay during area/edit screenshot selection
+    property bool freezeActive: false
+    property string freezeToken: ""
+
+    IpcHandler {
+        target: "freeze"
+        function open() {
+            shell.freezeToken = String(Date.now());
+            shell.freezeActive = true;
+        }
+        function close() {
+            shell.freezeActive = false;
+            shell.freezeToken = "";
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+
+        delegate: Component {
+            FreezeOverlay {
+                active: shell.freezeActive
+                token: shell.freezeToken
+            }
+        }
+    }
+
     // Apple Sonoma Desktop Widgets Overlay (Workspace 1 on laptop, Workspace 6 on external display)
     Variants {
         model: Quickshell.screens

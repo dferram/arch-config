@@ -278,8 +278,10 @@ Item {
     property string trackArtist: (activePlayer && activePlayer.trackArtist) ? activePlayer.trackArtist : ""
     property string trackAlbum: (activePlayer && activePlayer.trackAlbum) ? activePlayer.trackAlbum : ""
 
-    // Extract album artwork URL (handles trackArtUrl and mpris:artUrl)
-    property string artUrl: {
+    // Extract raw album artwork URL (handles trackArtUrl and mpris:artUrl)
+    property bool artIsFallbackIcon: false
+    property string resolvedFallbackArtUrl: ""
+    property string rawArtUrl: {
         if (!activePlayer) return "";
         let u = "";
         try {
@@ -291,6 +293,16 @@ Item {
             } catch(e) {}
         }
         return (u || "").trim();
+    }
+    onRawArtUrlChanged: {
+        artIsFallbackIcon = false;
+        resolvedFallbackArtUrl = "";
+        updatePalette();
+    }
+    readonly property string artUrl: {
+        if (artIsFallbackIcon) return resolvedFallbackArtUrl;
+        if (rawArtUrl === "" && resolvedFallbackArtUrl !== "") return resolvedFallbackArtUrl;
+        return rawArtUrl;
     }
 
     function getResolvedArtUrl(url) {
@@ -323,17 +335,19 @@ Item {
         let len = root.activePlayer.length;
         if (typeof len === "number" && !isNaN(len) && len > 0) {
             if (len > 100000) len = len / 1000000.0;
-            root.trackLength = len;
+            // Ignore sentinel INT64_MAX / bogus durations (> 24h) exported by browsers for streams
+            root.trackLength = (len > 86400) ? 0 : len;
             return;
         }
         if (root.activePlayer.metadata && root.activePlayer.metadata["mpris:length"]) {
             let mLen = Number(root.activePlayer.metadata["mpris:length"]);
             if (!isNaN(mLen) && mLen > 0) {
                 if (mLen > 100000) mLen = mLen / 1000000.0;
-                root.trackLength = mLen;
+                root.trackLength = (mLen > 86400) ? 0 : mLen;
                 return;
             }
         }
+        root.trackLength = 0;
     }
 
     function syncPosition() {
@@ -538,17 +552,36 @@ Item {
 
     Process {
         id: paletteProc
-        command: ["/home/ferram/.local/bin/hypr-media-palette", root.artUrl, root.trackTitle, root.trackAlbum]
+        command: ["/home/ferram/.local/bin/hypr-media-palette", "--with-art", root.rawArtUrl, root.trackTitle, root.trackAlbum]
         stdout: StdioCollector {
             function parsePalette(raw) {
-                let lines = (raw || "").trim().split("\n");
-                if (lines.length >= 3) {
-                    let c1 = lines[0].trim();
-                    let c2 = lines[1].trim();
-                    let c3 = lines[2].trim();
-                    if (c1.startsWith("#")) root.dynamicAlbumColor = c1;
-                    if (c2.startsWith("#")) root.dynamicAlbumColorSecondary = c2;
-                    if (c3.startsWith("#")) root.dynamicAlbumColorAccent = c3;
+                let trimmed = (raw || "").trim();
+                if (!trimmed) return;
+                if (trimmed === "FALLBACK_BROWSER_ICON") {
+                    root.artIsFallbackIcon = true;
+                    root.resolvedFallbackArtUrl = "";
+                    root.hasDynamicPalette = false;
+                    return;
+                }
+                let lines = trimmed.split("\n");
+                let colorLines = [];
+                let resolvedArt = "";
+                for (let i = 0; i < lines.length; i++) {
+                    let ln = lines[i].trim();
+                    if (ln.startsWith("ART:")) {
+                        resolvedArt = ln.substring(4).trim();
+                    } else if (ln.startsWith("#")) {
+                        colorLines.push(ln);
+                    }
+                }
+                if (resolvedArt !== "") {
+                    root.artIsFallbackIcon = true;
+                    root.resolvedFallbackArtUrl = resolvedArt;
+                }
+                if (colorLines.length >= 3) {
+                    root.dynamicAlbumColor = colorLines[0];
+                    root.dynamicAlbumColorSecondary = colorLines[1];
+                    root.dynamicAlbumColorAccent = colorLines[2];
                     root.hasDynamicPalette = true;
                 }
             }
@@ -557,12 +590,19 @@ Item {
         }
     }
 
+    readonly property bool useNativeArtOnly: root.isYouTube || root.isSpotify || root.isStremio
+
     function updatePalette() {
-        if (root.artUrl && root.artUrl !== "") {
+        let shouldResolvePoster = !root.useNativeArtOnly && root.currentPlatform !== "";
+        let hasInput = (root.rawArtUrl && root.rawArtUrl !== "") || (shouldResolvePoster && root.trackTitle && root.trackTitle !== "");
+        if (hasInput) {
             if (paletteProc.running) {
                 paletteProc.running = false;
             }
-            paletteProc.command = ["/home/ferram/.local/bin/hypr-media-palette", root.artUrl, root.trackTitle, root.trackAlbum];
+            let cmd = ["/home/ferram/.local/bin/hypr-media-palette", "--with-art"];
+            if (shouldResolvePoster) cmd.push("--resolve-poster");
+            cmd.push(root.rawArtUrl, root.trackTitle, root.trackAlbum);
+            paletteProc.command = cmd;
             paletteProc.running = true;
         } else {
             root.hasDynamicPalette = false;
@@ -572,7 +612,6 @@ Item {
         }
     }
 
-    onArtUrlChanged: updatePalette()
     onCurrentPlatformChanged: updatePalette()
     onTrackAlbumChanged: updatePalette()
     Component.onCompleted: updatePalette()
@@ -667,6 +706,8 @@ Item {
         root.updatePalette();
     }
     onTrackTitleChanged: {
+        root.artIsFallbackIcon = false;
+        root.resolvedFallbackArtUrl = "";
         root.syncPosition();
         root.updatePalette();
     }
@@ -987,7 +1028,7 @@ Item {
                                 onTrackedArtUrlChanged: useFallbackArt = false
                                 source: useFallbackArt ? root.artUrl : root.getResolvedArtUrl(root.artUrl)
                                 visible: root.artUrl !== "" && status === Image.Ready
-                                fillMode: (root.isSpiderMan || root.isStremio) ? Image.PreserveAspectFit : Image.PreserveAspectCrop
+                                fillMode: (root.resolvedFallbackArtUrl === "" && (root.isSpiderMan || root.isStremio)) ? Image.PreserveAspectFit : Image.PreserveAspectCrop
                                 asynchronous: true
                                 cache: true
                                 mipmap: true
@@ -1449,7 +1490,9 @@ Item {
                             id: rightTimeTxt
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
+                            visible: root.trackLength > 0
                             text: {
+                                if (root.trackLength <= 0) return "";
                                 if (root.showRemainingTime) {
                                     let cur = root.isDraggingSeek ? root.dragPosition : root.currentPosition;
                                     let rem = Math.max(0, root.trackLength - cur);

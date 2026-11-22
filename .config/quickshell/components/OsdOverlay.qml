@@ -213,7 +213,7 @@ PanelWindow {
             z: -2
         }
 
-        // Smoked Obsidian Liquid Glass Capsule (aligned to top bar island geometry)
+        // Smoked Obsidian Capsule (aligned to top bar island geometry)
         Rectangle {
             id: glassPill
             anchors.fill: parent
@@ -222,44 +222,6 @@ PanelWindow {
             border.color: theme.border
             border.width: 1
             clip: true
-
-            // Signature 3-stop Liquid Glass specular surface sheen
-            Rectangle {
-                anchors.fill: parent
-                radius: parent.radius
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.11) }
-                    GradientStop { position: 0.45; color: Qt.rgba(1, 1, 1, 0.015) }
-                    GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.04) }
-                }
-            }
-
-            // Subtle ambient tint radiating from the icon side
-            Rectangle {
-                anchors.fill: parent
-                radius: parent.radius
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop {
-                        position: 0.0
-                        color: Qt.rgba(osdWindow.accentColor.r, osdWindow.accentColor.g, osdWindow.accentColor.b, osdWindow.isToggle && !osdWindow.isToggleActive ? 0.04 : 0.14)
-                    }
-                    GradientStop { position: 0.45; color: Qt.rgba(osdWindow.accentColor.r, osdWindow.accentColor.g, osdWindow.accentColor.b, 0.02) }
-                    GradientStop { position: 1.0; color: "transparent" }
-                }
-            }
-
-            // Crisp top specular hairline reflection
-            Rectangle {
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.topMargin: 1
-                anchors.leftMargin: glassPill.radius
-                anchors.rightMargin: glassPill.radius
-                height: 1
-                color: Qt.rgba(1, 1, 1, 0.22)
-            }
 
             // Interactive dismissal on click
             MouseArea {
@@ -273,28 +235,18 @@ PanelWindow {
                 anchors.rightMargin: 12
                 spacing: 10
 
-                // Liquid Glass squircle icon well
+                // Squircle icon well
                 Rectangle {
                     Layout.preferredWidth: 32
                     Layout.preferredHeight: 32
                     Layout.alignment: Qt.AlignVCenter
                     radius: 8
-                    color: Qt.rgba(osdWindow.accentColor.r, osdWindow.accentColor.g, osdWindow.accentColor.b, (osdWindow.isToggle && !osdWindow.isToggleActive) ? 0.08 : 0.18)
-                    border.color: Qt.rgba(osdWindow.accentColor.r, osdWindow.accentColor.g, osdWindow.accentColor.b, (osdWindow.isToggle && !osdWindow.isToggleActive) ? 0.18 : 0.42)
+                    color: Qt.rgba(osdWindow.accentColor.r, osdWindow.accentColor.g, osdWindow.accentColor.b, (osdWindow.isToggle && !osdWindow.isToggleActive) ? 0.08 : 0.16)
+                    border.color: Qt.rgba(osdWindow.accentColor.r, osdWindow.accentColor.g, osdWindow.accentColor.b, (osdWindow.isToggle && !osdWindow.isToggleActive) ? 0.18 : 0.36)
                     border.width: 1
 
                     Behavior on color { ColorAnimation { duration: 180 } }
                     Behavior on border.color { ColorAnimation { duration: 180 } }
-
-                    // Subtle inner gloss inside icon well
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: parent.radius
-                        gradient: Gradient {
-                            GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.16) }
-                            GradientStop { position: 0.6; color: "transparent" }
-                        }
-                    }
 
                     Image {
                         anchors.centerIn: parent
@@ -306,7 +258,7 @@ PanelWindow {
                     }
                 }
 
-                // Mode A: Continuous Liquid Glass Slider (Volume & Brightness)
+                // Mode A: Continuous Slider (Volume & Brightness)
                 ColumnLayout {
                     visible: !osdWindow.isToggle
                     Layout.fillWidth: true
@@ -341,15 +293,13 @@ PanelWindow {
                         }
                     }
 
-                    // Smooth frosted track with glowing gradient fill
+                    // Clean flat track with solid accent fill
                     Rectangle {
                         id: sliderTrack
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 7
-                        radius: 3.5
-                        color: Qt.rgba(1, 1, 1, 0.10)
-                        border.color: Qt.rgba(1, 1, 1, 0.16)
-                        border.width: 1
+                        Layout.preferredHeight: 6
+                        radius: 3
+                        color: Qt.rgba(1, 1, 1, 0.12)
                         clip: true
 
                         Rectangle {
@@ -359,26 +309,10 @@ PanelWindow {
                             anchors.bottom: parent.bottom
                             width: osdWindow.isMuted ? 0 : Math.round(Math.max(0, Math.min(1, osdWindow.level / 100.0)) * parent.width)
                             radius: parent.radius
-
-                            gradient: Gradient {
-                                orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: osdWindow.accentColor }
-                                GradientStop { position: 1.0; color: osdWindow.accentHighlight }
-                            }
+                            color: osdWindow.accentColor
 
                             Behavior on width {
                                 NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
-                            }
-
-                            // Top liquid specular highlight along the active bar
-                            Rectangle {
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.top: parent.top
-                                anchors.topMargin: 1
-                                height: 1.5
-                                radius: 1
-                                color: Qt.rgba(1, 1, 1, 0.45)
                             }
                         }
                     }

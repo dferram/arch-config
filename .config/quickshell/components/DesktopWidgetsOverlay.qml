@@ -676,6 +676,74 @@ PanelWindow {
             }
         }
 
+        // 19. AI Agents Live Monitor
+        GridWidgetWrapper {
+            id: itemAgents
+            overlay: desktopWindow
+            widgetKey: "agents"
+            Loader {
+                anchors.fill: parent
+                active: itemAgents.opacity > 0.001
+                sourceComponent: Component {
+                    DesktopAgentWidget {
+                        anchors.fill: parent
+                        isLive: itemAgents.isLive
+                    }
+                }
+            }
+        }
+
+        // 20. GitHub Pull Requests & Notifications Hub
+        GridWidgetWrapper {
+            id: itemGithubPrs
+            overlay: desktopWindow
+            widgetKey: "github_prs"
+            Loader {
+                anchors.fill: parent
+                active: itemGithubPrs.opacity > 0.001
+                sourceComponent: Component {
+                    DesktopGithubPrWidget {
+                        anchors.fill: parent
+                        isLive: itemGithubPrs.isLive
+                    }
+                }
+            }
+        }
+
+        // 21. Dev Ports & Docker Stack
+        GridWidgetWrapper {
+            id: itemDevPorts
+            overlay: desktopWindow
+            widgetKey: "devports"
+            Loader {
+                anchors.fill: parent
+                active: itemDevPorts.opacity > 0.001
+                sourceComponent: Component {
+                    DesktopDevPortsWidget {
+                        anchors.fill: parent
+                        isLive: itemDevPorts.isLive
+                    }
+                }
+            }
+        }
+
+        // 22. Local Git Repositories Status
+        GridWidgetWrapper {
+            id: itemGitRepos
+            overlay: desktopWindow
+            widgetKey: "gitrepos"
+            Loader {
+                anchors.fill: parent
+                active: itemGitRepos.opacity > 0.001
+                sourceComponent: Component {
+                    DesktopGitWorkspaceWidget {
+                        anchors.fill: parent
+                        isLive: itemGitRepos.isLive
+                    }
+                }
+            }
+        }
+
         // =====================================================================
         // APPLE SONOMA EDIT MODE CONTROLS OVERLAY (z: 1000 - Guaranteed Clickable)
         // =====================================================================
@@ -938,10 +1006,14 @@ PanelWindow {
                                 { "key": "notes",     "name": "Quick Notes",  "icon": "󰈔", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "f1",        "name": "Formula 1",    "icon": "󰀝", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "nba",       "name": "NBA Hub",      "icon": "󰊪", "span": "2x1", "c": 2, "r": 1 },
-                                { "key": "github",    "name": "GitHub Wall",  "icon": "󰊤", "span": "2x1", "c": 2, "r": 1 },
-                                { "key": "leetcode",  "name": "LeetCode",     "icon": "",  "span": "1x1", "c": 1, "r": 1 },
+                                { "key": "github",     "name": "GitHub Wall",  "icon": "󰊤", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "github_prs", "name": "GitHub Inbox", "icon": "󰓂", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "gitrepos",   "name": "Git Repos",    "icon": "󰊢", "span": "1x1", "c": 1, "r": 1 },
+                                { "key": "devports",   "name": "Dev Ports",    "icon": "󰒍", "span": "1x1", "c": 1, "r": 1 },
+                                { "key": "leetcode",   "name": "LeetCode",     "icon": "",  "span": "1x1", "c": 1, "r": 1 },
                                 { "key": "agenda",    "name": "Today Agenda", "icon": "󰃰", "span": "1x1", "c": 1, "r": 1 },
                                 { "key": "focus",     "name": "Focus Timer",  "icon": "󱎫", "span": "1x1", "c": 1, "r": 1 },
+                                { "key": "agents",    "name": "AI Agents",    "icon": "󰚩", "span": "1x1", "c": 1, "r": 1 },
                                 { "key": "doomsday",  "name": "Doomsday",     "icon": "󰋑", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "nsqk",      "name": "NSQK Tour",    "icon": "󰎈", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "photo",     "name": "Photos",       "icon": "󰄀", "span": "2x2", "c": 2, "r": 2, "multi": true }

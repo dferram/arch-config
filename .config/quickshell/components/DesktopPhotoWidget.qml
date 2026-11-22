@@ -630,15 +630,6 @@ Item {
             NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
         }
 
-        // Specular top hairline highlight
-        Rectangle {
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 1
-            color: Qt.rgba(255, 255, 255, 0.16)
-        }
-
         MouseArea {
             anchors.fill: parent
             hoverEnabled: true

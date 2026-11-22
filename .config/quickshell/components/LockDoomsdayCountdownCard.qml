@@ -35,6 +35,16 @@ Item {
     property int minutes: 0
     property int seconds: 0
     property bool eventPassed: false
+    property real remainingHours: 720.0
+
+    readonly property real auraIntensity: {
+        if (eventPassed) return 1.0;
+        let h = remainingHours;
+        if (h >= 720) return 0.0;
+        if (h >= 168) return 0.55 * (1.0 - (h - 168) / (720 - 168));
+        if (h >= 24)  return 0.55 + 0.30 * (1.0 - (h - 24) / (168 - 24));
+        return 0.85 + 0.15 * (1.0 - Math.max(0, h) / 24.0);
+    }
 
     function pad2(n) {
         return (n < 10 ? "0" : "") + Math.max(0, n);
@@ -85,11 +95,13 @@ Item {
             root.hours = 0;
             root.minutes = 0;
             root.seconds = 0;
+            root.remainingHours = 0;
             root.eventPassed = true;
             return;
         }
 
         root.eventPassed = false;
+        root.remainingHours = Math.max(0, (target.getTime() - now.getTime()) / 3600000.0);
 
         let yDiff = target.getFullYear() - now.getFullYear();
         let mDiff = target.getMonth() - now.getMonth() + yDiff * 12;
@@ -138,13 +150,13 @@ Item {
         anchors.fill: parent
         z: 0
 
-        // 1. Steady Diffuse Backlight Glow (Warm Wall Reflection)
+        // 1. Steady Diffuse Backlight Glow (grows progressively as premiere approaches)
         RectangularGlow {
             anchors.fill: parent
             visible: !root.fullscreen
-            glowRadius: 26
-            spread: 0.08
-            color: Qt.rgba(16/255, 185/255, 129/255, ambientFlicker.val)
+            glowRadius: 18 + Math.round(root.auraIntensity * 20)
+            spread: 0.06 + root.auraIntensity * 0.12
+            color: Qt.rgba(16/255, 185/255, 129/255, Math.min(0.42, ambientFlicker.val * (0.80 + root.auraIntensity * 0.85)))
             cornerRadius: 24
 
             QtObject {
@@ -164,62 +176,67 @@ Item {
             }
         }
 
-        // 2. The Green Candle Flame (Soft blurred oval that wavers gently like a live flame)
-        Rectangle {
-            id: candleFlame
-            width: root.fullscreen ? Math.round(root.width * 0.70) : 240
-            height: root.fullscreen ? Math.round(root.height * 0.78) : 270
-            radius: Math.round(width / 2)
-            color: "#059669"
-            layer.enabled: true
-            layer.effect: FastBlur { radius: root.fullscreen ? 96 : 64 }
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.verticalCenterOffset: -10
+        // 2. The Green Candle Flame (scales slightly & brightens as premiere approaches)
+        Item {
+            anchors.fill: parent
+            opacity: 0.85 + root.auraIntensity * 0.45
 
-            // Gentle organic horizontal flame waver (subtle draft)
-            SequentialAnimation on anchors.horizontalCenterOffset {
-                loops: Animation.Infinite
-                running: true
-                NumberAnimation { to: 4; duration: 450; easing.type: Easing.InOutSine }
-                NumberAnimation { to: -3; duration: 580; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 2; duration: 360; easing.type: Easing.InOutSine }
-                NumberAnimation { to: -5; duration: 620; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 1; duration: 410; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 0; duration: 530; easing.type: Easing.InOutSine }
-            }
+            Rectangle {
+                id: candleFlame
+                width: root.fullscreen ? Math.round(root.width * (0.68 + root.auraIntensity * 0.10)) : Math.round(220 + root.auraIntensity * 44)
+                height: root.fullscreen ? Math.round(root.height * (0.76 + root.auraIntensity * 0.10)) : Math.round(250 + root.auraIntensity * 46)
+                radius: Math.round(width / 2)
+                color: "#059669"
+                layer.enabled: true
+                layer.effect: FastBlur { radius: root.fullscreen ? 96 : 64 }
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: -10
 
-            // Gentle organic vertical flame waver (slight rising motion)
-            SequentialAnimation on anchors.verticalCenterOffset {
-                loops: Animation.Infinite
-                running: true
-                NumberAnimation { to: -14; duration: 480; easing.type: Easing.InOutSine }
-                NumberAnimation { to: -8; duration: 560; easing.type: Easing.InOutSine }
-                NumberAnimation { to: -13; duration: 390; easing.type: Easing.InOutSine }
-                NumberAnimation { to: -9; duration: 610; easing.type: Easing.InOutSine }
-                NumberAnimation { to: -11; duration: 430; easing.type: Easing.InOutSine }
-            }
+                // Gentle organic horizontal flame waver (subtle draft)
+                SequentialAnimation on anchors.horizontalCenterOffset {
+                    loops: Animation.Infinite
+                    running: true
+                    NumberAnimation { to: 4; duration: 450; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: -3; duration: 580; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 2; duration: 360; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: -5; duration: 620; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 1; duration: 410; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 0; duration: 530; easing.type: Easing.InOutSine }
+                }
 
-            // Delicate candle flame luminescence (flickers slightly between 0.22 and 0.28, never turns off)
-            SequentialAnimation on opacity {
-                loops: Animation.Infinite
-                running: true
-                NumberAnimation { to: 0.27; duration: 220; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 0.23; duration: 340; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 0.28; duration: 190; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 0.22; duration: 380; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 0.26; duration: 260; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 0.24; duration: 310; easing.type: Easing.InOutSine }
-            }
+                // Gentle organic vertical flame waver (slight rising motion)
+                SequentialAnimation on anchors.verticalCenterOffset {
+                    loops: Animation.Infinite
+                    running: true
+                    NumberAnimation { to: -14; duration: 480; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: -8; duration: 560; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: -13; duration: 390; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: -9; duration: 610; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: -11; duration: 430; easing.type: Easing.InOutSine }
+                }
 
-            // Minimal organic stretch/flicker
-            SequentialAnimation on scale {
-                loops: Animation.Infinite
-                running: true
-                NumberAnimation { to: 1.02; duration: 380; easing.type: Easing.InOutQuad }
-                NumberAnimation { to: 0.98; duration: 440; easing.type: Easing.InOutQuad }
-                NumberAnimation { to: 1.03; duration: 310; easing.type: Easing.InOutQuad }
-                NumberAnimation { to: 0.99; duration: 490; easing.type: Easing.InOutQuad }
+                // Delicate candle flame luminescence (flickers slightly between 0.22 and 0.28, never turns off)
+                SequentialAnimation on opacity {
+                    loops: Animation.Infinite
+                    running: true
+                    NumberAnimation { to: 0.27; duration: 220; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 0.23; duration: 340; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 0.28; duration: 190; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 0.22; duration: 380; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 0.26; duration: 260; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 0.24; duration: 310; easing.type: Easing.InOutSine }
+                }
+
+                // Minimal organic stretch/flicker
+                SequentialAnimation on scale {
+                    loops: Animation.Infinite
+                    running: true
+                    NumberAnimation { to: 1.02; duration: 380; easing.type: Easing.InOutQuad }
+                    NumberAnimation { to: 0.98; duration: 440; easing.type: Easing.InOutQuad }
+                    NumberAnimation { to: 1.03; duration: 310; easing.type: Easing.InOutQuad }
+                    NumberAnimation { to: 0.99; duration: 490; easing.type: Easing.InOutQuad }
+                }
             }
         }
     }
@@ -233,7 +250,7 @@ Item {
         radius: root.fullscreen ? 0 : 16
         color: Qt.rgba(0.04, 0.04, 0.06, root.fullscreen ? 1.0 : 0.90)
         border.width: root.fullscreen ? 0 : 1
-        border.color: Qt.rgba(16/255, 185/255, 129/255, 0.24)
+        border.color: Qt.rgba(16/255, 185/255, 129/255, 0.20 + root.auraIntensity * 0.26)
         clip: true
         z: 1
 
@@ -284,9 +301,9 @@ Item {
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0.0; color: "transparent" }
-                GradientStop { position: 0.25; color: Qt.rgba(16, 185, 129, 0.25) }
-                GradientStop { position: 0.50; color: Qt.rgba(16, 185, 129, 0.40) }
-                GradientStop { position: 0.75; color: Qt.rgba(16, 185, 129, 0.25) }
+                GradientStop { position: 0.25; color: Qt.rgba(16/255, 185/255, 129/255, 0.22 + root.auraIntensity * 0.22) }
+                GradientStop { position: 0.50; color: Qt.rgba(16/255, 185/255, 129/255, 0.36 + root.auraIntensity * 0.30) }
+                GradientStop { position: 0.75; color: Qt.rgba(16/255, 185/255, 129/255, 0.22 + root.auraIntensity * 0.22) }
                 GradientStop { position: 1.0; color: "transparent" }
             }
         }

@@ -1,0 +1,217 @@
+#!/usr/bin/env python3
+"""
+dev-env-status.py
+Fast local developer environment scanner for Quickshell desktop widgets:
+  - ports: listening local dev TCP ports (ss -tlnpH) + running Docker containers
+  - git:   local repositories status (branch, dirty counts, ahead/behind, last commit)
+"""
+
+import sys
+import os
+import json
+import re
+import time
+import subprocess
+from pathlib import Path
+
+WELL_KNOWN_DEV_PORTS = {
+    80, 443, 3000, 3001, 3306, 4000, 4173, 4200, 4321,
+    5000, 5001, 5173, 5174, 5432, 5500, 6379, 8000, 8080,
+    8081, 8443, 8888, 9000, 9090, 9222, 11434, 27017
+}
+
+IGNORED_PROCS = {
+    "systemd-resolve", "NetworkManager", "cupsd", "avahi-daemon",
+    "sshd", "dbus-daemon", "kdeconnectd", "spotify"
+}
+
+HTTP_HINT_PORTS = {80, 3000, 3001, 4000, 4173, 4200, 4321, 5000, 5001, 5173, 5174, 5500, 8000, 8080, 8081, 8888, 9000, 9090}
+
+
+def format_age_ts(epoch):
+    if not epoch:
+        return ""
+    secs = max(0, int(time.time() - epoch))
+    if secs < 60:
+        return "now"
+    if secs < 3600:
+        return f"{secs // 60}m"
+    if secs < 86400:
+        return f"{secs // 3600}h"
+    days = secs // 86400
+    if days < 30:
+        return f"{days}d"
+    return f"{days // 30}mo"
+
+
+def scan_ports():
+    ports_map = {}
+    try:
+        res = subprocess.run(["ss", "-tlnpH"], capture_output=True, text=True, timeout=2)
+        for line in res.stdout.splitlines():
+            parts = line.split()
+            if len(parts) < 4:
+                continue
+            local_addr = parts[3]
+            m_port = re.search(r":(\d+)$", local_addr)
+            if not m_port:
+                continue
+            port = int(m_port.group(1))
+            if port in (22, 53, 631):
+                continue
+            # Keep dev ports (< 10000 or well-known DB/Ollama/Mongo) and skip random high ephemeral ports
+            if port not in WELL_KNOWN_DEV_PORTS and not (3000 <= port <= 9999):
+                continue
+
+            proc_col = " ".join(parts[5:]) if len(parts) > 5 else ""
+            m_proc = re.search(r'\(\("([^"]+)"', proc_col)
+            proc = m_proc.group(1) if m_proc else "service"
+            if proc in IGNORED_PROCS:
+                continue
+
+            is_http = port in HTTP_HINT_PORTS or any(k in proc.lower() for k in ("node", "vite", "next", "uvicorn", "gunicorn", "python", "bun", "deno", "ruby", "go", "caddy", "nginx"))
+            if port not in ports_map:
+                ports_map[port] = {
+                    "port": port,
+                    "process": proc,
+                    "isHttp": bool(is_http),
+                    "url": f"http://localhost:{port}" if is_http else f"localhost:{port}"
+                }
+    except Exception:
+        pass
+
+    ports_list = [ports_map[k] for k in sorted(ports_map.keys())]
+
+    containers = []
+    docker_running = False
+    try:
+        dres = subprocess.run(
+            ["docker", "ps", "--format", "{{.Names}}\t{{.Image}}\t{{.Status}}"],
+            capture_output=True,
+            text=True,
+            timeout=1.5
+        )
+        if dres.returncode == 0:
+            docker_running = True
+            for line in dres.stdout.splitlines():
+                segs = line.split("\t")
+                if len(segs) >= 3:
+                    containers.append({
+                        "name": segs[0],
+                        "image": segs[1].split("/")[-1],
+                        "status": segs[2]
+                    })
+    except Exception:
+        pass
+
+    return {
+        "ports": ports_list,
+        "containers": containers,
+        "dockerRunning": docker_running
+    }
+
+
+def scan_git_repos(roots=None):
+    if not roots:
+        roots = [Path.home() / "Personal"]
+
+    repo_dirs = []
+    for root in roots:
+        root_path = Path(root)
+        if not root_path.exists():
+            continue
+        for entry in root_path.iterdir():
+            if not entry.is_dir():
+                continue
+            if (entry / ".git").exists():
+                repo_dirs.append(entry)
+            else:
+                try:
+                    for sub in entry.iterdir():
+                        if sub.is_dir() and (sub / ".git").exists():
+                            repo_dirs.append(sub)
+                except Exception:
+                    pass
+
+    repos = []
+    dirty_repos = 0
+    for rdir in repo_dirs:
+        try:
+            st = subprocess.run(
+                ["git", "-C", str(rdir), "status", "--porcelain=v1", "-b"],
+                capture_output=True,
+                text=True,
+                timeout=1.5
+            )
+            if st.returncode != 0:
+                continue
+            lines = st.stdout.splitlines()
+            branch = "main"
+            ahead = 0
+            behind = 0
+            if lines and lines[0].startswith("## "):
+                hdr = lines[0][3:]
+                branch_part = hdr.split("...")[0].strip()
+                if branch_part.startswith("No commits yet on "):
+                    branch = branch_part.replace("No commits yet on ", "").strip()
+                else:
+                    branch = branch_part
+                m_ah = re.search(r"ahead (\d+)", hdr)
+                m_bh = re.search(r"behind (\d+)", hdr)
+                if m_ah:
+                    ahead = int(m_ah.group(1))
+                if m_bh:
+                    behind = int(m_bh.group(1))
+
+            modified = 0
+            untracked = 0
+            for ln in lines[1:]:
+                if ln.startswith("??"):
+                    untracked += 1
+                elif ln.strip():
+                    modified += 1
+            dirty = modified + untracked
+            if dirty > 0:
+                dirty_repos += 1
+
+            lg = subprocess.run(
+                ["git", "-C", str(rdir), "log", "-1", "--format=%ct"],
+                capture_output=True,
+                text=True,
+                timeout=1.0
+            )
+            ts = int(lg.stdout.strip()) if lg.returncode == 0 and lg.stdout.strip().isdigit() else 0
+
+            repos.append({
+                "name": rdir.name,
+                "path": str(rdir),
+                "branch": branch,
+                "modified": modified,
+                "untracked": untracked,
+                "dirty": dirty,
+                "ahead": ahead,
+                "behind": behind,
+                "ts": ts,
+                "ago": format_age_ts(ts)
+            })
+        except Exception:
+            pass
+
+    repos.sort(key=lambda r: (0 if r["dirty"] > 0 else 1, -r["ts"], r["name"].lower()))
+    return {
+        "repos": repos,
+        "dirtyCount": dirty_repos,
+        "totalCount": len(repos)
+    }
+
+
+def main():
+    mode = sys.argv[1] if len(sys.argv) > 1 else "ports"
+    if mode == "git":
+        print(json.dumps(scan_git_repos()))
+    else:
+        print(json.dumps(scan_ports()))
+
+
+if __name__ == "__main__":
+    main()

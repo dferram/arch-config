@@ -182,15 +182,6 @@ Rectangle {
         }
     }
 
-    // Specular top hairline highlight (Apple Sonoma aesthetic)
-    Rectangle {
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: 1
-        color: Qt.rgba(255, 255, 255, 0.16)
-    }
-
     ColumnLayout {
         anchors.fill: parent
         anchors.topMargin: 13

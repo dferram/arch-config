@@ -119,7 +119,11 @@ DEFAULT_GRID = {
     "photo4":     { "col": 1, "row": 3, "colSpan": 2, "rowSpan": 1, "type": "photo4",     "workspace": 3 },
     "leetcode":   { "col": 3, "row": 3, "colSpan": 1, "rowSpan": 1, "type": "leetcode",   "workspace": 3 },
     "agenda":     { "col": 4, "row": 2, "colSpan": 1, "rowSpan": 1, "type": "agenda",     "workspace": 3 },
-    "focus":      { "col": 5, "row": 2, "colSpan": 1, "rowSpan": 1, "type": "focus",      "workspace": 3 }
+    "focus":      { "col": 5, "row": 2, "colSpan": 1, "rowSpan": 1, "type": "focus",      "workspace": 3 },
+    "agents":     { "col": 4, "row": 3, "colSpan": 1, "rowSpan": 1, "type": "agents",     "workspace": 3 },
+    "github_prs": { "col": 0, "row": 3, "colSpan": 2, "rowSpan": 1, "type": "github_prs", "workspace": 1 },
+    "devports":   { "col": 3, "row": 3, "colSpan": 1, "rowSpan": 1, "type": "devports",   "workspace": 3 },
+    "gitrepos":   { "col": 2, "row": 3, "colSpan": 1, "rowSpan": 1, "type": "gitrepos",   "workspace": 3 }
 }
 
 def get_wayland_env():
@@ -943,42 +947,55 @@ def get_f1_data():
                 "color": "#E10600",
             }
 
+        def _short_gp(name):
+            s = (name or "").strip()
+            for rem in ["Heineken ", "Lenovo ", "Rolex ", "Pirelli ", "Aramco ", "Qatar Airways ", "Crypto.com ", "MSC Cruises ", "Gulf Air ", "STC ", "Etihad Airways ", "AWS ", "Louis Vuitton ", "Tag Heuer ", "Moët & Chandon "]:
+                if s.lower().startswith(rem.lower()):
+                    s = s[len(rem):].strip()
+            s = s.replace("Grand Prix", "GP")
+            return s.upper()
+
         qualifying = []
-        try:
-            req_q = urllib.request.Request(
-                f"https://api.jolpi.ca/ergast/f1/current/{round_no}/qualifying.json",
-                headers={"User-Agent": "Mozilla/5.0"}
-            )
-            with urllib.request.urlopen(req_q, timeout=4) as rq:
-                q_data = json.loads(rq.read().decode())
-            q_races = q_data.get("MRData", {}).get("RaceTable", {}).get("Races", [])
-            if q_races:
-                for qr in q_races[0].get("QualifyingResults", []):
-                    drv = qr.get("Driver", {})
-                    ctor = qr.get("Constructor", {})
-                    full_name = f"{drv.get('givenName', '')} {drv.get('familyName', '')}".strip()
-                    meta = resolve_driver_meta(full_name, ctor.get("constructorId", ""))
-                    if qr.get("Q3"):
-                        q_time, q_seg = qr["Q3"], "Q3"
-                    elif qr.get("Q2"):
-                        q_time, q_seg = qr["Q2"], "Q2"
-                    else:
-                        q_time, q_seg = (qr.get("Q1") or "NO TIME"), "Q1"
-                    qualifying.append({
-                        "pos": int(qr.get("position") or (len(qualifying) + 1)),
-                        "number": int(drv.get("permanentNumber") or meta["number"] or 0),
-                        "code": drv.get("code") or meta["code"],
-                        "fullName": full_name,
-                        "team": meta["team"],
-                        "teamKey": meta["teamKey"],
-                        "color": meta["color"],
-                        "metric": q_time,
-                        "unit": q_seg,
-                    })
-        except Exception:
-            pass
+        quali_gp_name = ""
+        for q_url in (
+            f"https://api.jolpi.ca/ergast/f1/current/{round_no}/qualifying.json",
+            "https://api.jolpi.ca/ergast/f1/current/last/qualifying.json",
+        ):
+            try:
+                req_q = urllib.request.Request(q_url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req_q, timeout=4) as rq:
+                    q_data = json.loads(rq.read().decode())
+                q_races = q_data.get("MRData", {}).get("RaceTable", {}).get("Races", [])
+                if q_races and q_races[0].get("QualifyingResults"):
+                    quali_gp_name = _short_gp(q_races[0].get("raceName", ""))
+                    for qr in q_races[0].get("QualifyingResults", []):
+                        drv = qr.get("Driver", {})
+                        ctor = qr.get("Constructor", {})
+                        full_name = f"{drv.get('givenName', '')} {drv.get('familyName', '')}".strip()
+                        meta = resolve_driver_meta(full_name, ctor.get("constructorId", ""))
+                        if qr.get("Q3"):
+                            q_time, q_seg = qr["Q3"], "Q3"
+                        elif qr.get("Q2"):
+                            q_time, q_seg = qr["Q2"], "Q2"
+                        else:
+                            q_time, q_seg = (qr.get("Q1") or "NO TIME"), "Q1"
+                        qualifying.append({
+                            "pos": int(qr.get("position") or (len(qualifying) + 1)),
+                            "number": int(drv.get("permanentNumber") or meta["number"] or 0),
+                            "code": drv.get("code") or meta["code"],
+                            "fullName": full_name,
+                            "team": meta["team"],
+                            "teamKey": meta["teamKey"],
+                            "color": meta["color"],
+                            "metric": q_time,
+                            "unit": q_seg,
+                        })
+                    break
+            except Exception:
+                pass
 
         race_standings = []
+        race_gp_name = ""
         try:
             req_espn = urllib.request.Request(
                 "https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard",
@@ -989,12 +1006,14 @@ def get_f1_data():
             evs = sb.get("events", [])
             if evs:
                 ev_obj = evs[0]
+                ev_short_gp = _short_gp(ev_obj.get("name", "") or ev_obj.get("shortName", ""))
                 ev_id = str(ev_obj.get("id") or "")
                 comps = ev_obj.get("competitions", [])
                 race_comp = next((c for c in comps if c.get("type", {}).get("abbreviation") == "Race"), None)
                 qual_comp = next((c for c in comps if c.get("type", {}).get("abbreviation") == "Qual"), None)
 
                 if race_comp:
+                    race_gp_name = ev_short_gp
                     race_cid = str(race_comp.get("id") or "")
                     race_start_ts = 0.0
                     if race_comp.get("date"):
@@ -1018,94 +1037,143 @@ def get_f1_data():
 
                     competitors = sorted(race_comp.get("competitors", []), key=lambda x: int(x.get("order") or 99))
 
-                    # Fetch live millisecond gaps & laps completed in parallel
-                    comp_stats_map = {}
-                    if ev_id and race_cid and r_state in ("in", "post"):
-                        from concurrent.futures import ThreadPoolExecutor
+                    if r_state == "post":
+                        # Use Jolpica official race results for finished races (P1 total time + exact gaps)
+                        try:
+                            req_res = urllib.request.Request(
+                                "https://api.jolpi.ca/ergast/f1/current/last/results.json",
+                                headers={"User-Agent": "Mozilla/5.0"}
+                            )
+                            with urllib.request.urlopen(req_res, timeout=4) as r_res:
+                                res_data = json.loads(r_res.read().decode())
+                            res_races = res_data.get("MRData", {}).get("RaceTable", {}).get("Races", [])
+                            if res_races:
+                                race_gp_name = _short_gp(res_races[0].get("raceName", "")) or race_gp_name
+                                for rr in res_races[0].get("Results", []):
+                                    drv = rr.get("Driver", {})
+                                    ctor = rr.get("Constructor", {})
+                                    full_name = f"{drv.get('givenName', '')} {drv.get('familyName', '')}".strip()
+                                    meta = resolve_driver_meta(full_name, ctor.get("constructorId", ""))
+                                    pos_num = int(rr.get("position") or (len(race_standings) + 1))
+                                    status_str = (rr.get("status") or "").strip()
+                                    time_obj = rr.get("Time") or {}
+                                    time_txt = (time_obj.get("time") or "").strip()
 
-                        def _fetch_comp_stat(comp_id):
-                            if not comp_id:
-                                return comp_id, {}
-                            s_url = f"https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/{ev_id}/competitions/{race_cid}/competitors/{comp_id}/statistics?lang=en&region=us"
-                            try:
-                                req_s = urllib.request.Request(s_url, headers={"User-Agent": "Mozilla/5.0"})
-                                with urllib.request.urlopen(req_s, timeout=3) as rs:
-                                    s_json = json.loads(rs.read().decode())
-                                flat = {}
-                                for cat in s_json.get("splits", {}).get("categories", []):
-                                    for st in cat.get("stats", []):
-                                        if st.get("name"):
-                                            flat[st["name"]] = st
-                                return comp_id, flat
-                            except Exception:
-                                return comp_id, {}
+                                    if time_txt:
+                                        metric_str = time_txt
+                                    elif "lap" in status_str.lower():
+                                        metric_str = status_str.upper()
+                                    elif status_str.lower() in ("disqualified", "dsq"):
+                                        metric_str = "DSQ"
+                                    elif status_str.lower() in ("did not start", "dns"):
+                                        metric_str = "DNS"
+                                    else:
+                                        metric_str = "DNF"
 
-                        with ThreadPoolExecutor(max_workers=10) as pool:
-                            for c_id, st_flat in pool.map(lambda c: _fetch_comp_stat(str(c.get("id") or "")), competitors):
-                                comp_stats_map[c_id] = st_flat
+                                    race_standings.append({
+                                        "pos": pos_num,
+                                        "number": int(drv.get("permanentNumber") or rr.get("number") or meta["number"] or 0),
+                                        "code": drv.get("code") or meta["code"],
+                                        "fullName": full_name,
+                                        "team": meta["team"],
+                                        "teamKey": meta["teamKey"],
+                                        "color": meta["color"],
+                                        "metric": metric_str,
+                                        "unit": "",
+                                    })
+                        except Exception:
+                            pass
 
-                    p1_laps = 0
-                    if competitors:
-                        p1_st = comp_stats_map.get(str(competitors[0].get("id") or ""), {})
-                        p1_laps = int(float(p1_st.get("lapsCompleted", {}).get("value", 0) or 0)) or current_lap
+                    if not race_standings:
+                        # Fetch live millisecond gaps & laps completed in parallel when race is in progress
+                        comp_stats_map = {}
+                        if ev_id and race_cid and r_state == "in":
+                            from concurrent.futures import ThreadPoolExecutor
 
-                    for c_item in competitors:
-                        ath = c_item.get("athlete", {})
-                        full_name = ath.get("displayName", "")
-                        meta = resolve_driver_meta(full_name)
-                        pos_num = int(c_item.get("order") or (len(race_standings) + 1))
-                        c_id = str(c_item.get("id") or "")
-                        c_st = comp_stats_map.get(c_id, {})
+                            def _fetch_comp_stat(comp_id):
+                                if not comp_id:
+                                    return comp_id, {}
+                                s_url = f"https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/{ev_id}/competitions/{race_cid}/competitors/{comp_id}/statistics?lang=en&region=us"
+                                try:
+                                    req_s = urllib.request.Request(s_url, headers={"User-Agent": "Mozilla/5.0"})
+                                    with urllib.request.urlopen(req_s, timeout=3) as rs:
+                                        s_json = json.loads(rs.read().decode())
+                                    flat = {}
+                                    for cat in s_json.get("splits", {}).get("categories", []):
+                                        for st in cat.get("stats", []):
+                                            if st.get("name"):
+                                                flat[st["name"]] = st
+                                    return comp_id, flat
+                                except Exception:
+                                    return comp_id, {}
 
-                        metric_str = "PRE"
-                        if r_state == "in" or r_state == "post":
-                            if pos_num == 1:
-                                upd_ms = float(c_st.get("lastUpdated", {}).get("value", 0) or 0)
-                                if upd_ms > 0 and race_start_ts > 0:
-                                    el = max(0, int(upd_ms / 1000.0 - race_start_ts))
-                                    eh = el // 3600
-                                    em = (el % 3600) // 60
-                                    es = el % 60
-                                    metric_str = f"{eh}:{em:02d}:{es:02d}" if eh > 0 else f"{em}:{es:02d}"
+                            with ThreadPoolExecutor(max_workers=10) as pool:
+                                for c_id, st_flat in pool.map(lambda c: _fetch_comp_stat(str(c.get("id") or "")), competitors):
+                                    comp_stats_map[c_id] = st_flat
+
+                        p1_laps = 0
+                        if competitors:
+                            p1_st = comp_stats_map.get(str(competitors[0].get("id") or ""), {})
+                            p1_laps = int(float(p1_st.get("lapsCompleted", {}).get("value", 0) or 0)) or current_lap
+
+                        for c_item in competitors:
+                            ath = c_item.get("athlete", {})
+                            full_name = ath.get("displayName", "")
+                            meta = resolve_driver_meta(full_name)
+                            pos_num = int(c_item.get("order") or (len(race_standings) + 1))
+                            c_id = str(c_item.get("id") or "")
+                            c_st = comp_stats_map.get(c_id, {})
+
+                            metric_str = "PRE"
+                            if r_state == "in" or r_state == "post":
+                                if pos_num == 1:
+                                    upd_ms = float(c_st.get("lastUpdated", {}).get("value", 0) or 0)
+                                    if upd_ms > 0 and race_start_ts > 0:
+                                        el = max(0, int(upd_ms / 1000.0 - race_start_ts))
+                                        eh = el // 3600
+                                        em = (el % 3600) // 60
+                                        es = el % 60
+                                        metric_str = f"{eh}:{em:02d}:{es:02d}" if eh > 0 else f"{em}:{es:02d}"
+                                    else:
+                                        metric_str = f"LAP {current_lap}" if current_lap > 0 else "LEADER"
                                 else:
-                                    metric_str = f"LAP {current_lap}" if current_lap > 0 else "LEADER"
-                            else:
-                                gap_obj = c_st.get("gapToLeader", {})
-                                gap_disp = gap_obj.get("displayValue", "")
-                                gap_ms = gap_obj.get("value")
-                                laps_comp = int(float(c_st.get("lapsCompleted", {}).get("value", 0) or 0))
-                                if gap_disp:
-                                    try:
-                                        if gap_ms is not None and float(gap_ms) >= 60000:
-                                            sec_f = float(gap_ms) / 1000.0
-                                            m_i = int(sec_f // 60)
-                                            rem = sec_f - m_i * 60
-                                            metric_str = f"+{m_i}:{rem:06.3f}"
-                                        else:
+                                    gap_obj = c_st.get("gapToLeader", {})
+                                    gap_disp = gap_obj.get("displayValue", "")
+                                    gap_ms = gap_obj.get("value")
+                                    laps_comp = int(float(c_st.get("lapsCompleted", {}).get("value", 0) or 0))
+                                    if gap_disp:
+                                        try:
+                                            if gap_ms is not None and float(gap_ms) >= 60000:
+                                                sec_f = float(gap_ms) / 1000.0
+                                                m_i = int(sec_f // 60)
+                                                rem = sec_f - m_i * 60
+                                                metric_str = f"+{m_i}:{rem:06.3f}"
+                                            else:
+                                                metric_str = gap_disp
+                                        except Exception:
                                             metric_str = gap_disp
-                                    except Exception:
-                                        metric_str = gap_disp
-                                elif laps_comp > 0 and p1_laps > laps_comp:
-                                    dl = p1_laps - laps_comp
-                                    metric_str = f"+{dl} LAP" if dl == 1 else f"+{dl} LAPS"
-                                elif r_state == "post":
-                                    metric_str = "FIN"
-                                else:
-                                    metric_str = "GAP"
+                                    elif laps_comp > 0 and p1_laps > laps_comp:
+                                        dl = p1_laps - laps_comp
+                                        metric_str = f"+{dl} LAP" if dl == 1 else f"+{dl} LAPS"
+                                    elif r_state == "post":
+                                        metric_str = "FIN"
+                                    else:
+                                        metric_str = "GAP"
 
-                        race_standings.append({
-                            "pos": pos_num,
-                            "number": meta["number"],
-                            "code": meta["code"],
-                            "fullName": full_name,
-                            "team": meta["team"],
-                            "teamKey": meta["teamKey"],
-                            "color": meta["color"],
-                            "metric": metric_str,
-                            "unit": "",
-                        })
+                            race_standings.append({
+                                "pos": pos_num,
+                                "number": meta["number"],
+                                "code": meta["code"],
+                                "fullName": full_name,
+                                "team": meta["team"],
+                                "teamKey": meta["teamKey"],
+                                "color": meta["color"],
+                                "metric": metric_str,
+                                "unit": "",
+                            })
 
                 if not qualifying and qual_comp:
+                    quali_gp_name = ev_short_gp
                     q_comps = sorted(qual_comp.get("competitors", []), key=lambda x: int(x.get("order") or 99))
                     for c_item in q_comps:
                         ath = c_item.get("athlete", {})
@@ -1149,6 +1217,8 @@ def get_f1_data():
                 "circuitLength": c_length,
                 "countdown": session_countdown,
                 "secondsRemaining": session_seconds,
+                "raceGp": race_gp_name,
+                "qualiGp": quali_gp_name,
                 "compounds": [
                     {"code": "C3", "compound": "Hard", "color": "#FFFFFF", "textColor": "#000000"},
                     {"code": "C4", "compound": "Medium", "color": "#FFD700", "textColor": "#000000"},

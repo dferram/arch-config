@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Mpris
 import "../theme"
 
@@ -34,7 +35,9 @@ Rectangle {
     readonly property bool isPlaying: activePlayer ? (activePlayer.playbackState === MprisPlaybackState.Playing) : false
     readonly property string trackTitle: activePlayer ? (activePlayer.trackTitle || "No Media Playing") : "No Media Playing"
     readonly property string trackArtist: activePlayer ? (activePlayer.trackArtist || "Idle") : "Music Player Ready"
-    readonly property string trackArtUrl: {
+    property bool artIsFallbackIcon: false
+    property string resolvedFallbackArtUrl: ""
+    readonly property string rawArtUrl: {
         if (!activePlayer) return "";
         let u = "";
         try {
@@ -47,6 +50,69 @@ Rectangle {
         }
         return (u || "").trim();
     }
+    readonly property bool isNativeArtPlatform: {
+        if (!activePlayer) return true;
+        let ident = (activePlayer.identity || "").toLowerCase();
+        let dEntry = (activePlayer.desktopEntry || "").toLowerCase();
+        let dbName = (activePlayer.dbusName || "").toLowerCase();
+        let tTitle = (activePlayer.trackTitle || "").toLowerCase();
+        let art = rawArtUrl.toLowerCase();
+        let url = (activePlayer.metadata && activePlayer.metadata["xesam:url"])
+            ? activePlayer.metadata["xesam:url"].toString().toLowerCase()
+            : "";
+
+        if (ident === "spotify" || dEntry === "spotify" || dbName.includes(".spotify") || art.includes("scdn.co") || url.includes("spotify.com")) {
+            return true;
+        }
+        if (ident.includes("stremio") || dEntry.includes("stremio") || dbName.includes("stremio")) {
+            return true;
+        }
+        if (ident.includes("youtube") || url.includes("youtube.com") || url.includes("youtu.be") || art.includes("ytimg.com") || art.includes("ggpht.com") || tTitle.includes("youtube")) {
+            return true;
+        }
+        return false;
+    }
+
+    function checkDesktopArt() {
+        artIsFallbackIcon = false;
+        resolvedFallbackArtUrl = "";
+        let isChromiumImg = rawArtUrl !== "" && rawArtUrl.indexOf(".org.chromium.Chromium") !== -1;
+        let hasValidTitle = trackTitle !== "" && trackTitle !== "No Media Playing";
+
+        if (isNativeArtPlatform) {
+            if (isChromiumImg) {
+                artCheckProc.running = false;
+                artCheckProc.command = ["/home/ferram/.local/bin/hypr-media-palette", "--check-art", rawArtUrl, trackTitle];
+                artCheckProc.running = true;
+            }
+            return;
+        }
+
+        if (isChromiumImg || (rawArtUrl === "" && hasValidTitle)) {
+            artCheckProc.running = false;
+            artCheckProc.command = ["/home/ferram/.local/bin/hypr-media-palette", "--check-art", "--resolve-poster", rawArtUrl, trackTitle];
+            artCheckProc.running = true;
+        }
+    }
+    onRawArtUrlChanged: checkDesktopArt()
+    onTrackTitleChanged: checkDesktopArt()
+    Process {
+        id: artCheckProc
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let res = text.trim();
+                if (res === "FALLBACK_BROWSER_ICON") {
+                    root.artIsFallbackIcon = true;
+                    root.resolvedFallbackArtUrl = "";
+                } else if (res.startsWith("ART:")) {
+                    root.artIsFallbackIcon = true;
+                    root.resolvedFallbackArtUrl = res.substring(4).trim();
+                }
+            }
+        }
+    }
+    Component.onCompleted: checkDesktopArt()
+    readonly property string trackArtUrl: artIsFallbackIcon ? resolvedFallbackArtUrl : rawArtUrl
 
     function getResolvedArtUrl(url) {
         if (!url) return "";

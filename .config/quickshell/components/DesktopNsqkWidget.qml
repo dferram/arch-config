@@ -60,7 +60,12 @@ Rectangle {
     property int minutes: 0
     property int seconds: 0
     property bool eventPassed: false
+    property bool glitchActive: false
     property real glitchX: 0
+    property real glitchY: 0
+    property real glitchLabelX: 0
+    property real glitchSplit: 1.2
+    property real glitchTearY: 0.5
     property real glitchOpacity: 1.0
 
     property var reminders: []
@@ -80,27 +85,31 @@ Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: digitsMain.implicitWidth
                 height: digitsMain.implicitHeight
+                transform: Translate {
+                    x: root.glitchActive ? root.glitchX : 0
+                    y: root.glitchActive ? root.glitchY : 0
+                }
 
-                // Subtle CRT RGB chromatic phosphor ghost
+                // Subtle CRT RGB chromatic phosphor ghost (widens briefly during glitch)
                 Text {
-                    x: 1.2
-                    y: 0
+                    x: root.glitchSplit
+                    y: root.glitchActive ? -0.6 : 0
                     text: parent.parent.parent.value
                     font.family: root.digitFont
                     font.pixelSize: root.width > 400 ? 36 : 30
                     font.weight: Font.Bold
                     color: "#ff2d55"
-                    opacity: 0.28
+                    opacity: root.glitchActive ? 0.58 : 0.28
                 }
                 Text {
-                    x: -1.2
-                    y: 0
+                    x: -root.glitchSplit
+                    y: root.glitchActive ? 0.6 : 0
                     text: parent.parent.parent.value
                     font.family: root.digitFont
                     font.pixelSize: root.width > 400 ? 36 : 30
                     font.weight: Font.Bold
                     color: "#38bdf8"
-                    opacity: 0.28
+                    opacity: root.glitchActive ? 0.58 : 0.28
                 }
 
                 FallingDigits {
@@ -117,14 +126,43 @@ Rectangle {
                 }
             }
 
-            Text {
+            Item {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: parent.parent.label
-                font.family: root.osdFont
-                font.pixelSize: 9
-                font.weight: Font.Medium
-                font.letterSpacing: 1.5
-                color: "#cbd5e1"
+                width: labelMain.implicitWidth
+                height: labelMain.implicitHeight
+                transform: Translate { x: root.glitchActive ? root.glitchLabelX : 0 }
+
+                Text {
+                    visible: root.glitchActive
+                    x: 1.8
+                    text: parent.parent.parent.label
+                    font.family: root.osdFont
+                    font.pixelSize: 9
+                    font.weight: Font.Medium
+                    font.letterSpacing: 1.5
+                    color: "#ff2d55"
+                    opacity: 0.55
+                }
+                Text {
+                    visible: root.glitchActive
+                    x: -1.8
+                    text: parent.parent.parent.label
+                    font.family: root.osdFont
+                    font.pixelSize: 9
+                    font.weight: Font.Medium
+                    font.letterSpacing: 1.5
+                    color: "#38bdf8"
+                    opacity: 0.55
+                }
+                Text {
+                    id: labelMain
+                    text: parent.parent.parent.label
+                    font.family: root.osdFont
+                    font.pixelSize: 9
+                    font.weight: Font.Medium
+                    font.letterSpacing: 1.5
+                    color: "#cbd5e1"
+                }
             }
         }
     }
@@ -239,18 +277,34 @@ Rectangle {
 
     // RF Static & Interference Flicker Driver (throttled to reduce Canvas CPU usage)
     Timer {
+        id: glitchResetTimer
+        interval: 135
+        repeat: false
+        onTriggered: {
+            root.glitchActive = false;
+            root.glitchX = 0;
+            root.glitchY = 0;
+            root.glitchLabelX = 0;
+            root.glitchSplit = 1.2;
+            root.glitchOpacity = 1.0;
+        }
+    }
+
+    Timer {
         interval: 320
         running: root.isLive
         repeat: true
         onTriggered: {
             noiseCanvas.requestPaint();
-            let roll = Math.random();
-            if (roll > 0.86) {
-                root.glitchX = (Math.random() - 0.5) * 3.5;
-                root.glitchOpacity = 0.86;
-            } else {
-                root.glitchX = 0;
-                root.glitchOpacity = 1.0;
+            if (!root.glitchActive && Math.random() > 0.89) {
+                root.glitchActive = true;
+                root.glitchX = (Math.random() > 0.5 ? 1 : -1) * (1.8 + Math.random() * 2.4);
+                root.glitchY = (Math.random() - 0.5) * 2.0;
+                root.glitchLabelX = -root.glitchX * 0.85;
+                root.glitchSplit = 3.2 + Math.random() * 1.8;
+                root.glitchTearY = 0.2 + Math.random() * 0.65;
+                root.glitchOpacity = 0.82;
+                glitchResetTimer.restart();
             }
         }
     }
@@ -376,58 +430,73 @@ Rectangle {
             }
 
             // 4. Center Canal 600 Countdown (affected by CRT glitch + scanlines)
-            Row {
-                id: countdownContent
+            Item {
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: 2
-                anchors.horizontalCenterOffset: root.glitchX
-                opacity: root.glitchOpacity
-                spacing: 8
+                width: countdownContent.implicitWidth
+                height: countdownContent.implicitHeight
                 z: 4
 
-                CountdownPill { value: root.pad2(root.days); label: "DÍAS" }
+                Row {
+                    id: countdownContent
+                    anchors.centerIn: parent
+                    opacity: root.glitchOpacity
+                    spacing: 8
 
-                Text {
-                    text: ":"
-                    font.family: root.digitFont
-                    font.pixelSize: 28
-                    font.weight: Font.Bold
-                    color: "#f5d033"
-                    style: Text.Raised
-                    styleColor: Qt.rgba(0, 0, 0, 0.96)
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: -7
+                    CountdownPill { value: root.pad2(root.days); label: "DÍAS" }
+
+                    Text {
+                        text: ":"
+                        font.family: root.digitFont
+                        font.pixelSize: 28
+                        font.weight: Font.Bold
+                        color: "#f5d033"
+                        style: Text.Raised
+                        styleColor: Qt.rgba(0, 0, 0, 0.96)
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: -7
+                    }
+
+                    CountdownPill { value: root.pad2(root.hours); label: "HRS" }
+
+                    Text {
+                        text: ":"
+                        font.family: root.digitFont
+                        font.pixelSize: 28
+                        font.weight: Font.Bold
+                        color: "#f5d033"
+                        style: Text.Raised
+                        styleColor: Qt.rgba(0, 0, 0, 0.96)
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: -7
+                    }
+
+                    CountdownPill { value: root.pad2(root.minutes); label: "MIN" }
+
+                    Text {
+                        text: ":"
+                        font.family: root.digitFont
+                        font.pixelSize: 28
+                        font.weight: Font.Bold
+                        color: "#f5d033"
+                        style: Text.Raised
+                        styleColor: Qt.rgba(0, 0, 0, 0.96)
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: -7
+                    }
+
+                    CountdownPill { value: root.pad2(root.seconds); label: "SEG" }
                 }
 
-                CountdownPill { value: root.pad2(root.hours); label: "HRS" }
-
-                Text {
-                    text: ":"
-                    font.family: root.digitFont
-                    font.pixelSize: 28
-                    font.weight: Font.Bold
-                    color: "#f5d033"
-                    style: Text.Raised
-                    styleColor: Qt.rgba(0, 0, 0, 0.96)
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: -7
+                // Brief horizontal sync-tear streak across countdown during glitch
+                Rectangle {
+                    visible: root.glitchActive
+                    x: -16
+                    width: parent.width + 32
+                    y: Math.round(parent.height * root.glitchTearY)
+                    height: 2
+                    color: Qt.rgba(191/255, 219/255, 254/255, 0.45)
                 }
-
-                CountdownPill { value: root.pad2(root.minutes); label: "MIN" }
-
-                Text {
-                    text: ":"
-                    font.family: root.digitFont
-                    font.pixelSize: 28
-                    font.weight: Font.Bold
-                    color: "#f5d033"
-                    style: Text.Raised
-                    styleColor: Qt.rgba(0, 0, 0, 0.96)
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: -7
-                }
-
-                CountdownPill { value: root.pad2(root.seconds); label: "SEG" }
             }
 
             // 5. Bottom Broadcast Ticker Bar ("¿ESTÁS PONIENDO ATENCIÓN?")
@@ -668,7 +737,7 @@ Rectangle {
                 }
             }
 
-            // Smoked Infrared Sensor Window with tiny sensor lens inside
+            // Smoked Infrared Sensor Window (clean dark acrylic, no center red dot)
             Rectangle {
                 width: 30
                 height: 12
@@ -677,14 +746,6 @@ Rectangle {
                 border.color: "#4d5362"
                 border.width: 1
                 anchors.verticalCenter: parent.verticalCenter
-
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: 6
-                    height: 6
-                    radius: 3
-                    color: Qt.rgba(0.35, 0.06, 0.08, 0.55)
-                }
             }
 
             Row {

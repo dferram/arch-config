@@ -34,6 +34,16 @@ Item {
     property int minutes: 0
     property int seconds: 0
     property bool eventPassed: false
+    property real remainingHours: 720.0
+
+    readonly property real auraIntensity: {
+        if (eventPassed) return 1.0;
+        let h = remainingHours;
+        if (h >= 720) return 0.0;
+        if (h >= 168) return 0.55 * (1.0 - (h - 168) / (720 - 168));
+        if (h >= 24)  return 0.55 + 0.30 * (1.0 - (h - 24) / (168 - 24));
+        return 0.85 + 0.15 * (1.0 - Math.max(0, h) / 24.0);
+    }
 
     property var reminders: []
 
@@ -85,11 +95,13 @@ Item {
             root.hours = 0;
             root.minutes = 0;
             root.seconds = 0;
+            root.remainingHours = 0;
             root.eventPassed = true;
             return;
         }
 
         root.eventPassed = false;
+        root.remainingHours = Math.max(0, (target.getTime() - now.getTime()) / 3600000.0);
 
         let yDiff = target.getFullYear() - now.getFullYear();
         let mDiff = target.getMonth() - now.getMonth() + yDiff * 12;
@@ -157,9 +169,9 @@ Item {
 
         RectangularGlow {
             anchors.fill: parent
-            glowRadius: 26
-            spread: 0.12
-            color: Qt.rgba(16/255, 185/255, 129/255, 0.20)
+            glowRadius: 18 + Math.round(root.auraIntensity * 20)
+            spread: 0.08 + root.auraIntensity * 0.12
+            color: Qt.rgba(16/255, 185/255, 129/255, 0.14 + root.auraIntensity * 0.22)
             cornerRadius: 20
         }
     }
@@ -172,7 +184,7 @@ Item {
         anchors.fill: parent
         radius: 20
         color: Qt.rgba(0.04, 0.04, 0.06, 0.90)
-        border.color: Qt.rgba(16/255, 185/255, 129/255, 0.28)
+        border.color: Qt.rgba(16/255, 185/255, 129/255, 0.22 + root.auraIntensity * 0.26)
         border.width: 1
         clip: true
         z: 1
@@ -223,9 +235,9 @@ Item {
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0.0; color: "transparent" }
-                GradientStop { position: 0.25; color: Qt.rgba(16/255, 185/255, 129/255, 0.25) }
-                GradientStop { position: 0.50; color: Qt.rgba(16/255, 185/255, 129/255, 0.40) }
-                GradientStop { position: 0.75; color: Qt.rgba(16/255, 185/255, 129/255, 0.25) }
+                GradientStop { position: 0.25; color: Qt.rgba(16/255, 185/255, 129/255, 0.22 + root.auraIntensity * 0.22) }
+                GradientStop { position: 0.50; color: Qt.rgba(16/255, 185/255, 129/255, 0.36 + root.auraIntensity * 0.30) }
+                GradientStop { position: 0.75; color: Qt.rgba(16/255, 185/255, 129/255, 0.22 + root.auraIntensity * 0.22) }
                 GradientStop { position: 1.0; color: "transparent" }
             }
         }

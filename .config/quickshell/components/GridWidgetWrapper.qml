@@ -308,6 +308,69 @@ Item {
         function endDrag() { wrapper.endDrag(); }
     }
 
+    // Edit Mode universal drag & menu layer: guarantees EVERY widget (even ones with TextAreas/Lists) moves cleanly in Edit Mode
+    MouseArea {
+        id: editDragOverlay
+        anchors.fill: parent
+        z: 45
+        visible: !!(overlay && overlay.showGridGuide)
+        enabled: visible
+        hoverEnabled: true
+        cursorShape: wrapper.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+        property real startScreenX: 0
+        property real startScreenY: 0
+        property bool isDragging: false
+
+        onPressed: (mouse) => {
+            if (mouse.button === Qt.RightButton) {
+                wrapper.menuOpen = !wrapper.menuOpen;
+                return;
+            }
+            if (mouse.button !== Qt.LeftButton) return;
+            if (wrapper.menuOpen) wrapper.menuOpen = false;
+            let canvasPt = mapToItem(wrapper.parent, mouse.x, mouse.y);
+            startScreenX = canvasPt.x;
+            startScreenY = canvasPt.y;
+            isDragging = false;
+        }
+
+        onPositionChanged: (mouse) => {
+            if (!editDragOverlay.pressed || (mouse.buttons & Qt.LeftButton) === 0) {
+                if (isDragging) {
+                    isDragging = false;
+                    wrapper.endDrag();
+                }
+                return;
+            }
+            let canvasPt = mapToItem(wrapper.parent, mouse.x, mouse.y);
+            let dx = canvasPt.x - startScreenX;
+            let dy = canvasPt.y - startScreenY;
+            if (!isDragging && Math.hypot(dx, dy) > 4) {
+                isDragging = true;
+                wrapper.startDrag(mouse.x, mouse.y);
+            }
+            if (isDragging) {
+                wrapper.updateDrag(dx, dy);
+            }
+        }
+
+        onReleased: {
+            if (isDragging) {
+                isDragging = false;
+                wrapper.endDrag();
+            }
+        }
+
+        onCanceled: {
+            if (isDragging) {
+                isDragging = false;
+                wrapper.endDrag();
+            }
+        }
+    }
+
     // Active Dragging Glow & Border (Sonoma style subtle accent halo)
     Rectangle {
         anchors.fill: parent

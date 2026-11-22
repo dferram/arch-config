@@ -73,6 +73,7 @@ end)
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
 hl.env("GTK_THEME", "Adwaita:dark")
+hl.env("QT_QPA_PLATFORMTHEME", "gtk3")
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 
 
@@ -109,7 +110,7 @@ gaps_out = 8,
 border_size = 2,
 
 col = {
-    active_border   = { colors = {'rgba(2781d4ee)', 'rgba(72b6f3ee)'}, angle = 45 },
+    active_border   = { colors = {'rgba(bf4148ee)', 'rgba(db7e83ee)'}, angle = 45 },
     inactive_border = "rgba(151a2455)",
 },
 
@@ -543,6 +544,14 @@ hl.layer_rule({
 hl.layer_rule({
     match = { namespace = "quickshell" },
     ignore_alpha = 0.2,
+})
+hl.layer_rule({
+    match = { namespace = "quickshell:launcher" },
+    blur  = true,
+})
+hl.layer_rule({
+    match = { namespace = "quickshell:launcher" },
+    ignore_alpha = 0.5,
 })
 
 -- Hyprland-run windowrule
