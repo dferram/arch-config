@@ -634,7 +634,7 @@ Rectangle {
                                 Text {
                                     visible: !root.showConstructors
                                     Layout.preferredWidth: 28
-                                    text: timingRow.entry ? timingRow.entry.code : "ANT"
+                                    text: (timingRow.entry && timingRow.entry.code) ? timingRow.entry.code : ""
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: 11
                                     font.weight: Font.Black
@@ -645,8 +645,8 @@ Rectangle {
                                 // Driver Name OR Constructor Team Name
                                 Text {
                                     text: root.showConstructors
-                                        ? (timingRow.entry ? timingRow.entry.team : "")
-                                        : (timingRow.entry ? timingRow.entry.fullName : "")
+                                        ? ((timingRow.entry && timingRow.entry.team) ? timingRow.entry.team : "")
+                                        : ((timingRow.entry && timingRow.entry.fullName) ? timingRow.entry.fullName : "")
                                     font.family: theme.fontFamily
                                     font.pixelSize: 11
                                     font.weight: Font.Bold
