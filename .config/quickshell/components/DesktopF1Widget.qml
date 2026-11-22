@@ -657,8 +657,8 @@ Rectangle {
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 6
-                                anchors.rightMargin: 8
+                                anchors.leftMargin: 9
+                                anchors.rightMargin: 9
                                 spacing: 8
 
                                 // Option 1 Broadcast Position Pill (White P1 -> Silver P2 -> Subtle Glass P3+)
@@ -764,8 +764,8 @@ Rectangle {
                                 }
 
                                 // Tabular Right Metric (Points | Race Status | Qualy Lap Time)
-                                Row {
-                                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                RowLayout {
+                                    Layout.alignment: Qt.AlignVCenter
                                     spacing: 4
 
                                     Text {
@@ -780,11 +780,10 @@ Rectangle {
                                         font.pixelSize: (root.viewMode === 3) ? 11 : 12
                                         font.weight: Font.Black
                                         color: "#FFFFFF"
-                                        anchors.baseline: rowPtsLbl.baseline
+                                        Layout.alignment: Qt.AlignBaseline
                                     }
 
                                     Text {
-                                        id: rowPtsLbl
                                         text: {
                                             if (!timingRow.entry) return "";
                                             if (root.viewMode === 2 || root.viewMode === 3) {
@@ -796,6 +795,7 @@ Rectangle {
                                         font.pixelSize: 8
                                         font.weight: Font.Bold
                                         color: timingRow.teamCol
+                                        Layout.alignment: Qt.AlignBaseline
                                     }
                                 }
                             }
