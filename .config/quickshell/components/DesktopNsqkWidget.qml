@@ -12,17 +12,29 @@ Rectangle {
     implicitWidth: 448
     implicitHeight: 207
 
-    // Vintage CRT TV Grey Plastic Cabinet Housing
-    radius: 14
+    // Vintage CRT TV Molded Plastic Cabinet Housing (3D chamfered bevel + dark recessed frame)
+    radius: 13
     gradient: Gradient {
-        GradientStop { position: 0.0; color: "#454954" }
-        GradientStop { position: 0.14; color: "#363a44" }
-        GradientStop { position: 0.86; color: "#2c3039" }
-        GradientStop { position: 1.0; color: "#22252d" }
+        GradientStop { position: 0.0; color: "#4e5360" }
+        GradientStop { position: 0.06; color: "#3d424d" }
+        GradientStop { position: 0.50; color: "#2f333d" }
+        GradientStop { position: 0.94; color: "#252831" }
+        GradientStop { position: 1.0; color: "#191c23" }
     }
-    border.color: "#585d6b"
-    border.width: 1.2
+    border.color: "#616777"
+    border.width: 1
     clip: true
+
+    // Inner molded chassis highlight & seam
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: 1.5
+        radius: Math.max(0, root.radius - 1)
+        color: "transparent"
+        border.color: Qt.rgba(1, 1, 1, 0.09)
+        border.width: 1
+        z: 1
+    }
 
     function findWrapper() {
         let p = root.parent;
@@ -227,15 +239,15 @@ Rectangle {
 
     // RF Static & Interference Flicker Driver (throttled to reduce Canvas CPU usage)
     Timer {
-        interval: 450
+        interval: 320
         running: root.isLive
         repeat: true
         onTriggered: {
             noiseCanvas.requestPaint();
             let roll = Math.random();
-            if (roll > 0.90) {
-                root.glitchX = (Math.random() - 0.5) * 3.0;
-                root.glitchOpacity = 0.84;
+            if (roll > 0.86) {
+                root.glitchX = (Math.random() - 0.5) * 3.5;
+                root.glitchOpacity = 0.86;
             } else {
                 root.glitchX = 0;
                 root.glitchOpacity = 1.0;
@@ -246,7 +258,7 @@ Rectangle {
     Component.onCompleted: updateCountdown()
 
     // =========================================================================
-    // RECESSED CRT BEZEL LIP + SCREEN CONTAINER
+    // DEEP RECESSED 2-STEP CRT BEZEL + GLASS TUBE HOUSING
     // =========================================================================
     Rectangle {
         id: crtBezel
@@ -254,26 +266,37 @@ Rectangle {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.leftMargin: 9
-        anchors.rightMargin: 9
-        anchors.topMargin: 8
-        anchors.bottomMargin: 27
-        radius: 8
-        color: "#050608"
-        border.color: "#0b0c10"
-        border.width: 2
+        anchors.leftMargin: 10
+        anchors.rightMargin: 10
+        anchors.topMargin: 9
+        anchors.bottomMargin: 28
+        radius: 9
+        color: "#0b0d11"
+        border.color: "#151820"
+        border.width: 1.5
+        z: 2
+
+        // Bezel inner bottom-right highlight catching ambient light
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 1
+            radius: 8
+            color: "#050608"
+            border.color: Qt.rgba(1, 1, 1, 0.06)
+            border.width: 1
+        }
 
         // Inner CRT Glass Surface (Clipped with OpacityMask)
         Item {
             id: crtScreen
             anchors.fill: parent
-            anchors.margins: 3
+            anchors.margins: 4
             layer.enabled: true
             layer.effect: OpacityMask {
                 maskSource: Rectangle {
                     width: crtScreen.width
                     height: crtScreen.height
-                    radius: 6
+                    radius: 7
                 }
             }
 
@@ -290,7 +313,7 @@ Rectangle {
                 sourceSize.height: 858
                 smooth: true
                 asynchronous: true
-                opacity: 0.48
+                opacity: 0.46
             }
 
             // 2. Canal 600 Cobalt-Blue CRT Broadcast Wash
@@ -298,105 +321,13 @@ Rectangle {
                 anchors.fill: parent
                 gradient: Gradient {
                     orientation: Gradient.Vertical
-                    GradientStop { position: 0.0; color: Qt.rgba(0.05, 0.16, 0.48, 0.58) }
-                    GradientStop { position: 0.52; color: Qt.rgba(0.07, 0.22, 0.62, 0.52) }
-                    GradientStop { position: 1.0; color: Qt.rgba(0.03, 0.10, 0.34, 0.72) }
+                    GradientStop { position: 0.0; color: Qt.rgba(0.05, 0.16, 0.48, 0.60) }
+                    GradientStop { position: 0.52; color: Qt.rgba(0.07, 0.22, 0.62, 0.54) }
+                    GradientStop { position: 1.0; color: Qt.rgba(0.03, 0.10, 0.34, 0.74) }
                 }
             }
 
-            // 3. CRT Curved Glass Corner Vignette
-            Rectangle {
-                anchors.fill: parent
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.42) }
-                    GradientStop { position: 0.12; color: "transparent" }
-                    GradientStop { position: 0.88; color: "transparent" }
-                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.42) }
-                }
-            }
-
-            // 4. Rolling VHS / CRT Tracking Interference Band
-            Rectangle {
-                id: trackingBand
-                width: parent.width
-                height: 28
-                y: -28
-                color: Qt.rgba(0.02, 0.08, 0.28, 0.36)
-
-                Rectangle {
-                    anchors.top: parent.top
-                    width: parent.width
-                    height: 1.5
-                    color: Qt.rgba(147/255, 197/255, 253/255, 0.22)
-                }
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    width: parent.width
-                    height: 1
-                    color: Qt.rgba(0, 0, 0, 0.35)
-                }
-
-                NumberAnimation on y {
-                    from: -28
-                    to: crtScreen.height + 28
-                    duration: 5400
-                    loops: Animation.Infinite
-                    running: root.isLive
-                }
-            }
-
-            // 5. Fine Horizontal CRT Scanlines
-            Canvas {
-                id: scanlineCanvas
-                anchors.fill: parent
-                z: 4
-                onPaint: {
-                    let ctx = getContext("2d");
-                    ctx.clearRect(0, 0, width, height);
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.26)";
-                    for (let y = 0; y < height; y += 3) {
-                        ctx.fillRect(0, y, width, 1);
-                    }
-                }
-            }
-
-            // 6. Live RF Static Snow + Horizontal Tear Streaks
-            Canvas {
-                id: noiseCanvas
-                anchors.fill: parent
-                z: 5
-                onPaint: {
-                    let ctx = getContext("2d");
-                    ctx.clearRect(0, 0, width, height);
-
-                    // Subtle static snow particles
-                    for (let i = 0; i < 36; i++) {
-                        let rx = Math.random() * width;
-                        let ry = Math.random() * height;
-                        let rw = 1 + Math.random() * 2.5;
-                        let alpha = 0.06 + Math.random() * 0.14;
-                        ctx.fillStyle = "rgba(219, 234, 254, " + alpha.toFixed(2) + ")";
-                        ctx.fillRect(rx, ry, rw, 1);
-                    }
-
-                    // Occasional horizontal RF interference tear line
-                    if (Math.random() > 0.45) {
-                        let lineCount = Math.random() > 0.7 ? 2 : 1;
-                        for (let j = 0; j < lineCount; j++) {
-                            let ly = Math.random() * height;
-                            let lx = Math.random() * (width * 0.4);
-                            let lw = width * (0.35 + Math.random() * 0.65);
-                            ctx.fillStyle = Math.random() > 0.5
-                                ? "rgba(191, 219, 254, 0.18)"
-                                : "rgba(0, 0, 0, 0.32)";
-                            ctx.fillRect(lx, ly, lw, 1.5);
-                        }
-                    }
-                }
-            }
-
-            // 7. Top-Left CANAL 600 + Spotted Dog Badge & Top-Right STANDBY OSD
+            // 3. Top-Left CANAL 600 + Spotted Dog Badge & Top-Right STANDBY OSD (UNDER CRT interference)
             Item {
                 anchors.top: parent.top
                 anchors.left: parent.left
@@ -405,16 +336,19 @@ Rectangle {
                 anchors.leftMargin: 10
                 anchors.rightMargin: 12
                 height: 40
-                z: 6
+                z: 4
 
                 Rectangle {
                     anchors.left: parent.left
                     anchors.top: parent.top
                     width: 56
                     height: 43
+                    radius: 3
                     color: "#090a0d"
-                    border.color: "#040507"
+                    border.color: Qt.rgba(0, 0, 0, 0.75)
                     border.width: 1
+                    opacity: 0.90
+                    clip: true
 
                     Image {
                         anchors.fill: parent
@@ -430,25 +364,26 @@ Rectangle {
                     anchors.right: parent.right
                     anchors.top: parent.top
                     anchors.topMargin: 2
-                    text: "STANDBY"
-                    color: Qt.rgba(226/255, 232/255, 240/255, 0.80)
+                    text: "CH 600 • STANDBY"
+                    color: Qt.rgba(226/255, 232/255, 240/255, 0.84)
                     font.family: root.osdFont
                     font.pixelSize: 10
                     font.weight: Font.Medium
-                    font.letterSpacing: 1.6
+                    font.letterSpacing: 1.4
                     style: Text.Raised
                     styleColor: Qt.rgba(0, 0, 0, 0.9)
                 }
             }
 
-            // 8. Center Canal 600 Countdown (00 : 03 : 17 : 28)
+            // 4. Center Canal 600 Countdown (affected by CRT glitch + scanlines)
             Row {
+                id: countdownContent
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: 2
                 anchors.horizontalCenterOffset: root.glitchX
                 opacity: root.glitchOpacity
                 spacing: 8
-                z: 6
+                z: 4
 
                 CountdownPill { value: root.pad2(root.days); label: "DÍAS" }
 
@@ -495,17 +430,17 @@ Rectangle {
                 CountdownPill { value: root.pad2(root.seconds); label: "SEG" }
             }
 
-            // 9. Bottom Broadcast Ticker Bar ("¿ESTÁS PONIENDO ATENCIÓN?")
+            // 5. Bottom Broadcast Ticker Bar ("¿ESTÁS PONIENDO ATENCIÓN?")
             Rectangle {
                 id: tickerBand
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: 8
+                anchors.bottomMargin: 7
                 height: 22
-                color: Qt.rgba(0.02, 0.08, 0.24, 0.52)
+                color: Qt.rgba(0.02, 0.07, 0.22, 0.46)
                 clip: true
-                z: 6
+                z: 4
 
                 readonly property string phrase: "¿ESTÁS PONIENDO ATENCIÓN?               "
 
@@ -549,36 +484,131 @@ Rectangle {
                 }
             }
 
-            // Subtle glass screen highlight glare
+            // 6. Rolling VHS / CRT Tracking Interference Band (ABOVE Canal 600 & screen content)
             Rectangle {
+                id: trackingBand
+                width: parent.width
+                height: 30
+                y: -30
+                z: 6
+                color: Qt.rgba(0.03, 0.09, 0.28, 0.34)
+
+                Rectangle {
+                    anchors.top: parent.top
+                    width: parent.width
+                    height: 1.5
+                    color: Qt.rgba(147/255, 197/255, 253/255, 0.28)
+                }
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    height: 1.5
+                    color: Qt.rgba(0, 0, 0, 0.42)
+                }
+
+                NumberAnimation on y {
+                    from: -30
+                    to: crtScreen.height + 30
+                    duration: 5200
+                    loops: Animation.Infinite
+                    running: root.isLive
+                }
+            }
+
+            // 7. Horizontal CRT Scanlines (over ENTIRE tube including Canal 600)
+            Canvas {
+                id: scanlineCanvas
                 anchors.fill: parent
                 z: 7
+                onPaint: {
+                    let ctx = getContext("2d");
+                    ctx.clearRect(0, 0, width, height);
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.28)";
+                    for (let y = 0; y < height; y += 3) {
+                        ctx.fillRect(0, y, width, 1);
+                    }
+                }
+            }
+
+            // 8. Live RF Static Snow + Chrominance Interference Streaks (over ENTIRE tube including Canal 600)
+            Canvas {
+                id: noiseCanvas
+                anchors.fill: parent
+                z: 8
+                onPaint: {
+                    let ctx = getContext("2d");
+                    ctx.clearRect(0, 0, width, height);
+
+                    // Fine grain RF static specks
+                    for (let i = 0; i < 65; i++) {
+                        let rx = Math.random() * width;
+                        let ry = Math.random() * height;
+                        let rw = 1 + Math.random() * 2.5;
+                        let alpha = 0.06 + Math.random() * 0.16;
+                        ctx.fillStyle = "rgba(219, 234, 254, " + alpha.toFixed(2) + ")";
+                        ctx.fillRect(rx, ry, rw, 1);
+                    }
+
+                    // Horizontal VHS sync tear & subtle chroma jitter streaks
+                    if (Math.random() > 0.35) {
+                        let lineCount = Math.random() > 0.6 ? 2 : 1;
+                        for (let j = 0; j < lineCount; j++) {
+                            let ly = Math.random() * height;
+                            let lx = Math.random() * (width * 0.35);
+                            let lw = width * (0.38 + Math.random() * 0.62);
+                            ctx.fillStyle = Math.random() > 0.45
+                                ? "rgba(191, 219, 254, 0.22)"
+                                : "rgba(0, 0, 0, 0.36)";
+                            ctx.fillRect(lx, ly, lw, 1.5);
+                        }
+                    }
+                }
+            }
+
+            // 9. Realistic 4-Edge CRT Tube Curvature Vignette + Glass Specular Glare
+            Rectangle {
+                anchors.fill: parent
+                z: 9
                 gradient: Gradient {
-                    GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.08) }
-                    GradientStop { position: 0.25; color: "transparent" }
-                    GradientStop { position: 1.0; color: "transparent" }
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.48) }
+                    GradientStop { position: 0.08; color: "transparent" }
+                    GradientStop { position: 0.92; color: "transparent" }
+                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.48) }
+                }
+            }
+            Rectangle {
+                anchors.fill: parent
+                z: 9
+                gradient: Gradient {
+                    orientation: Gradient.Vertical
+                    GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.40) }
+                    GradientStop { position: 0.09; color: Qt.rgba(1, 1, 1, 0.05) }
+                    GradientStop { position: 0.35; color: "transparent" }
+                    GradientStop { position: 0.90; color: "transparent" }
+                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.50) }
                 }
             }
         }
     }
 
     // =========================================================================
-    // VINTAGE TV BOTTOM CHIN (IR Window + Tactile Control Buttons + Standby LED)
+    // VINTAGE TV BOTTOM CHIN (Tactile 3D Buttons, IR Sensor, Speaker Grilles)
     // =========================================================================
     Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 27
+        height: 28
         z: 3
 
-        // Horizontal plastic molding groove
+        // Deep molded bezel seam
         Rectangle {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
             height: 1
-            color: "#181a20"
+            color: "#14161c"
         }
         Rectangle {
             anchors.top: parent.top
@@ -586,14 +616,38 @@ Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
             height: 1
-            color: "#4a4f5c"
+            color: Qt.rgba(1, 1, 1, 0.08)
         }
 
-        // Left 4 tiny buttons + IR Receiver Window + Right 4 tiny buttons
+        // Left Recessed Speaker Vent Slits
+        Column {
+            anchors.left: parent.left
+            anchors.leftMargin: 16
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: 1
+            spacing: 2.5
+            Repeater {
+                model: 2
+                Row {
+                    spacing: 2.5
+                    Repeater {
+                        model: 5
+                        Rectangle {
+                            width: 4
+                            height: 2
+                            radius: 0.5
+                            color: "#0b0d12"
+                        }
+                    }
+                }
+            }
+        }
+
+        // Centered 3D Tactile Buttons + Smoked Acrylic IR Receiver Window
         Row {
             anchors.centerIn: parent
             anchors.verticalCenterOffset: 1
-            spacing: 10
+            spacing: 9
 
             Row {
                 anchors.verticalCenter: parent.verticalCenter
@@ -601,25 +655,36 @@ Rectangle {
                 Repeater {
                     model: 4
                     Rectangle {
-                        width: 4
-                        height: 4
-                        radius: 2
-                        color: "#4a4f5c"
-                        border.color: "#1a1c22"
-                        border.width: 0.6
+                        width: 5
+                        height: 5
+                        radius: 2.5
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: "#646b7d" }
+                            GradientStop { position: 1.0; color: "#2d313b" }
+                        }
+                        border.color: "#111318"
+                        border.width: 0.8
                     }
                 }
             }
 
-            // Centered IR Sensor / Channel Window
+            // Smoked Infrared Sensor Window with tiny sensor lens inside
             Rectangle {
-                width: 28
+                width: 30
                 height: 12
                 radius: 2
-                color: "#090a0e"
-                border.color: "#525766"
+                color: "#06070a"
+                border.color: "#4d5362"
                 border.width: 1
                 anchors.verticalCenter: parent.verticalCenter
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 6
+                    height: 6
+                    radius: 3
+                    color: Qt.rgba(0.35, 0.06, 0.08, 0.55)
+                }
             }
 
             Row {
@@ -628,18 +693,21 @@ Rectangle {
                 Repeater {
                     model: 4
                     Rectangle {
-                        width: 4
-                        height: 4
-                        radius: 2
-                        color: "#4a4f5c"
-                        border.color: "#1a1c22"
-                        border.width: 0.6
+                        width: 5
+                        height: 5
+                        radius: 2.5
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: "#646b7d" }
+                            GradientStop { position: 1.0; color: "#2d313b" }
+                        }
+                        border.color: "#111318"
+                        border.width: 0.8
                     }
                 }
             }
         }
 
-        // Standby LED & Speaker Vent Slots (bottom right)
+        // Standby LED with subtle glow + Right Speaker Vent Slits
         Row {
             anchors.right: parent.right
             anchors.rightMargin: 16
@@ -647,31 +715,50 @@ Rectangle {
             anchors.verticalCenterOffset: 1
             spacing: 8
 
-            Rectangle {
-                width: 4
-                height: 4
-                radius: 2
-                color: "#ef4444"
+            Item {
+                width: 8
+                height: 8
                 anchors.verticalCenter: parent.verticalCenter
 
-                SequentialAnimation on opacity {
-                    loops: Animation.Infinite
-                    running: root.isLive
-                    NumberAnimation { from: 0.45; to: 1.0; duration: 1400; easing.type: Easing.InOutSine }
-                    NumberAnimation { from: 1.0; to: 0.45; duration: 1400; easing.type: Easing.InOutSine }
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 8
+                    height: 8
+                    radius: 4
+                    color: Qt.rgba(239/255, 68/255, 68/255, 0.25)
+                }
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 4
+                    height: 4
+                    radius: 2
+                    color: "#ef4444"
+
+                    SequentialAnimation on opacity {
+                        loops: Animation.Infinite
+                        running: root.isLive
+                        NumberAnimation { from: 0.45; to: 1.0; duration: 1400; easing.type: Easing.InOutSine }
+                        NumberAnimation { from: 1.0; to: 0.45; duration: 1400; easing.type: Easing.InOutSine }
+                    }
                 }
             }
 
-            Row {
+            Column {
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 2
+                spacing: 2.5
                 Repeater {
-                    model: 4
-                    Rectangle {
-                        width: 3
-                        height: 2
-                        radius: 0.5
-                        color: "#090a0e"
+                    model: 2
+                    Row {
+                        spacing: 2.5
+                        Repeater {
+                            model: 5
+                            Rectangle {
+                                width: 4
+                                height: 2
+                                radius: 0.5
+                                color: "#0b0d12"
+                            }
+                        }
                     }
                 }
             }

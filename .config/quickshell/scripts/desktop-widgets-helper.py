@@ -988,11 +988,22 @@ def get_f1_data():
                 sb = json.loads(re_sb.read().decode())
             evs = sb.get("events", [])
             if evs:
-                comps = evs[0].get("competitions", [])
+                ev_obj = evs[0]
+                ev_id = str(ev_obj.get("id") or "")
+                comps = ev_obj.get("competitions", [])
                 race_comp = next((c for c in comps if c.get("type", {}).get("abbreviation") == "Race"), None)
                 qual_comp = next((c for c in comps if c.get("type", {}).get("abbreviation") == "Qual"), None)
 
                 if race_comp:
+                    race_cid = str(race_comp.get("id") or "")
+                    race_start_ts = 0.0
+                    if race_comp.get("date"):
+                        try:
+                            sdt_r = datetime.fromisoformat(race_comp["date"].replace("Z", "+00:00"))
+                            race_start_ts = sdt_r.timestamp()
+                        except Exception:
+                            pass
+
                     r_stat = race_comp.get("status", {})
                     r_state = r_stat.get("type", {}).get("state", "pre")
                     period = int(r_stat.get("period") or 0)
@@ -1006,11 +1017,82 @@ def get_f1_data():
                         session_countdown = "FINAL"
 
                     competitors = sorted(race_comp.get("competitors", []), key=lambda x: int(x.get("order") or 99))
+
+                    # Fetch live millisecond gaps & laps completed in parallel
+                    comp_stats_map = {}
+                    if ev_id and race_cid and r_state in ("in", "post"):
+                        from concurrent.futures import ThreadPoolExecutor
+
+                        def _fetch_comp_stat(comp_id):
+                            if not comp_id:
+                                return comp_id, {}
+                            s_url = f"https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/{ev_id}/competitions/{race_cid}/competitors/{comp_id}/statistics?lang=en&region=us"
+                            try:
+                                req_s = urllib.request.Request(s_url, headers={"User-Agent": "Mozilla/5.0"})
+                                with urllib.request.urlopen(req_s, timeout=3) as rs:
+                                    s_json = json.loads(rs.read().decode())
+                                flat = {}
+                                for cat in s_json.get("splits", {}).get("categories", []):
+                                    for st in cat.get("stats", []):
+                                        if st.get("name"):
+                                            flat[st["name"]] = st
+                                return comp_id, flat
+                            except Exception:
+                                return comp_id, {}
+
+                        with ThreadPoolExecutor(max_workers=10) as pool:
+                            for c_id, st_flat in pool.map(lambda c: _fetch_comp_stat(str(c.get("id") or "")), competitors):
+                                comp_stats_map[c_id] = st_flat
+
+                    p1_laps = 0
+                    if competitors:
+                        p1_st = comp_stats_map.get(str(competitors[0].get("id") or ""), {})
+                        p1_laps = int(float(p1_st.get("lapsCompleted", {}).get("value", 0) or 0)) or current_lap
+
                     for c_item in competitors:
                         ath = c_item.get("athlete", {})
                         full_name = ath.get("displayName", "")
                         meta = resolve_driver_meta(full_name)
                         pos_num = int(c_item.get("order") or (len(race_standings) + 1))
+                        c_id = str(c_item.get("id") or "")
+                        c_st = comp_stats_map.get(c_id, {})
+
+                        metric_str = "PRE"
+                        if r_state == "in" or r_state == "post":
+                            if pos_num == 1:
+                                upd_ms = float(c_st.get("lastUpdated", {}).get("value", 0) or 0)
+                                if upd_ms > 0 and race_start_ts > 0:
+                                    el = max(0, int(upd_ms / 1000.0 - race_start_ts))
+                                    eh = el // 3600
+                                    em = (el % 3600) // 60
+                                    es = el % 60
+                                    metric_str = f"{eh}:{em:02d}:{es:02d}" if eh > 0 else f"{em}:{es:02d}"
+                                else:
+                                    metric_str = f"LAP {current_lap}" if current_lap > 0 else "LEADER"
+                            else:
+                                gap_obj = c_st.get("gapToLeader", {})
+                                gap_disp = gap_obj.get("displayValue", "")
+                                gap_ms = gap_obj.get("value")
+                                laps_comp = int(float(c_st.get("lapsCompleted", {}).get("value", 0) or 0))
+                                if gap_disp:
+                                    try:
+                                        if gap_ms is not None and float(gap_ms) >= 60000:
+                                            sec_f = float(gap_ms) / 1000.0
+                                            m_i = int(sec_f // 60)
+                                            rem = sec_f - m_i * 60
+                                            metric_str = f"+{m_i}:{rem:06.3f}"
+                                        else:
+                                            metric_str = gap_disp
+                                    except Exception:
+                                        metric_str = gap_disp
+                                elif laps_comp > 0 and p1_laps > laps_comp:
+                                    dl = p1_laps - laps_comp
+                                    metric_str = f"+{dl} LAP" if dl == 1 else f"+{dl} LAPS"
+                                elif r_state == "post":
+                                    metric_str = "FIN"
+                                else:
+                                    metric_str = "GAP"
+
                         race_standings.append({
                             "pos": pos_num,
                             "number": meta["number"],
@@ -1019,8 +1101,8 @@ def get_f1_data():
                             "team": meta["team"],
                             "teamKey": meta["teamKey"],
                             "color": meta["color"],
-                            "metric": f"LAP {current_lap}" if (r_state == "in" and current_lap > 0) else ("FIN" if r_state == "post" else "GRID"),
-                            "unit": "LIVE" if r_state == "in" else ("FINAL" if r_state == "post" else "PRE"),
+                            "metric": metric_str,
+                            "unit": "",
                         })
 
                 if not qualifying and qual_comp:

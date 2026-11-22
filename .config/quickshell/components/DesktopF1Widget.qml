@@ -72,7 +72,7 @@ Rectangle {
 
     function viewModeTitle() {
         if (viewMode === 1) return "CONSTRUCTOR STANDINGS";
-        if (viewMode === 2) return isRaceLive ? "LIVE TIMING" : "RACE CLASSIFICATION";
+        if (viewMode === 2) return isRaceLive ? "LIVE POSITIONS" : "RACE POSITIONS";
         if (viewMode === 3) return "QUALIFYING";
         return "DRIVER STANDINGS";
     }
@@ -774,7 +774,7 @@ Rectangle {
                                     Layout.alignment: Qt.AlignVCenter
                                 }
 
-                                // Tabular Right Metric (Points | Race Status | Qualy Lap Time)
+                                // Tabular Right Metric (Points | Race Interval/Time | Qualy Lap Time)
                                 RowLayout {
                                     Layout.alignment: Qt.AlignVCenter
                                     spacing: 4
@@ -788,16 +788,20 @@ Rectangle {
                                             return timingRow.entry.pts !== undefined ? String(timingRow.entry.pts) : "0";
                                         }
                                         font.family: "JetBrainsMono Nerd Font"
-                                        font.pixelSize: (root.viewMode === 3) ? 11 : 12
+                                        font.pixelSize: (root.viewMode === 2 || root.viewMode === 3) ? 11 : 12
                                         font.weight: Font.Black
                                         color: "#FFFFFF"
                                         Layout.alignment: Qt.AlignBaseline
                                     }
 
                                     Text {
+                                        visible: text !== ""
                                         text: {
                                             if (!timingRow.entry) return "";
-                                            if (root.viewMode === 2 || root.viewMode === 3) {
+                                            if (root.viewMode === 2) {
+                                                return "";
+                                            }
+                                            if (root.viewMode === 3) {
                                                 return timingRow.entry.unit ? timingRow.entry.unit : "";
                                             }
                                             return "PTS";
