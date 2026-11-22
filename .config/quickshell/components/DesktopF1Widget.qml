@@ -308,10 +308,13 @@ Rectangle {
                 }
             }
 
-            // Broadcast Timing HUD Countdown Pill
+            // Broadcast Timing HUD Countdown Pill (tucked cleanly toward top-right corner)
             Rectangle {
                 Layout.preferredHeight: 23
                 Layout.preferredWidth: countdownRow.implicitWidth + 16
+                Layout.rightMargin: -6
+                Layout.topMargin: -4
+                Layout.alignment: Qt.AlignTop
                 radius: 6
                 color: root.countdownStr === "LIVE NOW"
                     ? Qt.rgba(225/255, 6/255, 0/255, 0.24)
@@ -534,54 +537,24 @@ Rectangle {
                         anchors.rightMargin: 12
                         spacing: 11
 
-                        // Metallic Podium / Position Badge (Gold P1, Silver P2, Bronze P3, Glass P4+)
+                        // Graduated F1 Red Podium / Position Badge (vibrant P1 -> softer P2 -> subtle P3)
                         Rectangle {
                             Layout.preferredWidth: 38
                             Layout.preferredHeight: 38
                             Layout.alignment: Qt.AlignVCenter
                             radius: 8
                             border.width: 1
+                            color: {
+                                if (driverCard.posVal === 1) return "#E10600";
+                                if (driverCard.posVal === 2) return Qt.rgba(225/255, 6/255, 0, 0.52);
+                                if (driverCard.posVal === 3) return Qt.rgba(225/255, 6/255, 0, 0.24);
+                                return Qt.rgba(1, 1, 1, 0.08);
+                            }
                             border.color: {
-                                if (driverCard.posVal === 1) return "#FDE047";
-                                if (driverCard.posVal === 2) return "#E2E8F0";
-                                if (driverCard.posVal === 3) return "#F59E0B";
+                                if (driverCard.posVal === 1) return "#FF453A";
+                                if (driverCard.posVal === 2) return Qt.rgba(225/255, 6/255, 0, 0.72);
+                                if (driverCard.posVal === 3) return Qt.rgba(225/255, 6/255, 0, 0.44);
                                 return Qt.rgba(1, 1, 1, 0.14);
-                            }
-                            color: Qt.rgba(1, 1, 1, 0.08)
-
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: parent.radius
-                                visible: driverCard.posVal <= 3
-                                gradient: Gradient {
-                                    GradientStop {
-                                        position: 0.0
-                                        color: driverCard.posVal === 1 ? "#FFD84D" : (driverCard.posVal === 2 ? "#E5E7EB" : "#E59853")
-                                    }
-                                    GradientStop {
-                                        position: 0.5
-                                        color: driverCard.posVal === 1 ? "#F5B800" : (driverCard.posVal === 2 ? "#B8C1CC" : "#C8732A")
-                                    }
-                                    GradientStop {
-                                        position: 1.0
-                                        color: driverCard.posVal === 1 ? "#C98A00" : (driverCard.posVal === 2 ? "#8D96A3" : "#964E15")
-                                    }
-                                }
-                            }
-
-                            // Crisp specular shine on top half of podium badge
-                            Rectangle {
-                                visible: driverCard.posVal <= 3
-                                anchors.top: parent.top
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.margins: 1
-                                height: parent.height * 0.44
-                                radius: 7
-                                gradient: Gradient {
-                                    GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.42) }
-                                    GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.0) }
-                                }
                             }
 
                             Text {
@@ -590,7 +563,7 @@ Rectangle {
                                 font.family: theme.fontFamily
                                 font.pixelSize: 13
                                 font.weight: Font.Black
-                                color: driverCard.posVal <= 3 ? "#111318" : "#FFFFFF"
+                                color: "#FFFFFF"
                             }
                         }
 
