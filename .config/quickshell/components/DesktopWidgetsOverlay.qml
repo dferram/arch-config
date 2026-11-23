@@ -744,6 +744,23 @@ PanelWindow {
             }
         }
 
+        // 23. Desk Setup & 3D Terport TR69N Peripherals Hub
+        GridWidgetWrapper {
+            id: itemSetup
+            overlay: desktopWindow
+            widgetKey: "setup"
+            Loader {
+                anchors.fill: parent
+                active: itemSetup.opacity > 0.001
+                sourceComponent: Component {
+                    DesktopSetupWidget {
+                        anchors.fill: parent
+                        isLive: itemSetup.isLive
+                    }
+                }
+            }
+        }
+
         // =====================================================================
         // APPLE SONOMA EDIT MODE CONTROLS OVERLAY (z: 1000 - Guaranteed Clickable)
         // =====================================================================
@@ -1016,6 +1033,7 @@ PanelWindow {
                                 { "key": "agents",    "name": "AI Agents",    "icon": "󰚩", "span": "1x1", "c": 1, "r": 1 },
                                 { "key": "doomsday",  "name": "Doomsday",     "icon": "󰋑", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "nsqk",      "name": "NSQK Tour",    "icon": "󰎈", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "setup",     "name": "Desk Setup",   "icon": "󰌌", "span": "2x2", "c": 2, "r": 2 },
                                 { "key": "photo",     "name": "Photos",       "icon": "󰄀", "span": "2x2", "c": 2, "r": 2, "multi": true }
                             ]
 

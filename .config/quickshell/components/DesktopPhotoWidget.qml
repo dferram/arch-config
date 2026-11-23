@@ -542,6 +542,7 @@ Item {
 
         onPressed: (mouse) => {
             if (mouse.button !== Qt.LeftButton) return;
+            if (root.wrapper && root.wrapper.menuOpen) root.wrapper.menuOpen = false;
             let targetParent = (root.wrapper && root.wrapper.parent) ? root.wrapper.parent : root.parent;
             let pt = mapToItem(targetParent, mouse.x, mouse.y);
             startScreenX = pt.x;
@@ -593,7 +594,7 @@ Item {
                         root.wrapper.toggleMenu();
                     }
                 } else if (mouse.button === Qt.LeftButton) {
-                    // Single click advances photo when not paused/opening menu
+                    // Single click advances photo
                     if (!root.selectorOpen) singleClickTimer.restart();
                 }
             }

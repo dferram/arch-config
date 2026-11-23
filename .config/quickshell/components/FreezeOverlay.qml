@@ -11,6 +11,7 @@ PanelWindow {
 
     screen: modelData
     WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.namespace: "quickshell:freeze"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
@@ -31,8 +32,8 @@ PanelWindow {
         asynchronous: false
         smooth: false
         fillMode: Image.Stretch
-        source: (win.active && win.screen && win.screen.name)
-            ? ("file:///tmp/.shot_freeze_" + win.screen.name + ".png?t=" + win.token)
+        source: (win.active && win.screen && win.screen.name && win.token !== "")
+            ? ("file:///tmp/.shot_freeze_" + win.token + "_" + win.screen.name + ".ppm")
             : ""
     }
 }

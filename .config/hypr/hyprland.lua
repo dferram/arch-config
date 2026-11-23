@@ -553,6 +553,15 @@ hl.layer_rule({
     match = { namespace = "quickshell:launcher" },
     ignore_alpha = 0.5,
 })
+hl.layer_rule({
+    match   = { namespace = "quickshell:freeze" },
+    no_anim = true,
+    blur    = false,
+})
+hl.layer_rule({
+    match   = { namespace = "selection" },
+    no_anim = true,
+})
 
 -- Hyprland-run windowrule
 hl.window_rule({

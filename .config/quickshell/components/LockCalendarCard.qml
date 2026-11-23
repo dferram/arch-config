@@ -208,8 +208,9 @@ Rectangle {
                       ? root.relative(footer.next.dt) + (root.upcoming.length > 1 ? "   +" + (root.upcoming.length - 1) + " more" : "")
                       : "No upcoming reminders"
                 elide: Text.ElideRight
-                color: footer.next ? (footer.soon ? theme.peach : Qt.lighter(footer.evColor, 1.38)) : theme.textMuted
+                color: footer.next ? (footer.soon ? theme.textSub : theme.textMuted) : theme.textMuted
                 font.family: theme.fontFamily; font.pixelSize: 11
+                font.weight: footer.soon ? Font.Medium : Font.Normal
             }
         }
     }

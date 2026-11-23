@@ -144,10 +144,10 @@ Rectangle {
                     anchors.right: parent.right; anchors.rightMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.relative(modelData.dt)
-                    color: row.soon ? theme.peach : Qt.lighter(row.catColor, 1.38)
+                    color: row.soon ? theme.text : theme.textMuted
                     font.family: theme.fontFamily
                     font.pixelSize: 11
-                    font.weight: Font.Medium
+                    font.weight: row.soon ? Font.DemiBold : Font.Medium
                 }
             }
         }

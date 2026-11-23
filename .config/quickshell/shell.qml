@@ -412,8 +412,8 @@ ShellRoot {
 
     IpcHandler {
         target: "freeze"
-        function open() {
-            shell.freezeToken = String(Date.now());
+        function open(tok: string) {
+            shell.freezeToken = (tok && tok.length > 0) ? tok : String(Date.now());
             shell.freezeActive = true;
         }
         function close() {

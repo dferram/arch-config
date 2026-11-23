@@ -20,9 +20,23 @@ notify_success() {
         "Saved to ~/Pictures/Screenshots and copied to clipboard."
 }
 
+FREEZE_TOKEN="$$_$(date +%s%N)"
+
 cleanup_freeze() {
     qs ipc call freeze close >/dev/null 2>&1 || true
-    rm -f /tmp/.shot_freeze_*.png
+    rm -f /tmp/.shot_freeze_"${FREEZE_TOKEN}"_*.ppm /tmp/.shot_freeze_*.png
+}
+
+wait_slurp_gone() {
+    local i=0
+    while [ "$i" -lt 15 ]; do
+        if ! hyprctl layers 2>/dev/null | grep -q "selection"; then
+            break
+        fi
+        sleep 0.02
+        i=$((i + 1))
+    done
+    sleep 0.03
 }
 
 freeze_and_select() {
@@ -31,15 +45,15 @@ freeze_and_select() {
     if [ -n "$mons" ]; then
         while IFS= read -r mon; do
             if [ -n "$mon" ]; then
-                grim -o "$mon" "/tmp/.shot_freeze_${mon}.png" 2>/dev/null || rm -f "/tmp/.shot_freeze_${mon}.png" &
+                grim -t ppm -o "$mon" "/tmp/.shot_freeze_${FREEZE_TOKEN}_${mon}.ppm" 2>/dev/null || rm -f "/tmp/.shot_freeze_${FREEZE_TOKEN}_${mon}.ppm" &
             fi
         done <<< "$mons"
         wait
         trap cleanup_freeze EXIT
-        qs ipc call freeze open >/dev/null 2>&1 || true
-        sleep 0.12
+        qs ipc call freeze open "$FREEZE_TOKEN" >/dev/null 2>&1 || true
+        sleep 0.06
     fi
-    slurp -d -c e22b31 -b 00000055 -s 00000000 2>/dev/null
+    slurp -d -w 1 -c ffffffd9 -b 00000055 -s 00000000 2>/dev/null
 }
 
 case "$MODE" in
@@ -49,6 +63,7 @@ case "$MODE" in
             cleanup_freeze
             exit 0
         fi
+        wait_slurp_gone
         grim -g "$GEOM" "$FILEPATH" || exit 1
         cleanup_freeze
         trap - EXIT
@@ -77,6 +92,7 @@ case "$MODE" in
             exit 0
         fi
         TMP_FILE="/tmp/screenshot_edit_${TIMESTAMP}.png"
+        wait_slurp_gone
         grim -g "$GEOM" "$TMP_FILE" || exit 1
         cleanup_freeze
         trap - EXIT
