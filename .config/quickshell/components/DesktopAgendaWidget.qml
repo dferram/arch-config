@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import "../theme"
+import "ReminderUtils.js" as ReminderUtils
 
 Rectangle {
     id: root
@@ -41,19 +42,7 @@ Rectangle {
     property int upcomingCount: 0
 
     function categoryColor(cat, title) {
-        let c = (cat || "").toLowerCase();
-        let t = (title || "").toLowerCase();
-        if (c === "sara" || t.indexOf("sara") !== -1) return "#ff2d55";
-        if (c === "marvel" || t.indexOf("marvel") !== -1 || t.indexOf("doomsday") !== -1) return "#10b981";
-        if (c === "f1") return "#E10600";
-        if (c === "colgate-palmolive") return "#0067fe";
-        if (c === "projects") return "#14b8a6";
-        if (c === "workshops" || c === "workshop") return "#8b5cf6";
-        if (c === "community") return "#f59e0b";
-        if (c === "free lance" || c === "free-lance" || c === "freelance") return "#06b6d4";
-        if (c === "school") return "#a855f7";
-        if (c === "personal") return "#f97316";
-        return "#38bdf8";
+        return ReminderUtils.categoryColor(cat, title);
     }
 
     function timeToMinutes(tStr) {
@@ -306,14 +295,28 @@ Rectangle {
                     }
                 }
 
-                Text {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: root.nextEvent ? (root.nextEvent.title || "") : ""
-                    color: "#ffffff"
-                    font.family: theme.fontFamily
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideRight
+                    spacing: 7
+
+                    ReminderCategoryIcon {
+                        Layout.alignment: Qt.AlignVCenter
+                        boxSize: 13
+                        category: root.nextEvent ? (root.nextEvent.category || "") : ""
+                        title: root.nextEvent ? (root.nextEvent.title || "") : ""
+                        notes: root.nextEvent ? (root.nextEvent.notes || "") : ""
+                        logo: root.nextEvent ? (root.nextEvent.logo || "") : ""
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: root.nextEvent ? (root.nextEvent.title || "") : ""
+                        color: "#ffffff"
+                        font.family: theme.fontFamily
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        elide: Text.ElideRight
+                    }
                 }
             }
         }
@@ -369,13 +372,15 @@ Rectangle {
                         anchors.fill: parent
                         anchors.leftMargin: 8
                         anchors.rightMargin: 8
-                        spacing: 6
+                        spacing: 7
 
-                        Rectangle {
-                            width: 6
-                            height: 6
-                            radius: 3
-                            color: root.categoryColor(modelData.category, modelData.title)
+                        ReminderCategoryIcon {
+                            Layout.alignment: Qt.AlignVCenter
+                            boxSize: 12
+                            category: modelData.category || ""
+                            title: modelData.title || ""
+                            notes: modelData.notes || ""
+                            logo: modelData.logo || ""
                         }
 
                         Text {

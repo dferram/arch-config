@@ -1,5 +1,6 @@
 import QtQuick
 import "../theme"
+import "ReminderUtils.js" as ReminderUtils
 
 // Upcoming calendar reminders (from hypr-reminders) for the lock screen.
 Rectangle {
@@ -14,49 +15,9 @@ Rectangle {
     color: theme.popupBg
     border.width: 1
     border.color: theme.border
-    implicitHeight: 56 + upcoming.length * 40
+    implicitHeight: 56 + upcoming.length * 42
     visible: upcoming.length > 0
 
-    function toDate(r, dateOverride) {
-        const d = (dateOverride || r.date).split("-");
-        const t = (r.time || "00:00").split(":");
-        return new Date(+d[0], +d[1] - 1, +d[2], +t[0] || 0, +t[1] || 0);
-    }
-    function occursOnDate(r, dateObj) {
-        const dStr = dateObj.getFullYear() + "-" + String(dateObj.getMonth() + 1).padStart(2, '0') + "-" + String(dateObj.getDate()).padStart(2, '0');
-        const rep = (r.repeat || "none").toLowerCase();
-        if (rep === "" || rep === "none") return r.date === dStr;
-        const sp = (r.date || "").split("-");
-        if (sp.length !== 3) return false;
-        const sUtc = Date.UTC(+sp[0], +sp[1] - 1, +sp[2]);
-        const tUtc = Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
-        if (tUtc < sUtc) return false;
-        if (r.repeat_until) {
-            const up = r.repeat_until.split("-");
-            if (up.length === 3 && tUtc > Date.UTC(+up[0], +up[1] - 1, +up[2])) return false;
-        }
-        if (Array.isArray(r.exdates) && r.exdates.indexOf(dStr) !== -1) return false;
-        const diffDays = Math.round((tUtc - sUtc) / 86400000);
-        const dow = dateObj.getDay();
-        const dayCodes = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
-        if (rep === "daily") return true;
-        if (rep === "weekdays") return dow >= 1 && dow <= 5;
-        if (rep === "weekly") {
-            if (Array.isArray(r.repeat_days) && r.repeat_days.length > 0) return r.repeat_days.indexOf(dayCodes[dow]) !== -1;
-            return diffDays % 7 === 0;
-        }
-        if (rep === "biweekly") return diffDays % 14 === 0;
-        if (rep === "monthly") {
-            const maxDay = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
-            return dateObj.getDate() === Math.min(+sp[2], maxDay);
-        }
-        if (rep === "yearly") {
-            if (dateObj.getMonth() + 1 !== +sp[1]) return false;
-            const maxDay = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
-            return dateObj.getDate() === Math.min(+sp[2], maxDay);
-        }
-        return false;
-    }
     readonly property var upcoming: {
         // Only surface what is imminent: due within the next 2 hours (or up to 15 min late)
         const from = now.getTime() - 15 * 60000;
@@ -66,14 +27,20 @@ Rectangle {
         const list = [];
         for (let i = 0; i < reminders.length; i++) {
             const r = reminders[i];
-            if (!r.date) continue;
+            if (!r || r.done || !r.date) continue;
             const cands = [today, tomorrow];
             for (let c = 0; c < cands.length; c++) {
-                if (!occursOnDate(r, cands[c])) continue;
+                if (!ReminderUtils.occursOnDate(r, cands[c])) continue;
                 const cStr = cands[c].getFullYear() + "-" + String(cands[c].getMonth() + 1).padStart(2, '0') + "-" + String(cands[c].getDate()).padStart(2, '0');
-                const dt = toDate(r, cStr);
+                const dt = ReminderUtils.toDate(r, cStr);
                 if (dt.getTime() >= from && dt.getTime() <= to) {
-                    list.push({ title: r.title, category: r.category || "", dt: dt });
+                    list.push({
+                        title: r.title || "",
+                        category: r.category || "",
+                        notes: r.notes || "",
+                        logo: r.logo || "",
+                        dt: dt
+                    });
                 }
             }
         }
@@ -120,10 +87,13 @@ Rectangle {
             delegate: Rectangle {
                 id: row
                 width: parent.width
-                height: 34
+                height: 36
                 radius: 10
-                color: theme.surface
                 readonly property bool soon: (modelData.dt - root.now) < 3600000
+                readonly property color catColor: Qt.color(ReminderUtils.categoryColor(modelData.category, modelData.title))
+                color: Qt.rgba(catColor.r, catColor.g, catColor.b, 0.08)
+                border.width: 1
+                border.color: Qt.rgba(catColor.r, catColor.g, catColor.b, 0.24)
                 // staggered slide/fade-in whenever the panel is revealed
                 opacity: root.active ? 1 : 0
                 transform: Translate { y: root.active ? 0 : 12 }
@@ -133,16 +103,33 @@ Rectangle {
                     id: bar
                     x: 8; anchors.verticalCenter: parent.verticalCenter
                     width: 3; height: 18; radius: 1.5
-                    color: row.soon ? theme.peach : root.accent
+                    color: row.catColor
                     SequentialAnimation on opacity {
                         running: row.soon && root.active
                         loops: Animation.Infinite
-                        NumberAnimation { to: 0.35; duration: 900; easing.type: Easing.InOutSine }
+                        NumberAnimation { to: 0.45; duration: 900; easing.type: Easing.InOutSine }
                         NumberAnimation { to: 1.0; duration: 900; easing.type: Easing.InOutSine }
                     }
                 }
+                Rectangle {
+                    id: iconBadge
+                    anchors.left: bar.right; anchors.leftMargin: 9
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 22; height: 22; radius: 6
+                    color: Qt.rgba(row.catColor.r, row.catColor.g, row.catColor.b, 0.14)
+                    border.width: 1
+                    border.color: Qt.rgba(row.catColor.r, row.catColor.g, row.catColor.b, 0.28)
+                    ReminderCategoryIcon {
+                        anchors.centerIn: parent
+                        boxSize: 13
+                        category: modelData.category
+                        title: modelData.title
+                        notes: modelData.notes
+                        logo: modelData.logo
+                    }
+                }
                 Text {
-                    anchors.left: bar.right; anchors.leftMargin: 10
+                    anchors.left: iconBadge.right; anchors.leftMargin: 9
                     anchors.right: whenText.left; anchors.rightMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
                     text: modelData.title
@@ -157,9 +144,10 @@ Rectangle {
                     anchors.right: parent.right; anchors.rightMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.relative(modelData.dt)
-                    color: row.soon ? theme.peach : theme.textMuted
+                    color: row.soon ? theme.peach : Qt.lighter(row.catColor, 1.38)
                     font.family: theme.fontFamily
                     font.pixelSize: 11
+                    font.weight: Font.Medium
                 }
             }
         }

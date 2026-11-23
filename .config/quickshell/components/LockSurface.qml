@@ -289,7 +289,7 @@ Item {
         anchors.rightMargin: Math.max(20, Math.round(root.width * 0.020))
         height: 38
         width: statusRow.implicitWidth + 12
-        radius: 19
+        radius: theme.radius
         clip: true
         color: statusPillMa.containsMouse ? Qt.rgba(0.06, 0.07, 0.10, 0.92) : Qt.rgba(0.04, 0.045, 0.07, 0.86)
         border.width: 1
@@ -491,9 +491,9 @@ Item {
 
             // 1. CPU Chip
             Rectangle {
-                height: 26
+                height: 28
                 width: cpuChipRow.implicitWidth + 16
-                radius: 13
+                radius: theme.radiusSmall
                 anchors.verticalCenter: parent.verticalCenter
                 color: topStatusPill.cpuPct > 80
                     ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.16)
@@ -529,9 +529,9 @@ Item {
 
             // 2. Wi-Fi Chip
             Rectangle {
-                height: 26
+                height: 28
                 width: wifiChipRow.implicitWidth + 16
-                radius: 13
+                radius: theme.radiusSmall
                 anchors.verticalCenter: parent.verticalCenter
                 color: topStatusPill.wifiConnected
                     ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.11)
@@ -570,9 +570,9 @@ Item {
 
             // 3. Battery Chip
             Rectangle {
-                height: 26
+                height: 28
                 width: batChipRow.implicitWidth + 16
-                radius: 13
+                radius: theme.radiusSmall
                 anchors.verticalCenter: parent.verticalCenter
                 color: topStatusPill.isCharging
                     ? Qt.rgba(theme.green.r, theme.green.g, theme.green.b, 0.13)
@@ -622,20 +622,45 @@ Item {
     }
 
     // ==========================================================================
-    // POWER ACTIONS — Restart & Shutdown (Bottom right corner, revealed only, icon-only)
+    // POWER ACTIONS — Restart & Shutdown (Bottom right segmented obsidian capsule)
     // ==========================================================================
     Process {
         id: powerProc
     }
 
-    Row {
-        id: powerActionsRow
+    Timer {
+        id: rebootConfirmTimer
+        interval: 3000
+        onTriggered: {}
+    }
+
+    Timer {
+        id: shutdownConfirmTimer
+        interval: 3000
+        onTriggered: {}
+    }
+
+    Rectangle {
+        id: powerCapsule
         anchors.bottom: parent.bottom
         anchors.right: parent.right
         anchors.bottomMargin: Math.max(18, Math.round(root.height * 0.024))
         anchors.rightMargin: Math.max(20, Math.round(root.width * 0.020))
-        spacing: 10
+        height: 38
+        width: powerActionsRow.implicitWidth + 12
+        radius: 19
+        clip: true
+        color: Qt.rgba(0.04, 0.045, 0.07, 0.86)
+        border.width: 1
+        border.color: (rebootConfirmTimer.running || shutdownConfirmTimer.running)
+            ? Qt.rgba(shutdownConfirmTimer.running ? theme.red.r : theme.peach.r,
+                      shutdownConfirmTimer.running ? theme.red.g : theme.peach.g,
+                      shutdownConfirmTimer.running ? theme.red.b : theme.peach.b, 0.45)
+            : Qt.rgba(255, 255, 255, 0.10)
         z: 30
+
+        Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        Behavior on border.color { ColorAnimation { duration: 160 } }
 
         opacity: root.showControlPanel ? 1.0 : 0.0
         visible: opacity > 0.01
@@ -646,143 +671,152 @@ Item {
             Behavior on y { NumberAnimation { duration: root.revealDuration; easing.type: Easing.OutExpo } }
         }
 
-        // Restart button (Icon-only, dark liquid glass)
+        // Specular top hairline
         Rectangle {
-            id: rebootBtn
-            width: 38
-            height: 38
-            radius: 19
-            clip: true
-            color: rebootConfirmTimer.running
-                ? Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.22)
-                : (rebootMa.containsMouse ? root.glassHover : theme.popupBg)
-            border.width: 1
-            border.color: rebootConfirmTimer.running
-                ? theme.peach
-                : (rebootMa.containsMouse ? theme.borderGlow : theme.border)
-
-            scale: rebootMa.pressed ? 0.92 : (rebootMa.containsMouse ? 1.05 : 1.0)
-            Behavior on scale { NumberAnimation { duration: 120 } }
-            Behavior on color { ColorAnimation { duration: 150 } }
-            Behavior on border.color { ColorAnimation { duration: 150 } }
-
-            // Specular top hairline
-            Rectangle {
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
-                height: 1
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: "transparent" }
-                    GradientStop { position: 0.3; color: Qt.rgba(255, 255, 255, 0.25) }
-                    GradientStop { position: 0.7; color: Qt.rgba(255, 255, 255, 0.25) }
-                    GradientStop { position: 1.0; color: "transparent" }
-                }
-            }
-
-            Timer {
-                id: rebootConfirmTimer
-                interval: 3000
-                onTriggered: {}
-            }
-
-            Image {
-                anchors.centerIn: parent
-                width: 17
-                height: 17
-                source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + theme.urlColor(rebootConfirmTimer.running ? theme.peach : theme.blue) + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><polyline points='23 4 23 10 17 10'/><path d='M20.49 15a9 9 0 1 1-2.12-9.36L23 10'/></svg>"
-                fillMode: Image.PreserveAspectFit
-            }
-
-            MouseArea {
-                id: rebootMa
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                preventStealing: true
-
-                onClicked: {
-                    root.ctx.poke();
-                    if (rebootConfirmTimer.running) {
-                        powerProc.command = ["systemctl", "reboot"];
-                        powerProc.running = true;
-                    } else {
-                        rebootConfirmTimer.restart();
-                        shutdownConfirmTimer.stop();
-                    }
-                }
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 14
+            anchors.rightMargin: 14
+            height: 1
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "transparent" }
+                GradientStop { position: 0.3; color: Qt.rgba(255, 255, 255, 0.18) }
+                GradientStop { position: 0.7; color: Qt.rgba(255, 255, 255, 0.18) }
+                GradientStop { position: 1.0; color: "transparent" }
             }
         }
 
-        // Shutdown button (Icon-only, dark liquid glass)
-        Rectangle {
-            id: shutdownBtn
-            width: 38
-            height: 38
-            radius: 19
-            clip: true
-            color: shutdownConfirmTimer.running
-                ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.22)
-                : (shutdownMa.containsMouse ? root.glassHover : theme.popupBg)
-            border.width: 1
-            border.color: shutdownConfirmTimer.running
-                ? theme.red
-                : (shutdownMa.containsMouse ? theme.borderGlow : theme.border)
+        Row {
+            id: powerActionsRow
+            anchors.centerIn: parent
+            spacing: 6
 
-            scale: shutdownMa.pressed ? 0.92 : (shutdownMa.containsMouse ? 1.05 : 1.0)
-            Behavior on scale { NumberAnimation { duration: 120 } }
-            Behavior on color { ColorAnimation { duration: 150 } }
-            Behavior on border.color { ColorAnimation { duration: 150 } }
-
-            // Specular top hairline
+            // 1. Restart chip
             Rectangle {
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
-                height: 1
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: "transparent" }
-                    GradientStop { position: 0.3; color: Qt.rgba(255, 255, 255, 0.25) }
-                    GradientStop { position: 0.7; color: Qt.rgba(255, 255, 255, 0.25) }
-                    GradientStop { position: 1.0; color: "transparent" }
+                id: rebootBtn
+                height: 26
+                width: rebootRow.implicitWidth + 16
+                radius: 13
+                anchors.verticalCenter: parent.verticalCenter
+                color: rebootConfirmTimer.running
+                    ? Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.20)
+                    : (rebootMa.containsMouse ? Qt.rgba(255, 255, 255, 0.09) : Qt.rgba(255, 255, 255, 0.045))
+                border.width: 1
+                border.color: rebootConfirmTimer.running
+                    ? Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.75)
+                    : (rebootMa.containsMouse ? Qt.rgba(255, 255, 255, 0.18) : Qt.rgba(255, 255, 255, 0.07))
+
+                scale: rebootMa.pressed ? 0.94 : (rebootMa.containsMouse ? 1.02 : 1.0)
+                Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                Behavior on scale { NumberAnimation { duration: 120 } }
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                Row {
+                    id: rebootRow
+                    anchors.centerIn: parent
+                    spacing: 6
+
+                    Image {
+                        width: 13
+                        height: 13
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + theme.urlColor(rebootConfirmTimer.running ? theme.peach : theme.textSub) + "' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='23 4 23 10 17 10'/><path d='M20.49 15a9 9 0 1 1-2.12-9.36L23 10'/></svg>"
+                        fillMode: Image.PreserveAspectFit
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: rebootConfirmTimer.running ? "Confirm?" : "Restart"
+                        color: rebootConfirmTimer.running ? theme.peach : theme.text
+                        font.family: theme.fontFamily
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                    }
+                }
+
+                MouseArea {
+                    id: rebootMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    preventStealing: true
+
+                    onClicked: {
+                        root.ctx.poke();
+                        if (rebootConfirmTimer.running) {
+                            powerProc.command = ["systemctl", "reboot"];
+                            powerProc.running = true;
+                        } else {
+                            rebootConfirmTimer.restart();
+                            shutdownConfirmTimer.stop();
+                        }
+                    }
                 }
             }
 
-            Timer {
-                id: shutdownConfirmTimer
-                interval: 3000
-                onTriggered: {}
-            }
+            // 2. Shutdown chip
+            Rectangle {
+                id: shutdownBtn
+                height: 26
+                width: shutdownRow.implicitWidth + 16
+                radius: 13
+                anchors.verticalCenter: parent.verticalCenter
+                color: shutdownConfirmTimer.running
+                    ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.22)
+                    : (shutdownMa.containsMouse ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.14) : Qt.rgba(255, 255, 255, 0.045))
+                border.width: 1
+                border.color: shutdownConfirmTimer.running
+                    ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.85)
+                    : (shutdownMa.containsMouse ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.42) : Qt.rgba(255, 255, 255, 0.07))
 
-            Image {
-                anchors.centerIn: parent
-                width: 17
-                height: 17
-                source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + theme.urlColor(shutdownConfirmTimer.running ? theme.red : theme.red) + "' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M18.36 6.64a9 9 0 1 1-12.73 0'/><line x1='12' y1='2' x2='12' y2='12'/></svg>"
-                fillMode: Image.PreserveAspectFit
-            }
+                scale: shutdownMa.pressed ? 0.94 : (shutdownMa.containsMouse ? 1.02 : 1.0)
+                Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                Behavior on scale { NumberAnimation { duration: 120 } }
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on border.color { ColorAnimation { duration: 150 } }
 
-            MouseArea {
-                id: shutdownMa
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                preventStealing: true
+                Row {
+                    id: shutdownRow
+                    anchors.centerIn: parent
+                    spacing: 6
 
-                onClicked: {
-                    root.ctx.poke();
-                    if (shutdownConfirmTimer.running) {
-                        powerProc.command = ["systemctl", "poweroff"];
-                        powerProc.running = true;
-                    } else {
-                        shutdownConfirmTimer.restart();
-                        rebootConfirmTimer.stop();
+                    Image {
+                        width: 13
+                        height: 13
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + theme.urlColor(theme.red) + "' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M18.36 6.64a9 9 0 1 1-12.73 0'/><line x1='12' y1='2' x2='12' y2='12'/></svg>"
+                        fillMode: Image.PreserveAspectFit
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: shutdownConfirmTimer.running ? "Confirm?" : "Shut down"
+                        color: shutdownConfirmTimer.running ? theme.red : theme.text
+                        font.family: theme.fontFamily
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                    }
+                }
+
+                MouseArea {
+                    id: shutdownMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    preventStealing: true
+
+                    onClicked: {
+                        root.ctx.poke();
+                        if (shutdownConfirmTimer.running) {
+                            powerProc.command = ["systemctl", "poweroff"];
+                            powerProc.running = true;
+                        } else {
+                            shutdownConfirmTimer.restart();
+                            rebootConfirmTimer.stop();
+                        }
                     }
                 }
             }
@@ -1254,30 +1288,37 @@ Item {
         // ---------------- AUTH ----------------
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 14
+            spacing: 12
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.ctx.userName
                 color: theme.textSub
                 font.family: theme.fontFamily
-                font.pixelSize: 14
+                font.pixelSize: 13
                 font.weight: Font.DemiBold
+                opacity: 0.9
             }
 
-            // Password pill
+            // Password box (Smoked Obsidian Liquid Glass matching desktop top bar)
             Rectangle {
                 id: pill
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: 320
+                width: 344
                 height: 46
-                radius: 10
-                color: root.glass
+                radius: theme.radius
+                clip: true
+                color: root.ctx.authFailed
+                    ? Qt.rgba(0.14, 0.04, 0.05, 0.90)
+                    : Qt.rgba(0.04, 0.045, 0.07, 0.88)
                 border.width: 1
-                border.color: root.ctx.authFailed ? theme.red
-                              : input.text.length > 0 ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.8)
-                              : theme.border
-                Behavior on border.color { ColorAnimation { duration: 200 } }
+                border.color: root.ctx.authFailed
+                    ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.85)
+                    : (root.ctx.authBusy || input.text.length > 0)
+                        ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.65)
+                        : Qt.rgba(255, 255, 255, 0.14)
+                Behavior on color { ColorAnimation { duration: 180 } }
+                Behavior on border.color { ColorAnimation { duration: 180 } }
 
                 transform: Translate { id: shakeT; x: 0 }
                 SequentialAnimation {
@@ -1293,86 +1334,204 @@ Item {
                     function onPasswordChanged() { if (input.text !== root.ctx.password) input.text = root.ctx.password; }
                 }
 
-                Text {
+                // Subtle ambient accent tint inside the capsule
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    opacity: (input.text.length > 0 && !root.ctx.authFailed) ? 1.0 : 0.35
+                    Behavior on opacity { NumberAnimation { duration: 220 } }
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.12) }
+                        GradientStop { position: 0.45; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.02) }
+                        GradientStop { position: 1.0; color: "transparent" }
+                    }
+                }
+
+                // Specular top hairline
+                Rectangle {
+                    anchors.top: parent.top
                     anchors.left: parent.left
-                    anchors.leftMargin: 18
+                    anchors.right: parent.right
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    height: 1
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: "transparent" }
+                        GradientStop { position: 0.3; color: Qt.rgba(255, 255, 255, 0.22) }
+                        GradientStop { position: 0.7; color: Qt.rgba(255, 255, 255, 0.22) }
+                        GradientStop { position: 1.0; color: "transparent" }
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.IBeamCursor
+                    onClicked: {
+                        root.ctx.poke();
+                        input.forceActiveFocus();
+                    }
+                }
+
+                // Left lock icon chip
+                Rectangle {
+                    id: lockBadge
+                    x: 8
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "󰌾"
-                    font.family: root.iconFont
-                    font.pixelSize: 16
-                    color: theme.textDim
+                    width: 30
+                    height: 30
+                    radius: theme.radiusSmall
+                    color: root.ctx.authFailed
+                        ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.16)
+                        : (input.text.length > 0 || root.ctx.authBusy)
+                            ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18)
+                            : Qt.rgba(255, 255, 255, 0.05)
+                    border.width: 1
+                    border.color: root.ctx.authFailed
+                        ? Qt.rgba(theme.red.r, theme.red.g, theme.red.b, 0.42)
+                        : (input.text.length > 0 || root.ctx.authBusy)
+                            ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.38)
+                            : Qt.rgba(255, 255, 255, 0.08)
+                    Behavior on color { ColorAnimation { duration: 180 } }
+                    Behavior on border.color { ColorAnimation { duration: 180 } }
+
+                    Image {
+                        anchors.centerIn: parent
+                        width: 15
+                        height: 15
+                        source: {
+                            const col = theme.urlColor(
+                                root.ctx.authFailed ? theme.red
+                                : (input.text.length > 0 || root.ctx.authBusy) ? Qt.lighter(root.accent, 1.25)
+                                : theme.textMuted
+                            );
+                            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='" + col + "' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='11' width='18' height='11' rx='2.5' ry='2.5'/><path d='M7 11V7a5 5 0 0 1 10 0v4'/></svg>";
+                        }
+                        fillMode: Image.PreserveAspectFit
+                    }
                 }
 
-                Text {
-                    anchors.centerIn: parent
-                    visible: input.text.length === 0
-                    text: root.ctx.authBusy ? "Verifying…" : "Password"
-                    color: theme.textDim
-                    font.family: theme.fontFamily
-                    font.pixelSize: 14
-                }
+                // Center viewport (placeholder / error status / password dots)
+                Item {
+                    id: inputCenterViewport
+                    anchors.left: lockBadge.right
+                    anchors.leftMargin: 10
+                    anchors.right: rightControlsRow.left
+                    anchors.rightMargin: 10
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    clip: true
 
-                // Password dots (pop-in)
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 7
-                    Repeater {
-                        model: Math.min(input.text.length, 18)
-                        delegate: Rectangle {
-                            width: 8; height: 8; radius: 4
-                            anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-                            color: theme.text
-                            scale: 0
-                            Component.onCompleted: scale = 1
-                            Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
+                    Text {
+                        anchors.centerIn: parent
+                        visible: input.text.length === 0
+                        text: root.ctx.authBusy
+                            ? "Verifying…"
+                            : (root.ctx.authFailed && root.ctx.statusText !== "" ? root.ctx.statusText : "Password")
+                        color: root.ctx.authFailed
+                            ? theme.red
+                            : (root.ctx.authBusy ? theme.textSub : theme.textDim)
+                        opacity: (root.ctx.authFailed || root.ctx.authBusy) ? 1.0 : 0.72
+                        font.family: theme.fontFamily
+                        font.pixelSize: 13
+                        font.weight: (root.ctx.authFailed || root.ctx.authBusy) ? Font.Medium : Font.Normal
+                        elide: Text.ElideRight
+                        width: Math.min(implicitWidth, parent.width)
+                    }
+
+                    // Password dots (pop-in, auto-slides left if very long)
+                    Row {
+                        id: dotsRow
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: implicitWidth > parent.width ? (parent.width - implicitWidth) : ((parent.width - implicitWidth) / 2)
+                        spacing: 7
+                        visible: input.text.length > 0
+                        Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+
+                        Repeater {
+                            model: input.text.length
+                            delegate: Rectangle {
+                                width: 7; height: 7; radius: 3.5
+                                anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+                                color: index === input.text.length - 1 ? Qt.lighter(root.accent, 1.35) : theme.text
+                                scale: 0
+                                Component.onCompleted: scale = 1
+                                Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
+                                Behavior on color { ColorAnimation { duration: 180 } }
+                            }
                         }
                     }
                 }
 
-                // Caps Lock indicator badge (clean icon-only)
-                Rectangle {
-                    id: capsBadge
-                    anchors.right: fpIcon.visible ? fpIcon.left : parent.right
-                    anchors.rightMargin: fpIcon.visible ? 8 : 14
+                // Right accessories: Caps Lock badge + Submit button
+                Row {
+                    id: rightControlsRow
+                    anchors.right: parent.right
+                    anchors.rightMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: root.ctx.capsLock
-                    width: 26
-                    height: 26
-                    radius: 7
-                    color: Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.22)
-                    border.width: 1
-                    border.color: theme.peach
+                    spacing: 6
 
-                    Text {
-                        anchors.centerIn: parent
-                        text: "󰪛"
-                        font.family: root.iconFont
-                        font.pixelSize: 14
-                        color: theme.peach
+                    // Caps Lock indicator badge
+                    Rectangle {
+                        id: capsBadge
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: root.ctx.capsLock
+                        width: 28
+                        height: 28
+                        radius: theme.radiusSmall
+                        color: Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.18)
+                        border.width: 1
+                        border.color: Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.72)
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "󰪛"
+                            font.family: root.iconFont
+                            font.pixelSize: 13
+                            color: theme.peach
+                        }
+                    }
+
+                    // Submit arrow button (appears when password is non-empty)
+                    Rectangle {
+                        id: submitPill
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: (input.text.length > 0 && !root.ctx.authBusy) ? 30 : 0
+                        height: 30
+                        radius: theme.radiusSmall
+                        visible: width > 1
+                        clip: true
+                        color: submitMa.containsMouse
+                            ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.90)
+                            : Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.24)
+                        border.width: 1
+                        border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.65)
+                        scale: submitMa.pressed ? 0.90 : 1.0
+                        Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                        Behavior on color { ColorAnimation { duration: 140 } }
+                        Behavior on scale { NumberAnimation { duration: 100 } }
+
+                        Image {
+                            anchors.centerIn: parent
+                            width: 14
+                            height: 14
+                            source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23ffffff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><line x1='5' y1='12' x2='19' y2='12'/><polyline points='12 5 19 12 12 19'/></svg>"
+                            fillMode: Image.PreserveAspectFit
+                        }
+
+                        MouseArea {
+                            id: submitMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                root.ctx.poke();
+                                root.ctx.submit();
+                            }
+                        }
                     }
                 }
-
-                Text {
-                    id: fpIcon
-                    anchors.right: parent.right
-                    anchors.rightMargin: 16
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: root.ctx.fingerprintAvailable
-                    text: "󰈷"
-                    font.family: root.iconFont
-                    font.pixelSize: 18
-                    color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.85)
-                }
-            }
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: root.ctx.statusText !== "" ? root.ctx.statusText
-                      : root.ctx.fingerprintAvailable ? "Press Enter to unlock  ·  or use your fingerprint"
-                      : "Press Enter to unlock"
-                color: root.ctx.authFailed ? theme.red : theme.textDim
-                font.family: theme.fontFamily
-                font.pixelSize: 12
             }
         }
     }
@@ -1516,5 +1675,32 @@ Item {
         return m + ":" + (r < 10 ? "0" : "") + r;
     }
 
-    Component.onCompleted: input.forceActiveFocus()
+    Timer {
+        id: focusEnsureTimer
+        interval: 80
+        repeat: false
+        onTriggered: if (root.ctx.locked) input.forceActiveFocus()
+    }
+
+    Connections {
+        target: root.ctx
+        function onLockedChanged() {
+            if (root.ctx.locked) {
+                input.forceActiveFocus();
+                focusEnsureTimer.restart();
+            }
+        }
+    }
+
+    onVisibleChanged: {
+        if (visible && root.ctx.locked) {
+            input.forceActiveFocus();
+            focusEnsureTimer.restart();
+        }
+    }
+
+    Component.onCompleted: {
+        input.forceActiveFocus();
+        focusEnsureTimer.restart();
+    }
 }

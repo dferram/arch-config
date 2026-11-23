@@ -1,5 +1,6 @@
 import QtQuick
 import "../theme"
+import "ReminderUtils.js" as ReminderUtils
 
 // Month calendar for the lock screen. The grid stretches to fill the card;
 // a highlighted "Next up" strip at the bottom surfaces the closest reminder.
@@ -27,25 +28,52 @@ Rectangle {
     function pad(n) { return (n < 10 ? "0" : "") + n; }
     function dateKey(d) { return year + "-" + pad(month + 1) + "-" + pad(d); }
     function countFor(d) {
-        const k = dateKey(d);
+        const dObj = new Date(year, month, d);
         let c = 0;
-        for (let i = 0; i < reminders.length; i++)
-            if (reminders[i].date === k) c++;
+        for (let i = 0; i < reminders.length; i++) {
+            const r = reminders[i];
+            if (!r || r.done || !r.date) continue;
+            if (ReminderUtils.occursOnDate(r, dObj)) c++;
+        }
         return c;
-    }
-    function toDate(r) {
-        const d = r.date.split("-");
-        const t = (r.time || "00:00").split(":");
-        return new Date(+d[0], +d[1] - 1, +d[2], +t[0] || 0, +t[1] || 0);
     }
     readonly property var upcoming: {
         const from = now.getTime() - 15 * 60000;
+        const baseDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const list = [];
         for (let i = 0; i < reminders.length; i++) {
             const r = reminders[i];
-            if (!r.date) continue;
-            const dt = toDate(r);
-            if (dt.getTime() >= from) list.push({ title: r.title, category: r.category || "", dt: dt });
+            if (!r || r.done || !r.date) continue;
+            const rep = (r.repeat || "none").toLowerCase();
+            if (rep === "" || rep === "none") {
+                const dt = ReminderUtils.toDate(r);
+                if (dt.getTime() >= from) {
+                    list.push({
+                        title: r.title || "",
+                        category: r.category || "",
+                        notes: r.notes || "",
+                        logo: r.logo || "",
+                        dt: dt
+                    });
+                }
+            } else {
+                for (let offset = 0; offset <= 30; offset++) {
+                    const cand = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate() + offset);
+                    if (!ReminderUtils.occursOnDate(r, cand)) continue;
+                    const cStr = cand.getFullYear() + "-" + pad(cand.getMonth() + 1) + "-" + pad(cand.getDate());
+                    const dt = ReminderUtils.toDate(r, cStr);
+                    if (dt.getTime() >= from) {
+                        list.push({
+                            title: r.title || "",
+                            category: r.category || "",
+                            notes: r.notes || "",
+                            logo: r.logo || "",
+                            dt: dt
+                        });
+                        break;
+                    }
+                }
+            }
         }
         list.sort((a, b) => a.dt - b.dt);
         return list;
@@ -92,9 +120,13 @@ Rectangle {
         y: parent.height - height - 12
         radius: 12
         clip: true
-        color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
+        readonly property var next: root.upcoming.length > 0 ? root.upcoming[0] : null
+        readonly property bool soon: next !== null && (next.dt - root.now) < 3600000
+        readonly property color evColor: next ? Qt.color(ReminderUtils.categoryColor(next.category, next.title)) : root.accent
+        readonly property string evBadgeTextColor: ReminderUtils.contrastTextColor(evColor)
+        color: Qt.rgba(evColor.r, evColor.g, evColor.b, 0.14)
         border.width: 1
-        border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45)
+        border.color: Qt.rgba(evColor.r, evColor.g, evColor.b, 0.45)
 
         opacity: root.active ? 1 : 0
         Behavior on opacity { SequentialAnimation { PauseAnimation { duration: 240 } NumberAnimation { duration: 360; easing.type: Easing.OutCubic } } }
@@ -120,28 +152,25 @@ Rectangle {
             }
         }
 
-        readonly property var next: root.upcoming.length > 0 ? root.upcoming[0] : null
-        readonly property bool soon: next !== null && (next.dt - root.now) < 3600000
-
-        // date badge
+        // date badge colored by the next reminder's category
         Rectangle {
             id: badge
             x: 9; anchors.verticalCenter: parent.verticalCenter
             width: 36; height: 36; radius: 10
-            color: footer.soon ? theme.peach : root.accent
+            color: footer.evColor
             Column {
                 anchors.centerIn: parent
                 spacing: -1
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: footer.next ? Qt.locale("en_US").toString(footer.next.dt, "MMM").toUpperCase() : "—"
-                    color: "#000000"; opacity: 0.7
+                    color: footer.evBadgeTextColor; opacity: 0.78
                     font.family: theme.fontFamily; font.pixelSize: 8; font.weight: Font.Bold
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: footer.next ? footer.next.dt.getDate() : ""
-                    color: "#000000"
+                    color: footer.evBadgeTextColor
                     font.family: theme.fontFamily; font.pixelSize: 15; font.weight: Font.Bold
                 }
             }
@@ -151,12 +180,27 @@ Rectangle {
             anchors.right: parent.right; anchors.rightMargin: 10
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2
-            Text {
+            Row {
                 width: parent.width
-                text: footer.next ? footer.next.title : "All clear"
-                elide: Text.ElideRight
-                color: theme.text
-                font.family: theme.fontFamily; font.pixelSize: 13; font.weight: Font.DemiBold
+                spacing: 6
+                ReminderCategoryIcon {
+                    id: footerCatIcon
+                    visible: footer.next !== null
+                    anchors.verticalCenter: parent.verticalCenter
+                    boxSize: 13
+                    category: footer.next ? footer.next.category : ""
+                    title: footer.next ? footer.next.title : ""
+                    notes: footer.next ? footer.next.notes : ""
+                    logo: footer.next ? footer.next.logo : ""
+                }
+                Text {
+                    width: footerCatIcon.visible ? parent.width - footerCatIcon.width - 6 : parent.width
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: footer.next ? footer.next.title : "All clear"
+                    elide: Text.ElideRight
+                    color: theme.text
+                    font.family: theme.fontFamily; font.pixelSize: 13; font.weight: Font.DemiBold
+                }
             }
             Text {
                 width: parent.width
@@ -164,7 +208,7 @@ Rectangle {
                       ? root.relative(footer.next.dt) + (root.upcoming.length > 1 ? "   +" + (root.upcoming.length - 1) + " more" : "")
                       : "No upcoming reminders"
                 elide: Text.ElideRight
-                color: footer.soon ? theme.peach : theme.textMuted
+                color: footer.next ? (footer.soon ? theme.peach : Qt.lighter(footer.evColor, 1.38)) : theme.textMuted
                 font.family: theme.fontFamily; font.pixelSize: 11
             }
         }

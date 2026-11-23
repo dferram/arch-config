@@ -115,7 +115,7 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             root.togglePopup("");
-                            actionProc.command = ["sh", "-c", "hyprlock || swaylock || true"];
+                            actionProc.command = ["sh", "-c", "qs ipc call lock lock || hyprlock || swaylock || true"];
                             actionProc.running = true;
                         }
                     }

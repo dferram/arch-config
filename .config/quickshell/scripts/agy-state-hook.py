@@ -23,10 +23,10 @@ def notify_idle(payload: dict) -> None:
         body = f"Error: {error[:100]}"
         urgency = "critical"
     elif reason == "max_steps_exceeded":
-        body = "Límite de pasos alcanzado"
+        body = "Step limit reached"
         urgency = "normal"
     else:
-        body = "Respuesta lista"
+        body = "Response ready"
         urgency = "normal"
 
     env = os.environ.copy()

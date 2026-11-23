@@ -37,7 +37,7 @@ Scope {
         if (lockedAt > 0 && lockedDuration <= 60000) {
             const delta = now - lastEnterTime;
             lastEnterTime = now;
-            if (delta > 50 && delta <= 750) {
+            if (delta > 30 && delta <= 1200) {
                 lastEnterTime = 0;
                 ctx.unlocked();
                 return true;
@@ -99,8 +99,10 @@ Scope {
             refreshAgents();
             refreshReminders();
             refreshWallpaper();
-            if (fingerprintAvailable) {
+            if (fingerprintEnabled && fingerprintAvailable) {
                 fprintProc.running = true;
+            } else if (fingerprintEnabled) {
+                fprintCheckProc.running = true;
             }
         } else {
             lockedAt = 0;
@@ -155,9 +157,26 @@ Scope {
     }
 
     // --------------------------------------------------------------------------
-    // Fingerprint unlock (Goodix sensor via fprintd), loops while locked
+    // Fingerprint unlock (Goodix sensor via fprintd), disabled until configured
     // --------------------------------------------------------------------------
-    property bool fingerprintAvailable: true
+    property bool fingerprintEnabled: false
+    property bool fingerprintAvailable: false
+
+    Process {
+        id: fprintCheckProc
+        command: ["fprintd-list", ctx.userName]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const t = text || "";
+                const hasDevice = t.indexOf("No devices available") === -1;
+                const hasFingers = t.indexOf("has no fingers enrolled") === -1 && t.indexOf("Fingerprints for user") !== -1 && /\n\s*-\s+#/.test(t);
+                ctx.fingerprintAvailable = ctx.fingerprintEnabled && hasDevice && hasFingers;
+                if (ctx.locked && ctx.fingerprintAvailable && !fprintProc.running) {
+                    fprintProc.running = true;
+                }
+            }
+        }
+    }
 
     Process {
         id: fprintProc
@@ -170,7 +189,9 @@ Scope {
                     ctx.statusText = "Fingerprint not recognized";
                     if (!ctx.revealed) ctx.reveal();
                 }
-                if (line.indexOf("No devices available") !== -1) ctx.fingerprintAvailable = false;
+                if (line.indexOf("No devices available") !== -1 || line.indexOf("has no fingers enrolled") !== -1) {
+                    ctx.fingerprintAvailable = false;
+                }
             }
         }
         onExited: (code, status) => {
@@ -180,13 +201,13 @@ Scope {
                 ctx.unlocked();
                 return;
             }
-            fprintRetry.restart();
+            if (ctx.fingerprintEnabled && ctx.fingerprintAvailable) fprintRetry.restart();
         }
     }
     Timer {
         id: fprintRetry
         interval: 1200
-        onTriggered: if (ctx.locked && ctx.fingerprintAvailable) fprintProc.running = true
+        onTriggered: if (ctx.locked && ctx.fingerprintEnabled && ctx.fingerprintAvailable) fprintProc.running = true
     }
 
     // --------------------------------------------------------------------------
