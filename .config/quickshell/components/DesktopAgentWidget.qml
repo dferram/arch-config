@@ -95,7 +95,7 @@ Rectangle {
     }
 
     Timer {
-        interval: 4000
+        interval: 10000
         repeat: true
         running: root.isLive
         onTriggered: root.refreshNow()

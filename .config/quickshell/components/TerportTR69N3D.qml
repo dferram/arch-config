@@ -279,11 +279,11 @@ Item {
     }
 
     Timer {
-        interval: 75
+        interval: 90
         repeat: true
         running: root.isAnimated
         onTriggered: {
-            root.phase = (root.phase + 0.022 * root.ledSpeed) % 1.0;
+            root.phase = (root.phase + 0.025 * root.ledSpeed) % 1.0;
         }
     }
 
@@ -503,12 +503,9 @@ Item {
                 delegate: Node {
                     required property var modelData
                     readonly property real u: 1.01
-                    property color kCol: root.keyLedColor(modelData)
-                    property real kInt: root.keyLedIntensity(modelData)
+                    readonly property color kCol: root.keyLedColor(modelData)
+                    readonly property real kInt: root.keyLedIntensity(modelData)
                     readonly property real yBase: 0.14 + modelData.rowHeightBias
-
-                    Behavior on kCol { ColorAnimation { duration: 150; easing.type: Easing.OutQuad } }
-                    Behavior on kInt { NumberAnimation { duration: 130; easing.type: Easing.OutQuad } }
 
                     position: Qt.vector3d(modelData.cx * u, yBase, modelData.cz * u)
 

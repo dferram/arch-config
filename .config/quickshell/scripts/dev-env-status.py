@@ -12,6 +12,7 @@ import json
 import re
 import time
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 WELL_KNOWN_DEV_PORTS = {
@@ -137,9 +138,7 @@ def scan_git_repos(roots=None):
                 except Exception:
                     pass
 
-    repos = []
-    dirty_repos = 0
-    for rdir in repo_dirs:
+    def inspect_repo(rdir):
         try:
             st = subprocess.run(
                 ["git", "-C", str(rdir), "status", "--porcelain=v1", "-b"],
@@ -148,7 +147,7 @@ def scan_git_repos(roots=None):
                 timeout=1.5
             )
             if st.returncode != 0:
-                continue
+                return None
             lines = st.stdout.splitlines()
             branch = "main"
             ahead = 0
@@ -175,8 +174,6 @@ def scan_git_repos(roots=None):
                 elif ln.strip():
                     modified += 1
             dirty = modified + untracked
-            if dirty > 0:
-                dirty_repos += 1
 
             lg = subprocess.run(
                 ["git", "-C", str(rdir), "log", "-1", "--format=%ct"],
@@ -186,7 +183,7 @@ def scan_git_repos(roots=None):
             )
             ts = int(lg.stdout.strip()) if lg.returncode == 0 and lg.stdout.strip().isdigit() else 0
 
-            repos.append({
+            return {
                 "name": rdir.name,
                 "path": str(rdir),
                 "branch": branch,
@@ -197,9 +194,16 @@ def scan_git_repos(roots=None):
                 "behind": behind,
                 "ts": ts,
                 "ago": format_age_ts(ts)
-            })
+            }
         except Exception:
-            pass
+            return None
+
+    repos = []
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        for res in pool.map(inspect_repo, repo_dirs):
+            if res is not None:
+                repos.append(res)
+    dirty_repos = sum(1 for r in repos if r["dirty"] > 0)
 
     repos.sort(key=lambda r: (0 if r["dirty"] > 0 else 1, -r["ts"], r["name"].lower()))
     return {

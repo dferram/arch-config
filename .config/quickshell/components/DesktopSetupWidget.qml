@@ -73,7 +73,7 @@ Rectangle {
     Component.onCompleted: refreshStatus()
 
     Timer {
-        interval: 1500
+        interval: 2500
         repeat: true
         running: root.isLive
         onTriggered: root.refreshStatus()
