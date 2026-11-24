@@ -113,7 +113,11 @@ def scan_ports():
 
 def scan_git_repos(roots=None):
     if not roots:
-        roots = [Path.home() / "Personal"]
+        roots = [
+            Path.home() / "Personal",
+            Path.home() / "Colgate-Palmolive",
+            Path.home() / "Projects",
+        ]
 
     repo_dirs = []
     for root in roots:
