@@ -8,12 +8,6 @@ Item {
     id: root
     Theme { id: theme }
 
-    property string activeDevice: "keyboard" // "keyboard" | "monitor" | "mouse" | "base"
-    property bool monitorConnected: false
-    property string monitorStyle: "mark" // "mark" | "samsung"
-    property bool mouseConnected: false
-    property bool baseOn: false
-
     property bool ledOn: true
     property string ledMode: "rainbow"
     property color ledColor: "#bf4148"
@@ -23,29 +17,29 @@ Item {
     property bool connected: false
     property bool isLive: true
 
-    property real yawAngle: -14
-    property real tiltAngle: 18
+    // Smooth interpolated LED state for fluid color/brightness/on-off transitions
+    property color smoothLedColor: root.ledColor
+    Behavior on smoothLedColor { ColorAnimation { duration: 320; easing.type: Easing.InOutCubic } }
+
+    property real smoothBrightness: (root.ledOn && root.ledMode !== "off") ? root.ledBrightness : 0.0
+    Behavior on smoothBrightness { NumberAnimation { duration: 280; easing.type: Easing.InOutQuad } }
+
+    property real yawAngle: -4
+    property real tiltAngle: 26
+    property real zoomFactor: 0.94
     property real phase: 0.0
 
-    readonly property bool isAnimated: root.isLive && root.activeDevice === "keyboard" && root.ledOn && root.ledMode !== "static" && root.ledMode !== "wasd_gaming" && root.ledMode !== "off"
-
-    function resetCamera() {
-        if (activeDevice === "monitor") {
-            yawAngle = -16;
-            tiltAngle = 6;
-        } else if (activeDevice === "mouse") {
-            yawAngle = -36;
-            tiltAngle = 22;
-        } else if (activeDevice === "base") {
-            yawAngle = -28;
-            tiltAngle = 12;
-        } else {
-            yawAngle = -14;
-            tiltAngle = 18;
-        }
+    Behavior on zoomFactor {
+        NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
     }
 
-    onActiveDeviceChanged: resetCamera()
+    readonly property bool isAnimated: root.isLive && root.ledOn && root.ledMode !== "static" && root.ledMode !== "wasd_gaming" && root.ledMode !== "off"
+
+    function resetCamera() {
+        yawAngle = -4;
+        tiltAngle = 26;
+        zoomFactor = 0.94;
+    }
 
     function hsvToColor(h, s, v) {
         let hue = ((h % 1.0) + 1.0) % 1.0;
@@ -89,20 +83,33 @@ Item {
     }
 
     function keyLedColor(k) {
-        if (!root.ledOn || root.ledMode === "off") return Qt.rgba(0.06, 0.07, 0.09, 1.0);
+        if (root.smoothBrightness <= 0.005) return Qt.rgba(0.06, 0.07, 0.09, 1.0);
         let nx = k.nx, nz = k.nz;
-        let baseH = colorToHue(root.ledColor);
+        let baseCol = root.smoothLedColor;
+        let baseH = colorToHue(baseCol);
         let p = root.phase;
 
         switch (root.ledMode) {
             case "rainbow":
-                return hsvToColor(nx * 0.85 + nz * 0.25 - p, 0.94, 1.0);
+                return root.multiColor ? hsvToColor(nx * 0.85 + nz * 0.25 - p, 0.94, 1.0) : baseCol;
             case "horizontal_wave":
-                return hsvToColor(nx - p, 0.92, 1.0);
+                return root.multiColor ? hsvToColor(nx - p, 0.92, 1.0) : baseCol;
             case "vertical_wave":
-                return hsvToColor(nz - p, 0.92, 1.0);
+                return root.multiColor ? hsvToColor(nz - p, 0.92, 1.0) : baseCol;
             case "color_cycle":
-                return hsvToColor(p, 0.92, 1.0);
+                return root.multiColor ? hsvToColor(p, 0.92, 1.0) : baseCol;
+            case "breathing_cycle":
+                return root.multiColor ? hsvToColor(p * 0.5, 0.92, 1.0) : baseCol;
+            case "col_scan":
+            case "wide_sweep":
+                return root.multiColor ? hsvToColor(nx * 0.6 + nz * 0.3 - p, 0.92, 1.0) : baseCol;
+            case "pinwheel": {
+                let ang = (Math.atan2(nz - 0.5, nx - 0.5) / 6.28318 + 1.0) % 1.0;
+                return root.multiColor ? hsvToColor(ang - p, 0.92, 1.0) : baseCol;
+            }
+            case "reactive_cluster":
+            case "inverted_reactive":
+                return root.multiColor ? hsvToColor(nx * 0.65 + nz * 0.2 + p * 0.35, 0.92, 1.0) : baseCol;
             case "gradient":
                 return root.multiColor
                     ? hsvToColor(nx * 0.45 + Math.sin(p * 6.28318) * 0.2, 0.90, 1.0)
@@ -110,18 +117,18 @@ Item {
             case "sine_wave":
                 return root.multiColor
                     ? hsvToColor(nx * 0.7 + p, 0.92, 1.0)
-                    : root.ledColor;
+                    : baseCol;
             case "ripple": {
                 let dist = Math.hypot(nx - 0.5, nz - 0.5);
-                return root.multiColor ? hsvToColor(dist * 1.4 - p * 1.5, 0.92, 1.0) : root.ledColor;
+                return root.multiColor ? hsvToColor(dist * 1.4 - p * 1.5, 0.92, 1.0) : baseCol;
             }
             case "center_split": {
                 let d = Math.abs(nx - 0.5) * 2.0;
-                return root.multiColor ? hsvToColor(d * 0.8 - p, 0.92, 1.0) : root.ledColor;
+                return root.multiColor ? hsvToColor(d * 0.8 - p, 0.92, 1.0) : baseCol;
             }
             case "radar": {
                 let ang = (Math.atan2(nz - 0.5, nx - 0.5) / 6.28318 + 1.0) % 1.0;
-                return root.multiColor ? hsvToColor(ang - p, 0.92, 1.0) : root.ledColor;
+                return root.multiColor ? hsvToColor(ang - p, 0.92, 1.0) : baseCol;
             }
             case "raindrop":
             case "starlight":
@@ -133,27 +140,74 @@ Item {
                     let h = (hash01(k.row, k.col) * 0.75 + p * 0.5 + nx * 0.25) % 1.0;
                     return hsvToColor(h, 0.92, 1.0);
                 }
-                return root.ledColor;
+                return baseCol;
             }
             case "wasd_gaming":
-                return k.isGame ? (root.multiColor ? "#ff2d3b" : root.ledColor) : Qt.rgba(0.14, 0.16, 0.22, 1.0);
+                return k.isGame ? (root.multiColor ? "#ff2d3b" : baseCol) : Qt.rgba(0.14, 0.16, 0.22, 1.0);
             case "breathing":
             case "static":
             default:
-                return root.multiColor ? hsvToColor(nx * 0.65 + nz * 0.15, 0.90, 1.0) : root.ledColor;
+                return root.multiColor ? hsvToColor(nx * 0.65 + nz * 0.15, 0.90, 1.0) : baseCol;
         }
     }
 
     function keyLedIntensity(k) {
-        if (!root.ledOn || root.ledMode === "off") return 0.0;
+        if (root.smoothBrightness <= 0.005) return 0.0;
         let dim = root.connected ? 1.0 : 0.82;
-        let b = root.ledBrightness * dim;
+        let b = root.smoothBrightness * dim;
         let nx = k.nx, nz = k.nz, p = root.phase;
 
         switch (root.ledMode) {
-            case "breathing": {
+            case "rainbow":
+            case "horizontal_wave": {
+                if (root.multiColor) return b;
+                let w = 0.5 + 0.5 * Math.sin((nx - p) * 6.28318);
+                return b * (0.14 + 0.86 * w);
+            }
+            case "vertical_wave": {
+                if (root.multiColor) return b;
+                let w = 0.5 + 0.5 * Math.sin((nz - p) * 6.28318);
+                return b * (0.14 + 0.86 * w);
+            }
+            case "breathing":
+            case "breathing_cycle": {
                 let pulse = 0.14 + 0.86 * (0.5 + 0.5 * Math.sin(p * 6.28318));
                 return b * pulse;
+            }
+            case "col_scan": {
+                let colSeed = hash01(k.col, 17.0);
+                let head = (p * 1.65 + colSeed * 1.45) % 1.45;
+                let dy = head - nz;
+                let glow = (dy >= 0 && dy < 0.44) ? (1.0 - dy / 0.44) : 0.06;
+                return b * glow;
+            }
+            case "pinwheel": {
+                let ang = (Math.atan2(nz - 0.5, nx - 0.5) / 6.28318 + 1.0) % 1.0;
+                let wave = 0.5 + 0.5 * Math.sin((ang - p) * 6.28318);
+                return root.multiColor ? b : b * (0.48 + 0.52 * wave);
+            }
+            case "wide_sweep": {
+                let center = 0.5 + 0.42 * Math.sin(p * 6.28318);
+                let dist = Math.abs(nx - center);
+                let band = dist < 0.22 ? 1.0 : (dist < 0.34 ? (1.0 - (dist - 0.22) / 0.12) : 0.08);
+                return b * Math.max(0.08, band);
+            }
+            case "reactive_cluster": {
+                let tSlot = Math.floor(p * 12.0);
+                let sub = (p * 12.0) - tSlot;
+                let targetX = 0.12 + hash01(tSlot, 7.0) * 0.76;
+                let targetZ = 0.15 + hash01(tSlot, 29.0) * 0.70;
+                let d = Math.hypot(nx - targetX, (nz - targetZ) * 0.65);
+                let glow = d < 0.24 ? (1.0 - d / 0.24) * (1.0 - sub * 0.85) : 0.06;
+                return b * Math.max(0.06, glow);
+            }
+            case "inverted_reactive": {
+                let tSlot = Math.floor(p * 14.0);
+                let sub = (p * 14.0) - tSlot;
+                let targetRow = Math.floor(hash01(tSlot, 29.0) * 5.0);
+                let targetCol = Math.floor(hash01(tSlot, 7.0) * 14.0);
+                let isHit = (k.row === targetRow && k.col === targetCol);
+                return b * (isHit ? (0.06 + 0.94 * sub) : 1.0);
             }
             case "ripple": {
                 let dist = Math.hypot(nx - 0.5, nz - 0.5);
@@ -161,9 +215,9 @@ Item {
                 return b * wave;
             }
             case "sine_wave": {
-                let targetZ = 0.5 + 0.36 * Math.sin(nx * 8.0 - p * 6.28318);
+                let targetZ = 0.5 + 0.42 * Math.sin(nx * 9.5 - p * 6.28318);
                 let d = Math.abs(nz - targetZ);
-                return b * Math.max(0.14, 1.0 - d * 3.1);
+                return b * Math.max(0.08, 1.0 - d * 3.8);
             }
             case "marquee": {
                 let idx = (k.row % 2 === 0) ? (k.row * 16 + k.col) : (k.row * 16 + (15 - k.col));
@@ -202,14 +256,12 @@ Item {
                 return b * (diff < 0.25 ? (1.0 - diff * 3.6) : 0.12);
             }
             case "reactive_typing": {
-                let tSlot = Math.floor(p * 18.0);
-                let activeSeed = hash01(tSlot, 7.0);
-                let sub = (p * 18.0) - tSlot;
-                let targetX = activeSeed;
-                let targetZ = hash01(tSlot, 29.0);
-                let d = Math.hypot(nx - targetX, (nz - targetZ) * 0.6);
-                let burst = d < 0.18 ? (1.0 - sub) : 0.08;
-                return b * Math.max(0.08, burst);
+                let tSlot = Math.floor(p * 16.0);
+                let sub = (p * 16.0) - tSlot;
+                let targetRow = Math.floor(hash01(tSlot, 29.0) * 5.0);
+                let targetCol = Math.floor(hash01(tSlot, 7.0) * 14.0);
+                let isHit = (k.row === targetRow && k.col === targetCol);
+                return b * (isHit ? Math.max(0.08, 1.0 - sub) : 0.06);
             }
             case "crosshair": {
                 let cx = 0.5 + 0.45 * Math.sin(p * 6.28318);
@@ -227,11 +279,11 @@ Item {
     }
 
     Timer {
-        interval: 40
+        interval: 75
         repeat: true
         running: root.isAnimated
         onTriggered: {
-            root.phase = (root.phase + 0.012 * root.ledSpeed) % 1.0;
+            root.phase = (root.phase + 0.022 * root.ledSpeed) % 1.0;
         }
     }
 
@@ -254,6 +306,8 @@ Item {
                     "col": i,
                     "nx": (cur + w / 2) / 16.0,
                     "nz": (rowIdx + 0.5) / 5.0,
+                    "label": sp.l || "",
+                    "sub": sp.s || "",
                     "isSpace": !!sp.space,
                     "isEsc": !!sp.esc,
                     "isGame": !!sp.game,
@@ -264,25 +318,45 @@ Item {
                 cur += w;
             }
         }
-        // Row 0: Esc, 1..0, ', ¿, Bksp(2u), Supr
+        // Row 0: Esc(X), 1..0, ', ¿, Bksp(2u), Supr
         addRow(0, [
-            {w:1, esc:true, game:true}, {w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:2},{w:1}
+            {w:1, l:"✕", esc:true, game:true},
+            {w:1, l:"1", s:"F1"}, {w:1, l:"2", s:"F2"}, {w:1, l:"3", s:"F3"},
+            {w:1, l:"4", s:"F4"}, {w:1, l:"5", s:"F5"}, {w:1, l:"6", s:"F6"},
+            {w:1, l:"7", s:"F7"}, {w:1, l:"8", s:"F8"}, {w:1, l:"9", s:"F9"},
+            {w:1, l:"0", s:"F10"}, {w:1, l:"'", s:"F11"}, {w:1, l:"¿", s:"F12"},
+            {w:2, l:"←"}, {w:1, l:"Supr"}
         ]);
-        // Row 1: Tab(1.5), Q, W, E, R, T, Y, U, I, O, P, `, +, EnterTop(1.5), RePag(1)
+        // Row 1: Tab(1.5), Q..P, `, +, EnterTop(1.5), RePág(1)
         addRow(1, [
-            {w:1.5}, {w:1},{w:1, game:true},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1.5, enterTop:true},{w:1}
+            {w:1.5, l:"Tab"},
+            {w:1, l:"Q"}, {w:1, l:"W", game:true}, {w:1, l:"E"}, {w:1, l:"R"},
+            {w:1, l:"T"}, {w:1, l:"Y"}, {w:1, l:"U"}, {w:1, l:"I"},
+            {w:1, l:"O"}, {w:1, l:"P"}, {w:1, l:"`", s:"Ini"}, {w:1, l:"+", s:"Fin"},
+            {w:1.5, l:"↵", enterTop:true}, {w:1, l:"RePág"}
         ]);
-        // Row 2: BloqMayus(1.75), A, S, D, F, G, H, J, K, L, Ñ, ´, }, EnterBot(1.25), AvPag(1)
+        // Row 2: Bloq Mayús(1.75), A..Ñ, ´, }, EnterBot(1.25), AvPág(1)
         addRow(2, [
-            {w:1.75}, {w:1, game:true},{w:1, game:true},{w:1, game:true},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1.25, enterBot:true},{w:1}
+            {w:1.75, l:"Bloq"},
+            {w:1, l:"A", game:true}, {w:1, l:"S", game:true}, {w:1, l:"D", game:true},
+            {w:1, l:"F"}, {w:1, l:"G"}, {w:1, l:"H"}, {w:1, l:"J"},
+            {w:1, l:"K"}, {w:1, l:"L"}, {w:1, l:"Ñ", s:"Imp"}, {w:1, l:"´", s:"Ins"},
+            {w:1, l:"}"}, {w:1.25, l:"", enterBot:true}, {w:1, l:"AvPág"}
         ]);
-        // Row 3: ShiftL(1.25), <>, Z..M(7), ,, ., -, ShiftR(1.75), Up(1), End(1)
+        // Row 3: Mayús(1.25), <>, Z..M, ,, ., -, Mayús(1.75), ▲, Fin
         addRow(3, [
-            {w:1.25}, {w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1},{w:1.75},{w:1, game:true},{w:1}
+            {w:1.25, l:"Mayús"}, {w:1, l:"<>"},
+            {w:1, l:"Z"}, {w:1, l:"X"}, {w:1, l:"C"}, {w:1, l:"V"},
+            {w:1, l:"B"}, {w:1, l:"N"}, {w:1, l:"M"},
+            {w:1, l:","}, {w:1, l:"."}, {w:1, l:"-"},
+            {w:1.75, l:"Mayús"}, {w:1, l:"▲", game:true}, {w:1, l:"Fin"}
         ]);
-        // Row 4: Ctrl(1.25), Win(1.25), Alt(1.25), Space(6.25), AltGr(1), Fn(1), Menu(1), Left(1), Down(1), Right(1)
+        // Row 4: Ctrl, Win, Alt, Space(6.25), AltGr, Fn, Menu, ◀, ▼, ▶
         addRow(4, [
-            {w:1.25},{w:1.25},{w:1.25},{w:6.25, space:true},{w:1},{w:1},{w:1},{w:1, game:true},{w:1, game:true},{w:1, game:true}
+            {w:1.25, l:"Ctrl"}, {w:1.25, l:"⊞"}, {w:1.25, l:"Alt"},
+            {w:6.25, l:"TERPORT          —          TR69N", space:true},
+            {w:1, l:"AltGr"}, {w:1, l:"Fn"}, {w:1, l:"▤"},
+            {w:1, l:"◀", game:true}, {w:1, l:"▼", game:true}, {w:1, l:"▶", game:true}
         ]);
         return keys;
     }
@@ -295,109 +369,48 @@ Item {
             clearColor: "transparent"
             backgroundMode: SceneEnvironment.Transparent
             antialiasingMode: SceneEnvironment.MSAA
-            antialiasingQuality: SceneEnvironment.High
+            antialiasingQuality: SceneEnvironment.Medium
         }
 
         PerspectiveCamera {
             id: cam
-            position: {
-                if (root.activeDevice === "monitor") return Qt.vector3d(0, 1.8, 21.8);
-                if (root.activeDevice === "mouse") return Qt.vector3d(0, 4.2, 10.6);
-                if (root.activeDevice === "base") return Qt.vector3d(0, 5.6, 19.2);
-                return Qt.vector3d(0, 9.6, 21.0);
-            }
-            eulerRotation: {
-                if (root.activeDevice === "monitor") return Qt.vector3d(-4.5, 0, 0);
-                if (root.activeDevice === "mouse") return Qt.vector3d(-21, 0, 0);
-                if (root.activeDevice === "base") return Qt.vector3d(-16, 0, 0);
-                return Qt.vector3d(-24.5, 0, 0);
-            }
-            fieldOfView: 35
+            position: Qt.vector3d(0, 8.8 * root.zoomFactor, 12.2 * root.zoomFactor)
+            eulerRotation: Qt.vector3d(-35.8, 0, 0)
+            fieldOfView: 34
             clipNear: 0.5
             clipFar: 120
         }
 
         DirectionalLight {
-            eulerRotation: Qt.vector3d(-50, 28, 0)
-            brightness: 1.45
-            color: "#f1f5f9"
+            eulerRotation: Qt.vector3d(-52, 26, 0)
+            brightness: 1.55
+            color: "#f8fafc"
         }
 
         DirectionalLight {
-            eulerRotation: Qt.vector3d(-20, -145, 0)
-            brightness: 0.65
+            eulerRotation: Qt.vector3d(-22, -145, 0)
+            brightness: 0.72
             color: "#94a3b8"
+        }
+
+        DirectionalLight {
+            eulerRotation: Qt.vector3d(-15, 165, 0)
+            brightness: 0.42
+            color: "#7dd3fc"
         }
 
         PointLight {
             position: Qt.vector3d(0, 4.2, 2.2)
-            brightness: {
-                if (root.activeDevice === "base") return root.baseOn ? 1.8 : 0.35;
-                if (root.activeDevice === "monitor") return root.monitorConnected ? 1.4 : 0.35;
-                if (root.activeDevice === "mouse") return root.mouseConnected ? 1.8 : 1.15;
-                return (root.ledOn && root.ledMode !== "off") ? (2.2 * root.ledBrightness) : 0.25;
-            }
-            color: {
-                if (root.activeDevice === "base") return root.baseOn ? "#22d3ee" : "#334155";
-                if (root.activeDevice === "monitor") return root.ledColor;
-                if (root.activeDevice === "mouse") return "#cbd5e1";
-                return (root.ledMode === "rainbow" || root.ledMode === "color_cycle")
-                    ? root.hsvToColor(0.5 - root.phase, 0.85, 1.0)
-                    : ((root.ledOn && root.ledMode !== "off") ? root.ledColor : "#334155");
-            }
+            brightness: root.smoothBrightness > 0.005 ? (2.35 * root.smoothBrightness) : 0.25
+            color: (root.multiColor && root.smoothBrightness > 0.005)
+                ? root.hsvToColor(0.5 - root.phase, 0.85, 1.0)
+                : (root.smoothBrightness > 0.005 ? root.smoothLedColor : "#334155")
             linearFade: 0.08
-        }
-
-        // Orbitable Monitor 3D Node
-        Node {
-            visible: root.activeDevice === "monitor"
-            position: Qt.vector3d(0, 0.08, 0)
-            eulerRotation: Qt.vector3d(root.tiltAngle, root.yawAngle, 0)
-            Behavior on eulerRotation {
-                enabled: !orbitMa.pressed
-                Vector3dAnimation { duration: 280; easing.type: Easing.OutCubic }
-            }
-            MonitorModel3D {
-                connected: root.monitorConnected
-                accentColor: root.ledColor
-                monitorStyle: root.monitorStyle
-            }
-        }
-
-        // Orbitable Mouse 3D Node
-        Node {
-            visible: root.activeDevice === "mouse"
-            position: Qt.vector3d(0, -0.51, 0)
-            eulerRotation: Qt.vector3d(root.tiltAngle, root.yawAngle, 0)
-            Behavior on eulerRotation {
-                enabled: !orbitMa.pressed
-                Vector3dAnimation { duration: 280; easing.type: Easing.OutCubic }
-            }
-            MouseModel3D {
-                connected: root.mouseConnected
-            }
-        }
-
-        // Orbitable Cooling Base 3D Node
-        Node {
-            visible: root.activeDevice === "base"
-            position: Qt.vector3d(0, 0.10, 0)
-            eulerRotation: Qt.vector3d(root.tiltAngle, root.yawAngle, 0)
-            Behavior on eulerRotation {
-                enabled: !orbitMa.pressed
-                Vector3dAnimation { duration: 280; easing.type: Easing.OutCubic }
-            }
-            CoolingBaseModel3D {
-                baseOn: root.baseOn
-                accentColor: "#06b6d4"
-                isLive: root.isLive && root.activeDevice === "base"
-            }
         }
 
         Node {
             id: kbRig
-            visible: root.activeDevice === "keyboard"
-            position: Qt.vector3d(0, -0.05, 0)
+            position: Qt.vector3d(0, 0.12, 0)
             // Subtle natural keyboard typing wedge tilt (+5 deg forward slope) + orbit
             eulerRotation: Qt.vector3d(root.tiltAngle + 5, root.yawAngle, 0)
 
@@ -406,187 +419,181 @@ Item {
                 Vector3dAnimation { duration: 280; easing.type: Easing.OutCubic }
             }
 
-            // Main Dark Smoked Translucent Case Lower Body
+            // Ultra-Slim Smoked Polycarbonate Lower Base (Terport TR69N)
             Model {
                 source: "#Cube"
-                position: Qt.vector3d(0, -0.46, 0)
-                scale: Qt.vector3d(0.172, 0.0078, 0.059)
+                position: Qt.vector3d(0, -0.44, 0)
+                scale: Qt.vector3d(0.165, 0.0056, 0.0535)
                 materials: PrincipledMaterial {
-                    baseColor: "#101218"
-                    metalness: 0.42
-                    roughness: 0.36
-                    specularAmount: 0.8
+                    baseColor: "#141210"
+                    metalness: 0.25
+                    roughness: 0.14
+                    clearcoatAmount: 0.85
+                    clearcoatRoughnessAmount: 0.08
+                    specularAmount: 0.95
                 }
             }
 
-            // Glossy Smoked Acrylic Side Underglow Strip
+            // Frosted Smoked Acrylic Perimeter Underglow Strip
             Model {
                 source: "#Cube"
-                position: Qt.vector3d(0, -0.34, 0)
-                scale: Qt.vector3d(0.1725, 0.0014, 0.0595)
+                position: Qt.vector3d(0, -0.26, 0)
+                scale: Qt.vector3d(0.1662, 0.0014, 0.0546)
                 materials: PrincipledMaterial {
-                    baseColor: "#1b1f29"
-                    opacity: 0.70
+                    baseColor: "#26211c"
+                    opacity: 0.72
                     alphaMode: PrincipledMaterial.Blend
-                    emissiveFactor: (root.ledOn && root.ledMode !== "off")
+                    emissiveFactor: root.smoothBrightness > 0.005
                         ? Qt.vector3d(
-                            root.keyLedColor(root.keyLayout[34]).r * root.ledBrightness * 0.22,
-                            root.keyLedColor(root.keyLayout[34]).g * root.ledBrightness * 0.22,
-                            root.keyLedColor(root.keyLayout[34]).b * root.ledBrightness * 0.22)
+                            root.keyLedColor(root.keyLayout[34]).r * root.smoothBrightness * 0.35,
+                            root.keyLedColor(root.keyLayout[34]).g * root.smoothBrightness * 0.35,
+                            root.keyLedColor(root.keyLayout[34]).b * root.smoothBrightness * 0.35)
                         : Qt.vector3d(0, 0, 0)
-                    roughness: 0.2
+                    roughness: 0.12
                 }
             }
 
-            // Inner LED Switch Plate / Reflector Deck
+            // Inner Dark PCB / Switch Plate
             Model {
                 source: "#Cube"
                 position: Qt.vector3d(0, -0.10, 0)
-                scale: Qt.vector3d(0.163, 0.0018, 0.052)
+                scale: Qt.vector3d(0.162, 0.0016, 0.0515)
                 materials: PrincipledMaterial {
-                    baseColor: "#0a0c12"
-                    metalness: 0.3
-                    roughness: 0.22
-                    emissiveFactor: (root.ledOn && root.ledMode !== "off")
+                    baseColor: "#0e0d0c"
+                    metalness: 0.20
+                    roughness: 0.24
+                    emissiveFactor: root.smoothBrightness > 0.005
                         ? Qt.vector3d(
-                            root.keyLedColor(root.keyLayout[34]).r * root.ledBrightness * 0.30,
-                            root.keyLedColor(root.keyLayout[34]).g * root.ledBrightness * 0.30,
-                            root.keyLedColor(root.keyLayout[34]).b * root.ledBrightness * 0.30)
+                            root.keyLedColor(root.keyLayout[34]).r * root.smoothBrightness * 0.32,
+                            root.keyLedColor(root.keyLayout[34]).g * root.smoothBrightness * 0.32,
+                            root.keyLedColor(root.keyLayout[34]).b * root.smoothBrightness * 0.32)
                         : Qt.vector3d(0, 0, 0)
                 }
             }
 
-            // Outer Bezel Walls (Front, Back, Left, Right)
+            // Razor-Thin Glossy Smoked Acrylic Bezel Walls (lower profile so keycaps rise boldly above)
             Model {
                 source: "#Cube"
-                position: Qt.vector3d(0, -0.05, 2.79)
-                scale: Qt.vector3d(0.172, 0.0096, 0.0032)
-                materials: PrincipledMaterial { baseColor: "#161922"; metalness: 0.50; roughness: 0.30 }
+                position: Qt.vector3d(0, -0.14, 2.66)
+                scale: Qt.vector3d(0.166, 0.0064, 0.0018)
+                materials: PrincipledMaterial { baseColor: "#1d1b18"; metalness: 0.28; roughness: 0.12; clearcoatAmount: 0.85; clearcoatRoughnessAmount: 0.08 }
             }
             Model {
                 source: "#Cube"
-                position: Qt.vector3d(0, -0.05, -2.79)
-                scale: Qt.vector3d(0.172, 0.0096, 0.0032)
-                materials: PrincipledMaterial { baseColor: "#161922"; metalness: 0.50; roughness: 0.30 }
+                position: Qt.vector3d(0, -0.14, -2.66)
+                scale: Qt.vector3d(0.166, 0.0064, 0.0018)
+                materials: PrincipledMaterial { baseColor: "#1d1b18"; metalness: 0.28; roughness: 0.12; clearcoatAmount: 0.85; clearcoatRoughnessAmount: 0.08 }
             }
             Model {
                 source: "#Cube"
-                position: Qt.vector3d(-8.44, -0.05, 0)
-                scale: Qt.vector3d(0.0032, 0.0096, 0.059)
-                materials: PrincipledMaterial { baseColor: "#161922"; metalness: 0.50; roughness: 0.30 }
+                position: Qt.vector3d(-8.26, -0.14, 0)
+                scale: Qt.vector3d(0.0018, 0.0064, 0.0548)
+                materials: PrincipledMaterial { baseColor: "#1d1b18"; metalness: 0.28; roughness: 0.12; clearcoatAmount: 0.85; clearcoatRoughnessAmount: 0.08 }
             }
             Model {
                 source: "#Cube"
-                position: Qt.vector3d(8.44, -0.05, 0)
-                scale: Qt.vector3d(0.0032, 0.0096, 0.059)
-                materials: PrincipledMaterial { baseColor: "#161922"; metalness: 0.50; roughness: 0.30 }
-            }
-
-            // Top-Left USB-C Housing + Wired Cable (like physical TR69N)
-            Model {
-                source: "#Cube"
-                position: Qt.vector3d(-7.15, -0.22, -3.22)
-                scale: Qt.vector3d(0.0090, 0.0052, 0.0085)
-                materials: PrincipledMaterial {
-                    baseColor: root.connected ? "#2a3345" : "#171a22"
-                    metalness: 0.65
-                    roughness: 0.28
-                    emissiveFactor: root.connected ? Qt.vector3d(0.06, 0.32, 0.16) : Qt.vector3d(0, 0, 0)
-                }
-            }
-            Model {
-                source: "#Cube"
-                position: Qt.vector3d(-7.15, -0.24, -4.45)
-                scale: Qt.vector3d(0.0024, 0.0024, 0.022)
-                materials: PrincipledMaterial {
-                    baseColor: root.connected ? "#384457" : "#15171c"
-                    roughness: 0.6
-                }
+                position: Qt.vector3d(8.26, -0.14, 0)
+                scale: Qt.vector3d(0.0018, 0.0064, 0.0548)
+                materials: PrincipledMaterial { baseColor: "#1d1b18"; metalness: 0.28; roughness: 0.12; clearcoatAmount: 0.85; clearcoatRoughnessAmount: 0.08 }
             }
 
-            // 69 Sculpted Translucent Smoked Keycaps + Inner Stem LED Diffusers
+            // 69 Crystal-Smoked Translucent Polycarbonate Keycaps + Visible '+' Cross-Stems
             Repeater3D {
                 model: root.keyLayout
                 delegate: Node {
                     required property var modelData
                     readonly property real u: 1.01
-                    readonly property color kCol: root.keyLedColor(modelData)
-                    readonly property real kInt: root.keyLedIntensity(modelData)
+                    property color kCol: root.keyLedColor(modelData)
+                    property real kInt: root.keyLedIntensity(modelData)
                     readonly property real yBase: 0.14 + modelData.rowHeightBias
+
+                    Behavior on kCol { ColorAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                    Behavior on kInt { NumberAnimation { duration: 130; easing.type: Easing.OutQuad } }
 
                     position: Qt.vector3d(modelData.cx * u, yBase, modelData.cz * u)
 
-                    // 1. Bright PCB LED hotspot right underneath keycap
+                    // 1. Bright PCB LED hotspot underneath switch
                     Model {
                         source: "#Cube"
                         position: Qt.vector3d(0, -0.14, 0)
-                        scale: Qt.vector3d(modelData.w * u * 0.0058, 0.0014, modelData.d * u * 0.0058)
+                        scale: Qt.vector3d(modelData.w * u * 0.0056, 0.0014, modelData.d * u * 0.0056)
                         materials: PrincipledMaterial {
                             baseColor: kCol
-                            emissiveFactor: Qt.vector3d(kCol.r * kInt * 2.8, kCol.g * kInt * 2.8, kCol.b * kInt * 2.8)
-                            roughness: 0.3
+                            emissiveFactor: Qt.vector3d(kCol.r * kInt * 3.1, kCol.g * kInt * 3.1, kCol.b * kInt * 3.1)
+                            roughness: 0.25
                         }
                     }
 
-                    // 2. Inner cross-stem / diffuser pillar visible through translucent keycap walls
+                    // 2. Signature visible '+' mechanical switch cross-stem inside smoked keycap
                     Model {
                         source: "#Cube"
-                        position: Qt.vector3d(0, 0.01, 0)
-                        scale: Qt.vector3d(modelData.w * u * 0.0038, 0.0030, modelData.d * u * 0.0038)
+                        position: Qt.vector3d(0, 0.18, 0)
+                        scale: Qt.vector3d(0.0034, 0.0048, 0.0010)
                         materials: PrincipledMaterial {
-                            baseColor: kCol
-                            emissiveFactor: Qt.vector3d(kCol.r * kInt * 1.9, kCol.g * kInt * 1.9, kCol.b * kInt * 1.9)
-                            roughness: 0.35
+                            baseColor: "#2d2823"
+                            roughness: 0.45
+                            emissiveFactor: Qt.vector3d(kCol.r * kInt * 0.45, kCol.g * kInt * 0.45, kCol.b * kInt * 0.45)
+                        }
+                    }
+                    Model {
+                        source: "#Cube"
+                        position: Qt.vector3d(0, 0.18, 0)
+                        scale: Qt.vector3d(0.0010, 0.0048, 0.0034)
+                        materials: PrincipledMaterial {
+                            baseColor: "#2d2823"
+                            roughness: 0.45
+                            emissiveFactor: Qt.vector3d(kCol.r * kInt * 0.45, kCol.g * kInt * 0.45, kCol.b * kInt * 0.45)
                         }
                     }
 
-                    // 3. Smoked translucent lower keycap skirt (wider base)
+                    // 3. Tall glossy smoked-glass lower skirt (OEM mechanical keycap base)
                     Model {
                         source: "#Cube"
-                        position: Qt.vector3d(0, -0.02, 0)
-                        scale: Qt.vector3d(modelData.w * u * 0.0090, 0.0024, modelData.d * u * 0.0090)
+                        position: Qt.vector3d(0, 0.09, 0)
+                        scale: Qt.vector3d(modelData.w * u * 0.0091, 0.0044, modelData.d * u * 0.0091)
                         materials: PrincipledMaterial {
-                            baseColor: "#14171f"
-                            opacity: 0.60
+                            baseColor: "#2a231d"
+                            opacity: 0.46
                             alphaMode: PrincipledMaterial.Blend
-                            roughness: 0.18
-                            specularAmount: 0.90
-                            emissiveFactor: Qt.vector3d(kCol.r * kInt * 0.52, kCol.g * kInt * 0.52, kCol.b * kInt * 0.52)
+                            roughness: 0.08
+                            specularAmount: 1.0
+                            clearcoatAmount: 0.92
+                            clearcoatRoughnessAmount: 0.06
+                            emissiveFactor: Qt.vector3d(kCol.r * kInt * 0.65, kCol.g * kInt * 0.65, kCol.b * kInt * 0.65)
                         }
                     }
 
-                    // 4. Tapered upper keycap crown (narrower top surface, darker smoked tint)
+                    // 4. Mid tapered OEM wall for realistic 3D sculpted volume
                     Model {
                         source: "#Cube"
-                        position: Qt.vector3d(0, 0.14, 0)
-                        scale: Qt.vector3d(modelData.w * u * 0.0074, 0.0022, modelData.d * u * 0.0074)
+                        position: Qt.vector3d(0, 0.33, 0)
+                        scale: Qt.vector3d(modelData.w * u * 0.0082, 0.0024, modelData.d * u * 0.0082)
                         materials: PrincipledMaterial {
-                            baseColor: modelData.isEsc ? "#242834" : "#181b23"
-                            opacity: 0.84
+                            baseColor: "#28221c"
+                            opacity: 0.54
                             alphaMode: PrincipledMaterial.Blend
-                            roughness: 0.24
-                            specularAmount: 0.85
-                            emissiveFactor: Qt.vector3d(kCol.r * kInt * 0.28, kCol.g * kInt * 0.28, kCol.b * kInt * 0.28)
+                            roughness: 0.08
+                            specularAmount: 1.0
+                            clearcoatAmount: 0.94
+                            clearcoatRoughnessAmount: 0.06
+                            emissiveFactor: Qt.vector3d(kCol.r * kInt * 0.46, kCol.g * kInt * 0.46, kCol.b * kInt * 0.46)
                         }
                     }
 
-                    // 5. Keycap glowing legend bar (replicates shine-through legends & Esc X / Terport Spacebar)
+                    // 5. Sculpted glossy smoked polycarbonate top crown
                     Model {
                         source: "#Cube"
-                        position: Qt.vector3d(
-                            modelData.isSpace ? 0 : (-modelData.w * u * 0.14),
-                            0.255,
-                            modelData.isSpace ? 0.08 : -0.14
-                        )
-                        scale: modelData.isSpace
-                            ? Qt.vector3d(0.024, 0.0004, 0.0014)
-                            : (modelData.isEsc ? Qt.vector3d(0.0036, 0.0005, 0.0036) : Qt.vector3d(0.0022, 0.0004, 0.0012))
+                        position: Qt.vector3d(0, 0.48, 0)
+                        scale: Qt.vector3d(modelData.w * u * 0.0072, 0.0014, modelData.d * u * 0.0072)
                         materials: PrincipledMaterial {
-                            baseColor: modelData.isEsc ? "#f8fafc" : "#cbd5e1"
-                            emissiveFactor: modelData.isEsc
-                                ? Qt.vector3d(0.55 + kCol.r * kInt * 0.5, 0.55 + kCol.g * kInt * 0.5, 0.58 + kCol.b * kInt * 0.5)
-                                : Qt.vector3d(0.18 + kCol.r * kInt * 0.75, 0.18 + kCol.g * kInt * 0.75, 0.20 + kCol.b * kInt * 0.75)
-                            roughness: 0.2
+                            baseColor: "#241f1a"
+                            opacity: 0.62
+                            alphaMode: PrincipledMaterial.Blend
+                            roughness: 0.07
+                            specularAmount: 1.0
+                            clearcoatAmount: 0.95
+                            clearcoatRoughnessAmount: 0.05
+                            emissiveFactor: Qt.vector3d(kCol.r * kInt * 0.34, kCol.g * kInt * 0.34, kCol.b * kInt * 0.34)
                         }
                     }
 
@@ -594,14 +601,72 @@ Item {
                     Model {
                         visible: modelData.isEnterTop
                         source: "#Cube"
-                        position: Qt.vector3d(0.125 * u, 0.06, 0.50 * u)
-                        scale: Qt.vector3d(1.25 * u * 0.0074, 0.0038, 0.90 * u * 0.0074)
+                        position: Qt.vector3d(0.125 * u, 0.24, 0.50 * u)
+                        scale: Qt.vector3d(1.25 * u * 0.0076, 0.0062, 0.90 * u * 0.0076)
                         materials: PrincipledMaterial {
-                            baseColor: "#181b23"
-                            opacity: 0.80
+                            baseColor: "#26211c"
+                            opacity: 0.56
                             alphaMode: PrincipledMaterial.Blend
-                            roughness: 0.24
-                            emissiveFactor: Qt.vector3d(kCol.r * kInt * 0.32, kCol.g * kInt * 0.32, kCol.b * kInt * 0.32)
+                            roughness: 0.08
+                            clearcoatAmount: 0.92
+                            clearcoatRoughnessAmount: 0.06
+                            emissiveFactor: Qt.vector3d(kCol.r * kInt * 0.36, kCol.g * kInt * 0.36, kCol.b * kInt * 0.36)
+                        }
+                    }
+                }
+            }
+
+            // Single Crisp 2D Spanish ISO-ES Legend Overlay Sheet right on top of the sculpted keycaps
+            Node {
+                position: Qt.vector3d(0, 0.72, 0)
+                eulerRotation: Qt.vector3d(-90, 0, 0)
+                scale: Qt.vector3d(0.01616, 0.01616, 0.01616)
+
+                Item {
+                    width: 1000
+                    height: 312.5
+                    x: -width / 2
+                    y: -height / 2
+
+                    Repeater {
+                        model: root.keyLayout
+                        delegate: Item {
+                            required property var modelData
+                            readonly property real cellPx: 62.5
+                            x: (modelData.cx + 8.0 - modelData.w / 2) * cellPx
+                            y: (modelData.cz + 2.5 - modelData.d / 2) * cellPx
+                            width: modelData.w * cellPx
+                            height: modelData.d * cellPx
+
+                            Text {
+                                anchors.top: parent.top
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.topMargin: modelData.isSpace ? 20 : (modelData.isEsc ? 12 : 9)
+                                anchors.leftMargin: modelData.isSpace ? 0 : 10
+                                anchors.rightMargin: modelData.isSpace ? 0 : 10
+                                horizontalAlignment: modelData.isSpace || modelData.isEsc ? Text.AlignHCenter : Text.AlignLeft
+                                text: modelData.label
+                                color: "#f8fafc"
+                                font.family: theme.fontFamily
+                                font.pixelSize: modelData.isEsc ? 26 : (modelData.isSpace ? 13 : (modelData.label.length > 2 ? 11 : 17))
+                                font.weight: modelData.isEsc || modelData.isSpace ? Font.Bold : Font.DemiBold
+                                opacity: 0.94
+                            }
+
+                            Text {
+                                visible: modelData.sub !== ""
+                                anchors.bottom: parent.bottom
+                                anchors.right: parent.right
+                                anchors.bottomMargin: 9
+                                anchors.rightMargin: 10
+                                text: modelData.sub
+                                color: "#f5c542"
+                                font.family: theme.fontFamily
+                                font.pixelSize: 10
+                                font.weight: Font.Bold
+                                opacity: 0.88
+                            }
                         }
                     }
                 }
@@ -631,6 +696,11 @@ Item {
             lastY = mouse.y;
             root.yawAngle = Math.max(-55, Math.min(55, root.yawAngle + dx * 0.45));
             root.tiltAngle = Math.max(-16, Math.min(48, root.tiltAngle + dy * 0.35));
+        }
+        onWheel: (wheel) => {
+            let step = wheel.angleDelta.y > 0 ? -0.08 : 0.08;
+            root.zoomFactor = Math.max(0.60, Math.min(1.65, root.zoomFactor + step));
+            wheel.accepted = true;
         }
         onDoubleClicked: root.resetCamera()
     }

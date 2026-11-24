@@ -1033,7 +1033,7 @@ PanelWindow {
                                 { "key": "agents",    "name": "AI Agents",    "icon": "󰚩", "span": "1x1", "c": 1, "r": 1 },
                                 { "key": "doomsday",  "name": "Doomsday",     "icon": "󰋑", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "nsqk",      "name": "NSQK Tour",    "icon": "󰎈", "span": "2x1", "c": 2, "r": 1 },
-                                { "key": "setup",     "name": "Desk Setup",   "icon": "󰌌", "span": "2x2", "c": 2, "r": 2 },
+                                { "key": "setup",     "name": "Desk Setup",   "icon": "󰌌", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "photo",     "name": "Photos",       "icon": "󰄀", "span": "2x2", "c": 2, "r": 2, "multi": true }
                             ]
 
