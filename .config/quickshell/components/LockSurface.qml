@@ -1290,16 +1290,6 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 12
 
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: root.ctx.userName
-                color: theme.textSub
-                font.family: theme.fontFamily
-                font.pixelSize: 13
-                font.weight: Font.DemiBold
-                opacity: 0.9
-            }
-
             // Password box (Smoked Obsidian Liquid Glass matching desktop top bar)
             Rectangle {
                 id: pill
@@ -1412,7 +1402,7 @@ Item {
                     }
                 }
 
-                // Center viewport (placeholder / error status / password dots)
+                // Center viewport (error status / password dots)
                 Item {
                     id: inputCenterViewport
                     anchors.left: lockBadge.right
@@ -1425,17 +1415,12 @@ Item {
 
                     Text {
                         anchors.centerIn: parent
-                        visible: input.text.length === 0
-                        text: root.ctx.authBusy
-                            ? "Verifying…"
-                            : (root.ctx.authFailed && root.ctx.statusText !== "" ? root.ctx.statusText : "Password")
-                        color: root.ctx.authFailed
-                            ? theme.red
-                            : (root.ctx.authBusy ? theme.textSub : theme.textDim)
-                        opacity: (root.ctx.authFailed || root.ctx.authBusy) ? 1.0 : 0.72
+                        visible: input.text.length === 0 && (root.ctx.authBusy || (root.ctx.authFailed && root.ctx.statusText !== ""))
+                        text: root.ctx.authBusy ? "Verifying…" : root.ctx.statusText
+                        color: root.ctx.authFailed ? theme.red : theme.textSub
                         font.family: theme.fontFamily
                         font.pixelSize: 13
-                        font.weight: (root.ctx.authFailed || root.ctx.authBusy) ? Font.Medium : Font.Normal
+                        font.weight: Font.Medium
                         elide: Text.ElideRight
                         width: Math.min(implicitWidth, parent.width)
                     }

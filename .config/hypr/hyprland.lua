@@ -110,7 +110,7 @@ gaps_out = 8,
 border_size = 2,
 
 col = {
-    active_border   = { colors = {'rgba(bf4148ee)', 'rgba(db7e83ee)'}, angle = 45 },
+    active_border   = { colors = {'rgba(9bbf42ee)', 'rgba(c1db7fee)'}, angle = 45 },
     inactive_border = "rgba(151a2455)",
 },
 
