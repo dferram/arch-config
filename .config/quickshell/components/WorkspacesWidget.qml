@@ -39,19 +39,41 @@ Item {
     // Map of workspace client info: { [wsId]: { count, icon, appClass, title, summary } }
     property var workspaceInfo: ({})
 
+    // Map of live workspace id -> owning monitor id, used to keep each bar
+    // strictly scoped to the workspaces that physically live on its screen.
+    property var wsMonitorMap: {
+        let map = {};
+        let list = (Hyprland.workspaces && Hyprland.workspaces.values) ? Hyprland.workspaces.values : [];
+        for (let i = 0; i < list.length; i++) {
+            let ws = list[i];
+            if (ws && ws.id !== undefined && ws.monitor) {
+                map[ws.id] = ws.monitor.id;
+            }
+        }
+        return map;
+    }
+
+    // Whether a workspace belongs to this bar's monitor. Workspaces not yet
+    // instantiated fall back to the pinned ranges (1-5 primary, 6-10 secondary).
+    function belongsToThisMonitor(id) {
+        if (!hyprMonitor) return true;
+        if (wsMonitorMap[id] !== undefined) return wsMonitorMap[id] === hyprMonitor.id;
+        return isPrimaryScreen ? (id >= 1 && id <= 5) : (id >= 6 && id <= 10);
+    }
+
     // Dynamic model of workspaces:
     // Workspaces 1-5 are always present on primary screen (6-10 on secondary).
-    // In addition, any workspace > 5 with open windows or currently active dynamically appears!
+    // Occupied or active workspaces appear only if they live on this monitor.
     property var workspacesModel: {
         let base = isPrimaryScreen ? [1, 2, 3, 4, 5] : [6, 7, 8, 9, 10];
         let set = new Set(base);
 
-        // Include any workspace that has open windows/clients
+        // Include any workspace that has open windows/clients on this monitor
         for (let wsKey in root.workspaceInfo) {
             let id = parseInt(wsKey);
             if (!isNaN(id) && id > 0) {
                 let info = root.workspaceInfo[wsKey];
-                if (info && info.count > 0) {
+                if (info && info.count > 0 && belongsToThisMonitor(id)) {
                     set.add(id);
                 }
             }
@@ -62,8 +84,8 @@ Item {
             set.add(monitorActiveWorkspace.id);
         }
 
-        // Include focused workspace from Hyprland if valid
-        if (Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id !== undefined && Hyprland.focusedWorkspace.id > 0) {
+        // Include focused workspace only when it lives on this monitor
+        if (Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id !== undefined && Hyprland.focusedWorkspace.id > 0 && belongsToThisMonitor(Hyprland.focusedWorkspace.id)) {
             set.add(Hyprland.focusedWorkspace.id);
         }
 
@@ -129,6 +151,9 @@ Item {
 
     // Official Kitty Terminal SVG
     property string kittySvgUri: "file:///home/ferram/.local/share/icons/kitty.svg"
+
+    // Official Visual Studio Code SVG
+    property string vscodeSvgUri: "file:///home/ferram/.local/share/icons/vscode.svg"
 
     // Official Formula 1 and NBA PNGs
     property string f1SvgUri: "file:///home/ferram/.local/share/icons/f1.png"
@@ -528,6 +553,14 @@ Item {
             return { icon: agIcon, isTerminal: false, isAi: true };
         }
 
+        // Visual Studio Code / Code - OSS (GUI)
+        if (lower === "code" || lower === "code-oss" || lower === "code-insiders" ||
+            lower === "codium" || lower === "vscodium" ||
+            lower.indexOf("vscode") !== -1 || lower.indexOf("code-oss") !== -1 ||
+            lower.indexOf("visual-studio-code") !== -1) {
+            return { icon: root.vscodeSvgUri, isTerminal: false, isAi: false };
+        }
+
         // OpenAI Codex
         if (lower.indexOf("openai-codex") !== -1 || titleLower.indexOf("openai-codex") !== -1) {
             return { icon: "file:///home/ferram/.local/share/icons/chatgpt.svg", isTerminal: false, isAi: true };
@@ -607,9 +640,6 @@ Item {
         }
         if (lower.indexOf("hypr") !== -1 || lower.indexOf("arch") !== -1) {
             return { icon: "file:///home/ferram/.local/share/icons/arch.svg", isTerminal: false, isAi: false };
-        }
-        if (lower.indexOf("code") !== -1 || lower.indexOf("vscode") !== -1) {
-            return { icon: Quickshell.iconPath("code", true) || Quickshell.iconPath("visual-studio-code", true), isTerminal: false, isAi: false };
         }
         if (lower.indexOf("dolphin") !== -1) {
             return { icon: Quickshell.iconPath("org.kde.dolphin", true) || Quickshell.iconPath("system-file-manager", true), isTerminal: false, isAi: false };

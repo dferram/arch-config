@@ -154,7 +154,6 @@ ShellRoot {
             let next = timers.slice();
             next.unshift(item);
             timers = next;
-            recordRecent(cleanLabel, sec, sId);
             persist();
         }
 
@@ -301,7 +300,6 @@ ShellRoot {
                 try {
                     let parsed = JSON.parse(txt);
                     let rawTimers = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.timers) ? parsed.timers : []);
-                    let rawRecents = (!Array.isArray(parsed) && Array.isArray(parsed.recents)) ? parsed.recents : [];
                     let nowMs = Date.now();
                     let restored = [];
                     for (let i = 0; i < rawTimers.length; i++) {
@@ -319,7 +317,7 @@ ShellRoot {
                     }
                     sharedTimerService.currentNowMs = nowMs;
                     sharedTimerService.timers = restored;
-                    sharedTimerService.recents = rawRecents;
+                    sharedTimerService.recents = [];
                 } catch(e) {}
             }
         }

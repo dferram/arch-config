@@ -928,14 +928,35 @@ PanelWindow {
                         return isOff ? "file:///home/ferram/.local/share/icons/dnd-off.svg" : "file:///home/ferram/.local/share/icons/dnd-on.svg";
                     }
 
-                    // Calendar / Reminders custom icons (checked before F1/Colgate so Reminders category icons match)
-                    if (lowerApp.includes("remind") || lowerApp.includes("recordatorio") || lowerApp.includes("calendar")) {
-                        if (ctx.includes("sara")) return "file:///home/ferram/.local/share/icons/heart.svg";
-                        if (ctx.includes("marvel") || ctx.includes("doomsday")) return "file:///home/ferram/.local/share/icons/marvel.svg";
-                        if (ctx.includes("f1") || ctx.includes("formula 1") || ctx.includes("formula1") || ctx.includes("grand prix")) return "file:///home/ferram/.local/share/icons/f1.svg";
-                        if (ctx.includes("colgate")) return "file:///home/ferram/.local/share/icons/cp.svg";
-                        if (ctx.includes("troyanos") || ctx.includes("uaq")) return "file:///home/ferram/.local/share/icons/troyanos.svg";
-                        return "file:///home/ferram/.local/share/icons/calendar-3d.svg";
+                    // Reminders custom icons by category/type (never use calendar icon)
+                    if (lowerApp.includes("remind") || lowerApp.includes("recordatorio") || lowerApp.includes("calendar") ||
+                        lowerSum.includes("reminder") || lowerSum.includes("recordatorio")) {
+                        let remCtx = ((card.hintCategory || "") + " " + ctx).toLowerCase();
+                        if (remCtx.includes("sara")) return "file:///home/ferram/.local/share/icons/heart.svg";
+                        if (remCtx.includes("marvel") || remCtx.includes("doomsday")) return "file:///home/ferram/.local/share/icons/marvel.svg";
+                        if (remCtx.includes("f1") || remCtx.includes("formula 1") || remCtx.includes("formula1") || remCtx.includes("grand prix")) return "file:///home/ferram/.local/share/icons/f1.svg";
+                        if (remCtx.includes("colgate")) return "file:///home/ferram/.local/share/icons/cp.svg";
+                        if (remCtx.includes("school") || remCtx.includes("escuela") || remCtx.includes("troyanos") || remCtx.includes("uaq")) return "file:///home/ferram/.local/share/icons/troyanos.svg";
+                        if (remCtx.includes("personal")) {
+                            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%23f97316' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>";
+                        }
+                        if (remCtx.includes("workshop")) {
+                            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%238b5cf6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M2 3h20'/><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'/><path d='m7 21 5-5 5 5'/></svg>";
+                        }
+                        if (remCtx.includes("project")) {
+                            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%2314b8a6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='m18 16 4-4-4-4'/><path d='m6 8-4 4 4 4'/><path d='m14.5 4-5 16'/></svg>";
+                        }
+                        if (remCtx.includes("free lance") || remCtx.includes("free-lance") || remCtx.includes("freelance")) {
+                            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%2306b6d4' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='m18 16 4-4-4-4'/><path d='m6 8-4 4 4 4'/><path d='m14.5 4-5 16'/></svg>";
+                        }
+                        if (remCtx.includes("community") || remCtx.includes("figma") || remCtx.includes("fof") || remCtx.includes("meetup") || remCtx.includes("claude") || remCtx.includes("anthropic") || remCtx.includes("devin") || remCtx.includes("cognition") || remCtx.includes("gdg") || remCtx.includes("devfest")) {
+                            if (remCtx.includes("figma") || remCtx.includes("fof")) return "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/community-fof-qro.svg";
+                            if (remCtx.includes("claude") || remCtx.includes("anthropic")) return "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/claude.svg";
+                            if (remCtx.includes("devin") || remCtx.includes("cognition")) return "file:///usr/share/pixmaps/devin-desktop.png";
+                            if (remCtx.includes("gdg") || remCtx.includes("google developer") || remCtx.includes("devfest") || remCtx.includes("google")) return "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/community-gdg.svg";
+                            return "file:///home/ferram/Personal/dotfiles/.config/quickshell/icons/community-default.svg";
+                        }
+                        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'/><path d='M10.3 21a1.94 1.94 0 0 0 3.4 0'/></svg>";
                     }
 
                     if (palette.isAntigravity) {

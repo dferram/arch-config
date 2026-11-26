@@ -676,6 +676,40 @@ PanelWindow {
             }
         }
 
+        // 18b. Spider-Man: Beyond the Spider-Verse Countdown
+        GridWidgetWrapper {
+            id: itemSpiderVerse
+            overlay: desktopWindow
+            widgetKey: "spiderverse"
+            Loader {
+                anchors.fill: parent
+                active: itemSpiderVerse.opacity > 0.001
+                sourceComponent: Component {
+                    DesktopSpiderVerseWidget {
+                        anchors.fill: parent
+                        isLive: itemSpiderVerse.isLive
+                    }
+                }
+            }
+        }
+
+        // 18c. Your Friendly Neighborhood Spider-Man Season 2 Countdown
+        GridWidgetWrapper {
+            id: itemFriendlySpidey
+            overlay: desktopWindow
+            widgetKey: "friendly_spidey"
+            Loader {
+                anchors.fill: parent
+                active: itemFriendlySpidey.opacity > 0.001
+                sourceComponent: Component {
+                    DesktopFriendlySpideyWidget {
+                        anchors.fill: parent
+                        isLive: itemFriendlySpidey.isLive
+                    }
+                }
+            }
+        }
+
         // 19. AI Agents Live Monitor
         GridWidgetWrapper {
             id: itemAgents
@@ -1031,8 +1065,10 @@ PanelWindow {
                                 { "key": "agenda",    "name": "Today Agenda", "icon": "󰃰", "span": "1x1", "c": 1, "r": 1 },
                                 { "key": "focus",     "name": "Focus Timer",  "icon": "󱎫", "span": "1x1", "c": 1, "r": 1 },
                                 { "key": "agents",    "name": "AI Agents",    "icon": "󰚩", "span": "1x1", "c": 1, "r": 1 },
-                                { "key": "doomsday",  "name": "Doomsday",     "icon": "󰋑", "span": "2x1", "c": 2, "r": 1 },
-                                { "key": "nsqk",      "name": "NSQK Tour",    "icon": "󰎈", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "doomsday",        "name": "Doomsday",          "icon": "󰋑", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "nsqk",            "name": "NSQK Tour",         "icon": "󰎈", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "spiderverse",     "name": "Spider-Verse",      "icon": "󰜃", "span": "2x1", "c": 2, "r": 1 },
+                                { "key": "friendly_spidey", "name": "Spidey S2",         "icon": "󰜃", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "setup",     "name": "Desk Setup",   "icon": "󰌌", "span": "2x1", "c": 2, "r": 1 },
                                 { "key": "photo",     "name": "Photos",       "icon": "󰄀", "span": "2x2", "c": 2, "r": 2, "multi": true }
                             ]

@@ -332,14 +332,25 @@ def toggle_done(rem_id):
             return r
     return None
 
-CUSTOM_ICON = Path.home() / ".local" / "share" / "icons" / "calendar-3d.svg"
-ICON_REMINDER = str(CUSTOM_ICON) if CUSTOM_ICON.exists() else "preferences-system-time"
+ICON_REMINDER = "preferences-system-time"
 ICON_F1_CUSTOM = Path.home() / ".local" / "share" / "icons" / "f1.svg"
 ICON_F1 = str(ICON_F1_CUSTOM) if ICON_F1_CUSTOM.exists() else ICON_REMINDER
 ICON_HEART_CUSTOM = Path.home() / ".local" / "share" / "icons" / "heart.svg"
 ICON_HEART = str(ICON_HEART_CUSTOM) if ICON_HEART_CUSTOM.exists() else ICON_REMINDER
 ICON_MARVEL_CUSTOM = Path.home() / ".local" / "share" / "icons" / "marvel.svg"
 ICON_MARVEL = str(ICON_MARVEL_CUSTOM) if ICON_MARVEL_CUSTOM.exists() else ICON_REMINDER
+ICON_CP_CUSTOM = Path.home() / ".local" / "share" / "icons" / "cp.svg"
+ICON_CP = str(ICON_CP_CUSTOM) if ICON_CP_CUSTOM.exists() else ICON_REMINDER
+ICON_TROYANOS_CUSTOM = Path.home() / ".local" / "share" / "icons" / "troyanos.svg"
+ICON_TROYANOS = str(ICON_TROYANOS_CUSTOM) if ICON_TROYANOS_CUSTOM.exists() else ICON_REMINDER
+_QS_DOTFILES_ICONS = Path(__file__).resolve().parent.parent.parent / ".config" / "quickshell" / "icons"
+_QS_HOME_ICONS = Path.home() / ".config" / "quickshell" / "icons"
+QS_ICONS_DIR = _QS_HOME_ICONS if _QS_HOME_ICONS.exists() else _QS_DOTFILES_ICONS
+ICON_COMM_FOF = str(QS_ICONS_DIR / "community-fof-qro.svg") if (QS_ICONS_DIR / "community-fof-qro.svg").exists() else ICON_REMINDER
+ICON_COMM_CLAUDE = str(QS_ICONS_DIR / "claude.svg") if (QS_ICONS_DIR / "claude.svg").exists() else ICON_REMINDER
+ICON_COMM_DEVIN = "/usr/share/pixmaps/devin-desktop.png" if Path("/usr/share/pixmaps/devin-desktop.png").exists() else ICON_REMINDER
+ICON_COMM_GDG = str(QS_ICONS_DIR / "community-gdg.svg") if (QS_ICONS_DIR / "community-gdg.svg").exists() else ICON_REMINDER
+ICON_COMM_DEFAULT = str(QS_ICONS_DIR / "community-default.svg") if (QS_ICONS_DIR / "community-default.svg").exists() else ICON_REMINDER
 
 def play_sound(sound_name="message"):
     for ext in [".oga", ".wav", ".ogg", ".mp3"]:
@@ -418,11 +429,37 @@ def check_and_notify(reminders=None):
         already_due = rem.get("notified_due", False) if rep == "none" else (rem.get("last_notified_due_date") == occ_str)
 
         title_low = (rem.get("title", "") + " " + rem.get("notes", "")).lower()
-        cat_low = (rem.get("category", "")).lower()
+        cat_low = (rem.get("category", "")).lower().strip()
+        logo_low = (rem.get("logo", "")).lower().strip()
         is_f1 = (cat_low == "f1") or ("f1" in title_low) or ("formula 1" in title_low) or ("grand prix" in title_low)
         is_sara = (cat_low == "sara") or ("sara" in title_low)
         is_marvel = (cat_low == "marvel") or ("doomsday" in title_low) or ("marvel" in title_low)
-        icon_to_use = ICON_F1 if is_f1 else (ICON_HEART if is_sara else (ICON_MARVEL if is_marvel else ICON_REMINDER))
+        is_cp = cat_low in ("colgate-palmolive", "colgate") or ("colgate" in title_low)
+        is_school = cat_low in ("school", "troyanos") or ("troyanos" in title_low)
+        is_community = (cat_low == "community") or ("figma" in title_low) or ("meetup" in title_low)
+        if is_f1:
+            icon_to_use = ICON_F1
+        elif is_sara:
+            icon_to_use = ICON_HEART
+        elif is_marvel:
+            icon_to_use = ICON_MARVEL
+        elif is_cp:
+            icon_to_use = ICON_CP
+        elif is_school:
+            icon_to_use = ICON_TROYANOS
+        elif is_community:
+            if logo_low == "fof-qro" or "figma" in title_low or "fof" in title_low:
+                icon_to_use = ICON_COMM_FOF
+            elif logo_low == "claude" or "claude" in title_low or "anthropic" in title_low:
+                icon_to_use = ICON_COMM_CLAUDE
+            elif logo_low == "devin" or "devin" in title_low or "cognition" in title_low:
+                icon_to_use = ICON_COMM_DEVIN
+            elif logo_low == "gdg" or "gdg" in title_low or "google developer" in title_low or "devfest" in title_low or "google" in title_low:
+                icon_to_use = ICON_COMM_GDG
+            else:
+                icon_to_use = ICON_COMM_DEFAULT
+        else:
+            icon_to_use = ICON_REMINDER
 
         # 5 minutes before notification (between 0 and 310 seconds before event)
         if 0 <= diff_seconds <= 310 and not already_5min:
@@ -477,34 +514,6 @@ def check_and_notify(reminders=None):
                 rem["last_notified_due_date"] = occ_str
             changed = True
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Sent due alert for: {rem.get('title')}", flush=True)
-
-        # Catch-up missed reminder if system was asleep/suspended/off (within 3 hours)
-        elif -10800 <= diff_seconds < -60 and not already_due:
-            title = f"Missed Event: {rem.get('title')}"
-            body = f"Was due today at {t_str} ({rem.get('category', 'Personal')})"
-            if rem.get("notes"):
-                body += f"\n{rem['notes']}"
-            try:
-                subprocess.run([
-                    "notify-send", "-a", "Reminders",
-                    "-i", icon_to_use,
-                    "-u", "normal",
-                    "-t", "8000",
-                    "-h", f"string:category:{rem.get('category', 'Personal')}",
-                    title, body
-                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                play_sound("f1" if is_f1 else "message")
-            except Exception:
-                pass
-
-            if rep == "none":
-                rem["notified_due"] = True
-                rem["notified_5min"] = True
-            else:
-                rem["last_notified_due_date"] = occ_str
-                rem["last_notified_5min_date"] = occ_str
-            changed = True
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Sent catch-up alert for missed event: {rem.get('title')}", flush=True)
 
     if changed:
         save_reminders(reminders)

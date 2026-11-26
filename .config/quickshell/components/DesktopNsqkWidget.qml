@@ -60,6 +60,9 @@ Rectangle {
     property int minutes: 0
     property int seconds: 0
     property bool eventPassed: false
+    property bool eventLive: false
+    property bool eventEnded: false
+    property bool lockPreviewState: false
     property bool glitchActive: false
     property real glitchX: 0
     property real glitchY: 0
@@ -205,20 +208,26 @@ Rectangle {
     }
 
     function updateCountdown() {
+        if (root.lockPreviewState) return;
         let target = resolveTargetDate();
         let now = new Date();
 
         if (target.getTime() <= now.getTime()) {
+            let elapsedMs = now.getTime() - target.getTime();
             root.months = 0;
             root.days = 0;
             root.hours = 0;
             root.minutes = 0;
             root.seconds = 0;
             root.eventPassed = true;
+            root.eventLive = elapsedMs < (6 * 3600000);
+            root.eventEnded = !root.eventLive;
             return;
         }
 
         root.eventPassed = false;
+        root.eventLive = false;
+        root.eventEnded = false;
 
         let yDiff = target.getFullYear() - now.getFullYear();
         let mDiff = target.getMonth() - now.getMonth() + yDiff * 12;
@@ -291,12 +300,12 @@ Rectangle {
     }
 
     Timer {
-        interval: 320
-        running: root.isLive
+        interval: root.eventEnded ? 140 : 320
+        running: root.isLive || root.eventEnded
         repeat: true
         onTriggered: {
             noiseCanvas.requestPaint();
-            if (!root.glitchActive && Math.random() > 0.89) {
+            if (!root.glitchActive && Math.random() > (root.eventEnded ? 0.80 : 0.89)) {
                 root.glitchActive = true;
                 root.glitchX = (Math.random() > 0.5 ? 1 : -1) * (1.8 + Math.random() * 2.4);
                 root.glitchY = (Math.random() - 0.5) * 2.0;
@@ -418,8 +427,8 @@ Rectangle {
                     anchors.right: parent.right
                     anchors.top: parent.top
                     anchors.topMargin: 2
-                    text: "CH 600 • STANDBY"
-                    color: Qt.rgba(226/255, 232/255, 240/255, 0.84)
+                    text: root.eventLive ? "CH 600 • ON AIR" : (root.eventEnded ? "CH 600 • OFF AIR" : "CH 600 • STANDBY")
+                    color: root.eventLive ? "#ef4444" : Qt.rgba(226/255, 232/255, 240/255, 0.84)
                     font.family: root.osdFont
                     font.pixelSize: 10
                     font.weight: Font.Medium
@@ -433,12 +442,62 @@ Rectangle {
             Item {
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: 2
-                width: countdownContent.implicitWidth
-                height: countdownContent.implicitHeight
+                width: root.eventPassed ? broadcastStatusItem.implicitWidth : countdownContent.implicitWidth
+                height: root.eventPassed ? broadcastStatusItem.implicitHeight : countdownContent.implicitHeight
                 z: 4
+
+                Item {
+                    id: broadcastStatusItem
+                    visible: root.eventPassed
+                    anchors.centerIn: parent
+                    implicitWidth: statusMain.implicitWidth
+                    implicitHeight: statusMain.implicitHeight
+                    opacity: root.glitchOpacity
+                    transform: Translate {
+                        x: root.glitchActive ? root.glitchX : 0
+                        y: root.glitchActive ? root.glitchY : 0
+                    }
+
+                    readonly property string statusText: root.eventLive ? "TRANSMISIÓN EN CURSO" : "TRANSMISIÓN FINALIZADA"
+
+                    Text {
+                        x: root.glitchSplit
+                        y: root.glitchActive ? -0.6 : 0
+                        text: broadcastStatusItem.statusText
+                        font.family: root.osdFont
+                        font.pixelSize: root.width > 400 ? 22 : 18
+                        font.weight: Font.Bold
+                        font.letterSpacing: 2.0
+                        color: "#ff2d55"
+                        opacity: root.glitchActive ? 0.58 : 0.28
+                    }
+                    Text {
+                        x: -root.glitchSplit
+                        y: root.glitchActive ? 0.6 : 0
+                        text: broadcastStatusItem.statusText
+                        font.family: root.osdFont
+                        font.pixelSize: root.width > 400 ? 22 : 18
+                        font.weight: Font.Bold
+                        font.letterSpacing: 2.0
+                        color: "#38bdf8"
+                        opacity: root.glitchActive ? 0.58 : 0.28
+                    }
+                    Text {
+                        id: statusMain
+                        text: broadcastStatusItem.statusText
+                        font.family: root.osdFont
+                        font.pixelSize: root.width > 400 ? 22 : 18
+                        font.weight: Font.Bold
+                        font.letterSpacing: 2.0
+                        color: root.eventLive ? "#f5d033" : "#cbd5e1"
+                        style: Text.Raised
+                        styleColor: Qt.rgba(0, 0, 0, 0.96)
+                    }
+                }
 
                 Row {
                     id: countdownContent
+                    visible: !root.eventPassed
                     anchors.centerIn: parent
                     opacity: root.glitchOpacity
                     spacing: 8
@@ -608,27 +667,30 @@ Rectangle {
                     let ctx = getContext("2d");
                     ctx.clearRect(0, 0, width, height);
 
-                    // Fine grain RF static specks
-                    for (let i = 0; i < 65; i++) {
+                    // Fine grain RF static specks (more noticeable but realistic when OFF AIR)
+                    let count = root.eventEnded ? 165 : 65;
+                    for (let i = 0; i < count; i++) {
                         let rx = Math.random() * width;
                         let ry = Math.random() * height;
-                        let rw = 1 + Math.random() * 2.5;
-                        let alpha = 0.06 + Math.random() * 0.16;
-                        ctx.fillStyle = "rgba(219, 234, 254, " + alpha.toFixed(2) + ")";
+                        let rw = 1 + Math.random() * (root.eventEnded ? 2.2 : 2.5);
+                        let alpha = root.eventEnded ? (0.08 + Math.random() * 0.18) : (0.06 + Math.random() * 0.16);
+                        ctx.fillStyle = (root.eventEnded && Math.random() > 0.75)
+                            ? "rgba(0, 0, 0, " + (alpha + 0.08).toFixed(2) + ")"
+                            : "rgba(219, 234, 254, " + alpha.toFixed(2) + ")";
                         ctx.fillRect(rx, ry, rw, 1);
                     }
 
                     // Horizontal VHS sync tear & subtle chroma jitter streaks
-                    if (Math.random() > 0.35) {
-                        let lineCount = Math.random() > 0.6 ? 2 : 1;
+                    if (root.eventEnded || Math.random() > 0.35) {
+                        let lineCount = root.eventEnded ? (Math.random() > 0.45 ? 2 : 1) : (Math.random() > 0.6 ? 2 : 1);
                         for (let j = 0; j < lineCount; j++) {
                             let ly = Math.random() * height;
-                            let lx = Math.random() * (width * 0.35);
+                            let lx = Math.random() * (width * 0.30);
                             let lw = width * (0.38 + Math.random() * 0.62);
                             ctx.fillStyle = Math.random() > 0.45
-                                ? "rgba(191, 219, 254, 0.22)"
-                                : "rgba(0, 0, 0, 0.36)";
-                            ctx.fillRect(lx, ly, lw, 1.5);
+                                ? (root.eventEnded ? "rgba(219, 234, 254, 0.24)" : "rgba(191, 219, 254, 0.22)")
+                                : (root.eventEnded ? "rgba(0, 0, 0, 0.38)" : "rgba(0, 0, 0, 0.36)");
+                            ctx.fillRect(lx, ly, lw, 1.2);
                         }
                     }
                 }

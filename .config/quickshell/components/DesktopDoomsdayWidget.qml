@@ -34,6 +34,7 @@ Item {
     property int minutes: 0
     property int seconds: 0
     property bool eventPassed: false
+    property bool lockPreviewState: false
     property real remainingHours: 720.0
 
     readonly property real auraIntensity: {
@@ -86,6 +87,7 @@ Item {
     }
 
     function updateCountdown() {
+        if (root.lockPreviewState) return;
         let target = resolveTargetDate();
         let now = new Date();
 
@@ -161,18 +163,168 @@ Item {
     Component.onCompleted: updateCountdown()
 
     // =========================================================================
-    // AMBIENT GLOW BEHIND THE WIDGET (Clean, high-performance Doctor Doom emerald)
+    // AMBIENT GLOW & BEHIND-BORDER DOOM KRACKLE (Peeking out from behind edges)
     // =========================================================================
     Item {
         anchors.fill: parent
         z: 0
 
+        QtObject {
+            id: doomGlowState
+            property real alpha: 0.18
+            property real rad: 18
+            Behavior on alpha { NumberAnimation { duration: 220; easing.type: Easing.OutQuad } }
+            Behavior on rad { NumberAnimation { duration: 260; easing.type: Easing.OutQuad } }
+        }
+
         RectangularGlow {
             anchors.fill: parent
-            glowRadius: 18 + Math.round(root.auraIntensity * 20)
-            spread: 0.08 + root.auraIntensity * 0.12
-            color: Qt.rgba(16/255, 185/255, 129/255, 0.14 + root.auraIntensity * 0.22)
+            glowRadius: doomGlowState.rad
+            spread: 0.02
+            color: Qt.rgba(16/255, 185/255, 129/255, Math.max(0.08, doomGlowState.alpha))
             cornerRadius: 20
+        }
+
+        // Truly random Doctor Doom green fire & fine Kirby Krackle radiating outward from widget center
+        Canvas {
+            id: doomBehindEdgeCanvas
+            anchors.fill: parent
+            anchors.margins: -28
+            property var plumes: []
+            property var specks: []
+
+            // Ray from widget center at angle theta -> exact point on rounded-rect border + outward unit vector
+            function borderRay(theta, pad, cw, ch) {
+                let ca = Math.cos(theta);
+                let sa = Math.sin(theta);
+                let hw = cw * 0.5;
+                let hh = ch * 0.5;
+                let cx = pad + hw;
+                let cy = pad + hh;
+                let tx = Math.abs(ca) > 0.0001 ? hw / Math.abs(ca) : 1e9;
+                let ty = Math.abs(sa) > 0.0001 ? hh / Math.abs(sa) : 1e9;
+                let dist = Math.min(tx, ty);
+                return { x: cx + ca * dist, y: cy + sa * dist, dx: ca, dy: sa };
+            }
+
+            function spawnPlume(randomLife) {
+                return {
+                    theta: Math.random() * Math.PI * 2,
+                    life: randomLife ? Math.random() : 0.0,
+                    speed: 0.005 + Math.random() * 0.008,
+                    rad: 18 + Math.random() * 18,
+                    maxOut: 5.0 + Math.random() * 9.0,
+                    tangDrift: (Math.random() - 0.5) * 10.0
+                };
+            }
+
+            function spawnSpeck(randomLife) {
+                let palette = ["#ecfccb", "#bef264", "#4ade80", "#22c55e", "#15803d", "#052e16", "#030704"];
+                return {
+                    theta: Math.random() * Math.PI * 2,
+                    life: randomLife ? Math.random() : 0.0,
+                    speed: 0.008 + Math.random() * 0.014,
+                    maxOut: 7.0 + Math.pow(Math.random(), 1.15) * 13.0,
+                    tangDrift: (Math.random() - 0.5) * 8.0,
+                    r: 0.7 + Math.pow(Math.random(), 1.6) * 1.4,
+                    color: palette[Math.floor(Math.random() * palette.length)]
+                };
+            }
+
+            Component.onCompleted: {
+                let pArr = [];
+                for (let i = 0; i < 22; i++) pArr.push(spawnPlume(true));
+                plumes = pArr;
+
+                let sArr = [];
+                for (let j = 0; j < 120; j++) sArr.push(spawnSpeck(true));
+                specks = sArr;
+            }
+
+            onPaint: {
+                let ctx = getContext("2d");
+                ctx.clearRect(0, 0, width, height);
+                let pad = 28;
+                let cw = width - pad * 2;
+                let ch = height - pad * 2;
+                let intensity = root.eventPassed ? 1.0 : (0.35 + root.auraIntensity * 0.65);
+
+                // 1. Random outward-radiating Doctor Doom emerald-chartreuse arcane plumes
+                for (let i = 0; i < plumes.length; i++) {
+                    let p = plumes[i];
+                    let env = Math.sin(p.life * Math.PI);
+                    if (env <= 0.02) continue;
+
+                    let ray = borderRay(p.theta, pad, cw, ch);
+                    let easeOut = Math.pow(p.life, 0.75);
+                    let out = -3.0 + easeOut * p.maxOut;
+                    let gx = ray.x + ray.dx * out - ray.dy * (p.tangDrift * easeOut);
+                    let gy = ray.y + ray.dy * out + ray.dx * (p.tangDrift * easeOut);
+                    let r = p.rad * (0.78 + 0.32 * env);
+
+                    let g = ctx.createRadialGradient(gx, gy, 1, gx, gy, r);
+                    g.addColorStop(0.0, "rgba(236, 252, 203, " + (0.20 * env * intensity).toFixed(3) + ")");
+                    g.addColorStop(0.35, "rgba(74, 222, 128, " + (0.18 * env * intensity).toFixed(3) + ")");
+                    g.addColorStop(0.70, "rgba(5, 150, 105, " + (0.11 * env * intensity).toFixed(3) + ")");
+                    g.addColorStop(1.0, "rgba(2, 44, 34, 0)");
+                    ctx.fillStyle = g;
+                    ctx.beginPath();
+                    ctx.arc(gx, gy, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // 2. Fine outward-radiating comic Kirby Krackle specks (with subtle dark ink rim on bright cores)
+                for (let j = 0; j < specks.length; j++) {
+                    let s = specks[j];
+                    let env = Math.sin(s.life * Math.PI);
+                    if (env <= 0.02) continue;
+
+                    let ray = borderRay(s.theta, pad, cw, ch);
+                    let easeOut = Math.pow(s.life, 0.72);
+                    let out = -1.5 + easeOut * s.maxOut;
+                    let sx = ray.x + ray.dx * out - ray.dy * (s.tangDrift * easeOut);
+                    let sy = ray.y + ray.dy * out + ray.dx * (s.tangDrift * easeOut);
+                    let sr = s.r * (0.55 + 0.45 * env);
+
+                    if (s.color === "#ecfccb" || s.color === "#bef264") {
+                        ctx.globalAlpha = env * 0.55 * intensity;
+                        ctx.fillStyle = "#052e16";
+                        ctx.beginPath();
+                        ctx.arc(sx, sy, sr + 0.55, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    ctx.globalAlpha = env * 0.88 * intensity;
+                    ctx.fillStyle = s.color;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        Timer {
+            interval: 40
+            running: (root.isLive || root.eventPassed) && root.visible
+            repeat: true
+            onTriggered: {
+                let base = 0.12 + root.auraIntensity * 0.12;
+                doomGlowState.alpha = base + (Math.random() - 0.45) * 0.06;
+                doomGlowState.rad = 15 + Math.round(root.auraIntensity * 8) + Math.round((Math.random() - 0.5) * 4);
+
+                for (let i = 0; i < doomBehindEdgeCanvas.plumes.length; i++) {
+                    let p = doomBehindEdgeCanvas.plumes[i];
+                    p.life += p.speed;
+                    if (p.life >= 1.0) doomBehindEdgeCanvas.plumes[i] = doomBehindEdgeCanvas.spawnPlume(false);
+                }
+                for (let j = 0; j < doomBehindEdgeCanvas.specks.length; j++) {
+                    let s = doomBehindEdgeCanvas.specks[j];
+                    s.life += s.speed;
+                    if (s.life >= 1.0) doomBehindEdgeCanvas.specks[j] = doomBehindEdgeCanvas.spawnSpeck(false);
+                }
+                doomBehindEdgeCanvas.requestPaint();
+            }
         }
     }
 
@@ -183,7 +335,7 @@ Item {
         id: cardBody
         anchors.fill: parent
         radius: 20
-        color: Qt.rgba(0.04, 0.04, 0.06, 0.90)
+        color: "#090a0f"
         border.color: Qt.rgba(16/255, 185/255, 129/255, 0.22 + root.auraIntensity * 0.26)
         border.width: 1
         clip: true
@@ -273,6 +425,7 @@ Item {
         // ---- MAIN COUNTDOWN (Centered with breathing room - NO date box below, NO boxes around numbers) ----
         Column {
             id: centerCountdown
+            visible: !root.eventPassed
             anchors.centerIn: parent
             anchors.verticalCenterOffset: 14
             spacing: 14
@@ -445,6 +598,23 @@ Item {
                     }
                 }
             }
+        }
+
+        // ---- EVENT ARRIVED: MINIMALIST "DOOMSDAY IS HERE" ----
+        Text {
+            visible: root.eventPassed
+            anchors.centerIn: parent
+            anchors.verticalCenterOffset: 10
+            width: parent.width - 36
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            z: 3
+            text: "DOOMSDAY IS HERE"
+            color: "#ffffff"
+            font.family: theme.fontFamily
+            font.pixelSize: root.width > 400 ? 24 : 19
+            font.weight: Font.Black
+            font.letterSpacing: 3.4
         }
 
         // Drag Interaction Handler

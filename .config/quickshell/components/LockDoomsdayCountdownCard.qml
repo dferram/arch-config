@@ -35,6 +35,7 @@ Item {
     property int minutes: 0
     property int seconds: 0
     property bool eventPassed: false
+    property bool lockPreviewState: false
     property real remainingHours: 720.0
 
     readonly property real auraIntensity: {
@@ -86,6 +87,7 @@ Item {
     }
 
     function updateCountdown() {
+        if (root.lockPreviewState) return;
         let target = resolveTargetDate();
         let now = new Date();
 
@@ -150,93 +152,161 @@ Item {
         anchors.fill: parent
         z: 0
 
-        // 1. Steady Diffuse Backlight Glow (grows progressively as premiere approaches)
+        // 1. Subtle random arcane flicker & behind-border Doom Kirby Krackle
+        QtObject {
+            id: lockDoomGlowState
+            property real alpha: 0.18
+            property real rad: 18
+            Behavior on alpha { NumberAnimation { duration: 220; easing.type: Easing.OutQuad } }
+            Behavior on rad { NumberAnimation { duration: 260; easing.type: Easing.OutQuad } }
+        }
+
         RectangularGlow {
             anchors.fill: parent
             visible: !root.fullscreen
-            glowRadius: 18 + Math.round(root.auraIntensity * 20)
-            spread: 0.06 + root.auraIntensity * 0.12
-            color: Qt.rgba(16/255, 185/255, 129/255, Math.min(0.42, ambientFlicker.val * (0.80 + root.auraIntensity * 0.85)))
+            glowRadius: lockDoomGlowState.rad
+            spread: 0.02
+            color: Qt.rgba(16/255, 185/255, 129/255, Math.max(0.08, lockDoomGlowState.alpha))
             cornerRadius: 24
+        }
 
-            QtObject {
-                id: ambientFlicker
-                property real val: 0.18
-                // Subtle candlelight ambient shimmer (tight range: 0.16 to 0.21, no throbbing)
-                SequentialAnimation on val {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation { to: 0.20; duration: 280; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.17; duration: 420; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.21; duration: 310; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.18; duration: 490; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.19; duration: 250; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.16; duration: 380; easing.type: Easing.InOutSine }
+        // Truly random Doctor Doom green fire & fine Kirby Krackle radiating outward from widget center
+        Canvas {
+            id: lockDoomBehindEdgeCanvas
+            visible: !root.fullscreen
+            anchors.fill: parent
+            anchors.margins: -28
+            property var plumes: []
+            property var specks: []
+
+            function borderRay(theta, pad, cw, ch) {
+                let ca = Math.cos(theta);
+                let sa = Math.sin(theta);
+                let hw = cw * 0.5;
+                let hh = ch * 0.5;
+                let cx = pad + hw;
+                let cy = pad + hh;
+                let tx = Math.abs(ca) > 0.0001 ? hw / Math.abs(ca) : 1e9;
+                let ty = Math.abs(sa) > 0.0001 ? hh / Math.abs(sa) : 1e9;
+                let dist = Math.min(tx, ty);
+                return { x: cx + ca * dist, y: cy + sa * dist, dx: ca, dy: sa };
+            }
+
+            function spawnPlume(randomLife) {
+                return {
+                    theta: Math.random() * Math.PI * 2,
+                    life: randomLife ? Math.random() : 0.0,
+                    speed: 0.005 + Math.random() * 0.008,
+                    rad: 18 + Math.random() * 18,
+                    maxOut: 5.0 + Math.random() * 9.0,
+                    tangDrift: (Math.random() - 0.5) * 10.0
+                };
+            }
+
+            function spawnSpeck(randomLife) {
+                let palette = ["#ecfccb", "#bef264", "#4ade80", "#22c55e", "#15803d", "#052e16", "#030704"];
+                return {
+                    theta: Math.random() * Math.PI * 2,
+                    life: randomLife ? Math.random() : 0.0,
+                    speed: 0.008 + Math.random() * 0.014,
+                    maxOut: 7.0 + Math.pow(Math.random(), 1.15) * 13.0,
+                    tangDrift: (Math.random() - 0.5) * 8.0,
+                    r: 0.7 + Math.pow(Math.random(), 1.6) * 1.4,
+                    color: palette[Math.floor(Math.random() * palette.length)]
+                };
+            }
+
+            Component.onCompleted: {
+                let pArr = [];
+                for (let i = 0; i < 22; i++) pArr.push(spawnPlume(true));
+                plumes = pArr;
+
+                let sArr = [];
+                for (let j = 0; j < 115; j++) sArr.push(spawnSpeck(true));
+                specks = sArr;
+            }
+
+            onPaint: {
+                let ctx = getContext("2d");
+                ctx.clearRect(0, 0, width, height);
+                let pad = 28;
+                let cw = width - pad * 2;
+                let ch = height - pad * 2;
+                let intensity = root.eventPassed ? 1.0 : (0.35 + root.auraIntensity * 0.65);
+
+                for (let i = 0; i < plumes.length; i++) {
+                    let p = plumes[i];
+                    let env = Math.sin(p.life * Math.PI);
+                    if (env <= 0.02) continue;
+
+                    let ray = borderRay(p.theta, pad, cw, ch);
+                    let easeOut = Math.pow(p.life, 0.75);
+                    let out = -3.0 + easeOut * p.maxOut;
+                    let gx = ray.x + ray.dx * out - ray.dy * (p.tangDrift * easeOut);
+                    let gy = ray.y + ray.dy * out + ray.dx * (p.tangDrift * easeOut);
+                    let r = p.rad * (0.78 + 0.32 * env);
+
+                    let g = ctx.createRadialGradient(gx, gy, 1, gx, gy, r);
+                    g.addColorStop(0.0, "rgba(236, 252, 203, " + (0.20 * env * intensity).toFixed(3) + ")");
+                    g.addColorStop(0.35, "rgba(74, 222, 128, " + (0.18 * env * intensity).toFixed(3) + ")");
+                    g.addColorStop(0.70, "rgba(5, 150, 105, " + (0.11 * env * intensity).toFixed(3) + ")");
+                    g.addColorStop(1.0, "rgba(2, 44, 34, 0)");
+                    ctx.fillStyle = g;
+                    ctx.beginPath();
+                    ctx.arc(gx, gy, r, 0, Math.PI * 2);
+                    ctx.fill();
                 }
+
+                for (let j = 0; j < specks.length; j++) {
+                    let s = specks[j];
+                    let env = Math.sin(s.life * Math.PI);
+                    if (env <= 0.02) continue;
+
+                    let ray = borderRay(s.theta, pad, cw, ch);
+                    let easeOut = Math.pow(s.life, 0.72);
+                    let out = -1.5 + easeOut * s.maxOut;
+                    let sx = ray.x + ray.dx * out - ray.dy * (s.tangDrift * easeOut);
+                    let sy = ray.y + ray.dy * out + ray.dx * (s.tangDrift * easeOut);
+                    let sr = s.r * (0.55 + 0.45 * env);
+
+                    if (s.color === "#ecfccb" || s.color === "#bef264") {
+                        ctx.globalAlpha = env * 0.55 * intensity;
+                        ctx.fillStyle = "#052e16";
+                        ctx.beginPath();
+                        ctx.arc(sx, sy, sr + 0.55, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    ctx.globalAlpha = env * 0.88 * intensity;
+                    ctx.fillStyle = s.color;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1.0;
             }
         }
 
-        // 2. The Green Candle Flame (scales slightly & brightens as premiere approaches)
-        Item {
-            anchors.fill: parent
-            opacity: 0.85 + root.auraIntensity * 0.45
+        Timer {
+            interval: 40
+            running: !root.fullscreen && root.visible
+            repeat: true
+            onTriggered: {
+                let base = 0.12 + root.auraIntensity * 0.12;
+                lockDoomGlowState.alpha = base + (Math.random() - 0.45) * 0.06;
+                lockDoomGlowState.rad = 15 + Math.round(root.auraIntensity * 8) + Math.round((Math.random() - 0.5) * 4);
 
-            Rectangle {
-                id: candleFlame
-                width: root.fullscreen ? Math.round(root.width * (0.68 + root.auraIntensity * 0.10)) : Math.round(220 + root.auraIntensity * 44)
-                height: root.fullscreen ? Math.round(root.height * (0.76 + root.auraIntensity * 0.10)) : Math.round(250 + root.auraIntensity * 46)
-                radius: Math.round(width / 2)
-                color: "#059669"
-                layer.enabled: true
-                layer.effect: FastBlur { radius: root.fullscreen ? 96 : 64 }
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: -10
-
-                // Gentle organic horizontal flame waver (subtle draft)
-                SequentialAnimation on anchors.horizontalCenterOffset {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation { to: 4; duration: 450; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: -3; duration: 580; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 2; duration: 360; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: -5; duration: 620; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 1; duration: 410; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0; duration: 530; easing.type: Easing.InOutSine }
+                for (let i = 0; i < lockDoomBehindEdgeCanvas.plumes.length; i++) {
+                    let p = lockDoomBehindEdgeCanvas.plumes[i];
+                    p.life += p.speed;
+                    if (p.life >= 1.0) lockDoomBehindEdgeCanvas.plumes[i] = lockDoomBehindEdgeCanvas.spawnPlume(false);
                 }
-
-                // Gentle organic vertical flame waver (slight rising motion)
-                SequentialAnimation on anchors.verticalCenterOffset {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation { to: -14; duration: 480; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: -8; duration: 560; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: -13; duration: 390; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: -9; duration: 610; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: -11; duration: 430; easing.type: Easing.InOutSine }
+                for (let j = 0; j < lockDoomBehindEdgeCanvas.specks.length; j++) {
+                    let s = lockDoomBehindEdgeCanvas.specks[j];
+                    s.life += s.speed;
+                    if (s.life >= 1.0) lockDoomBehindEdgeCanvas.specks[j] = lockDoomBehindEdgeCanvas.spawnSpeck(false);
                 }
-
-                // Delicate candle flame luminescence (flickers slightly between 0.22 and 0.28, never turns off)
-                SequentialAnimation on opacity {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation { to: 0.27; duration: 220; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.23; duration: 340; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.28; duration: 190; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.22; duration: 380; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.26; duration: 260; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.24; duration: 310; easing.type: Easing.InOutSine }
-                }
-
-                // Minimal organic stretch/flicker
-                SequentialAnimation on scale {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation { to: 1.02; duration: 380; easing.type: Easing.InOutQuad }
-                    NumberAnimation { to: 0.98; duration: 440; easing.type: Easing.InOutQuad }
-                    NumberAnimation { to: 1.03; duration: 310; easing.type: Easing.InOutQuad }
-                    NumberAnimation { to: 0.99; duration: 490; easing.type: Easing.InOutQuad }
-                }
+                lockDoomBehindEdgeCanvas.requestPaint();
             }
         }
     }
@@ -248,7 +318,7 @@ Item {
         id: cardBody
         anchors.fill: parent
         radius: root.fullscreen ? 0 : 16
-        color: Qt.rgba(0.04, 0.04, 0.06, root.fullscreen ? 1.0 : 0.90)
+        color: "#090a0f"
         border.width: root.fullscreen ? 0 : 1
         border.color: Qt.rgba(16/255, 185/255, 129/255, 0.20 + root.auraIntensity * 0.26)
         clip: true
@@ -337,8 +407,27 @@ Item {
             }
         }
 
+        // ---- EVENT ARRIVED: MINIMALIST "DOOMSDAY IS HERE" ----
+        Text {
+            visible: root.eventPassed
+            anchors.centerIn: parent
+            anchors.verticalCenterOffset: root.fullscreen ? 0 : 10
+            width: parent.width - 28
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            lineHeight: 1.18
+            z: 3
+            text: "DOOMSDAY\nIS HERE"
+            color: "#ffffff"
+            font.family: theme.fontFamily
+            font.pixelSize: Math.round(23 * root.k)
+            font.weight: Font.Black
+            font.letterSpacing: 3.0 * root.k
+        }
+
         // ---- MAIN COUNTDOWN (5-SEGMENT CLEAN WHITE REFERENCE STYLE) ----
         Column {
+            visible: !root.eventPassed
             anchors.centerIn: parent
             anchors.verticalCenterOffset: root.fullscreen ? 0 : 14
             spacing: Math.round(16 * root.k)

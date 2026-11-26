@@ -45,29 +45,6 @@ Rectangle {
     property int totalCols: 53
     property string lastUpdated: ""
     property bool isLoading: false
-    property int viewMode: 0 // 0 = Green Wall, 1 = Recent Repos & PRs
-    property int publicRepos: 0
-    property int currentStreak: 0
-    property int longestStreak: 0
-    property var reposData: []
-    property int openPrsCount: 0
-    property var openPrsData: []
-
-    function langColor(lang) {
-        switch ((lang || "").toLowerCase()) {
-            case "python": return "#3572a5";
-            case "qml": return "#41cd52";
-            case "typescript": return "#3178c6";
-            case "javascript": return "#f1e05a";
-            case "rust": return "#dea584";
-            case "c++": return "#f34b7d";
-            case "c": return "#555555";
-            case "shell": return "#89e051";
-            case "lua": return "#51a0cf";
-            case "go": return "#00add8";
-            default: return "#30d158";
-        }
-    }
 
     // Hover state for interactive inspection
     property var hoveredDay: null
@@ -160,12 +137,6 @@ Rectangle {
                     if (d.username) root.username = d.username;
                     if (d.name) root.displayName = d.name;
                     if (d.total !== undefined) root.totalContributions = d.total;
-                    if (d.public_repos !== undefined) root.publicRepos = d.public_repos;
-                    if (d.currentStreak !== undefined) root.currentStreak = d.currentStreak;
-                    if (d.longestStreak !== undefined) root.longestStreak = d.longestStreak;
-                    if (Array.isArray(d.repos)) root.reposData = d.repos;
-                    if (d.openPrsCount !== undefined) root.openPrsCount = d.openPrsCount;
-                    if (Array.isArray(d.openPrs)) root.openPrsData = d.openPrs;
                     if (d.months) root.monthsData = d.months;
                     if (d.totalCols) root.totalCols = d.totalCols;
                     if (d.updatedAt) root.lastUpdated = d.updatedAt;
@@ -401,37 +372,6 @@ Rectangle {
                     }
                 }
             }
-
-            // View Mode Toggle Button (Green Wall <-> Recent Repos & PRs)
-            Rectangle {
-                Layout.preferredWidth: 28
-                Layout.preferredHeight: 36
-                radius: 8
-                color: viewSwitchMa.containsMouse
-                    ? Qt.rgba(48, 209, 88, 0.22)
-                    : (root.viewMode === 1 ? Qt.rgba(48, 209, 88, 0.14) : Qt.rgba(255, 255, 255, 0.05))
-                border.color: (root.viewMode === 1 || viewSwitchMa.containsMouse)
-                    ? Qt.rgba(48, 209, 88, 0.55)
-                    : Qt.rgba(255, 255, 255, 0.12)
-                border.width: 1
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "⇄"
-                    color: (root.viewMode === 1 || viewSwitchMa.containsMouse) ? "#30d158" : theme.textSub
-                    font.family: "sans-serif"
-                    font.pixelSize: 13
-                    font.bold: true
-                }
-
-                MouseArea {
-                    id: viewSwitchMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.viewMode = (root.viewMode === 0 ? 1 : 0)
-                }
-            }
         }
 
         // Elegant Hairline Divider
@@ -446,7 +386,6 @@ Rectangle {
         // =====================================================================
         Item {
             id: matrixArea
-            visible: root.viewMode === 0
             Layout.fillWidth: true
             Layout.preferredHeight: 68
 
@@ -789,175 +728,6 @@ Rectangle {
                     font.family: "sans-serif"
                     font.pixelSize: 8
                     anchors.verticalCenter: parent.verticalCenter
-                }
-            }
-        }
-
-        // =====================================================================
-        // VIEW 1: RECENT REPOSITORIES, STREAKS & OPEN PRs
-        // =====================================================================
-        ColumnLayout {
-            id: reposView
-            visible: root.viewMode === 1
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 6
-
-            // Recent Pushed Repositories (up to 3 rows)
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                spacing: 5
-
-                Repeater {
-                    model: root.reposData.slice(0, 3)
-
-                    delegate: Rectangle {
-                        id: repoCard
-                        required property var modelData
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 28
-                        radius: 8
-                        color: repoMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
-                        border.width: 1
-                        border.color: repoMa.containsMouse ? Qt.rgba(48/255, 209/255, 88/255, 0.45) : Qt.rgba(1, 1, 1, 0.07)
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            anchors.rightMargin: 10
-                            spacing: 8
-
-                            Rectangle {
-                                Layout.preferredWidth: 7
-                                Layout.preferredHeight: 7
-                                radius: 4
-                                color: root.langColor(repoCard.modelData.language)
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: repoCard.modelData.name || "repo"
-                                elide: Text.ElideRight
-                                color: theme.text
-                                font.family: "sans-serif"
-                                font.pixelSize: 11
-                                font.bold: true
-                            }
-
-                            Text {
-                                text: repoCard.modelData.language || ""
-                                color: theme.textDim
-                                font.family: "sans-serif"
-                                font.pixelSize: 9
-                            }
-
-                            Text {
-                                visible: (repoCard.modelData.stars || 0) > 0
-                                text: "★ " + (repoCard.modelData.stars || 0)
-                                color: "#ffd60a"
-                                font.family: "sans-serif"
-                                font.pixelSize: 9
-                                font.bold: true
-                            }
-
-                            Text {
-                                text: repoCard.modelData.ago || ""
-                                color: "#30d158"
-                                font.family: "sans-serif"
-                                font.pixelSize: 9
-                                font.bold: true
-                            }
-                        }
-
-                        MouseArea {
-                            id: repoMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: Quickshell.execDetached(["xdg-open", repoCard.modelData.url || ("https://github.com/" + root.username)])
-                        }
-                    }
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    visible: root.reposData.length === 0
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: root.isLoading ? "Loading repositories..." : "No repository data cached"
-                        color: theme.textDim
-                        font.family: "sans-serif"
-                        font.pixelSize: 10
-                    }
-                }
-            }
-
-            // Streaks & Open PRs summary footer
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 22
-                spacing: 8
-
-                Rectangle {
-                    Layout.preferredHeight: 20
-                    Layout.preferredWidth: streakRow.implicitWidth + 14
-                    radius: 6
-                    color: Qt.rgba(1, 1, 1, 0.04)
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.07)
-
-                    Row {
-                        id: streakRow
-                        anchors.centerIn: parent
-                        spacing: 6
-
-                        Rectangle {
-                            width: 5; height: 5; radius: 3
-                            color: root.currentStreak > 0 ? "#30d158" : theme.textDim
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: "Streak " + root.currentStreak + "d • Best " + root.longestStreak + "d"
-                            color: theme.textSub
-                            font.family: "sans-serif"
-                            font.pixelSize: 9
-                            font.bold: true
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Rectangle {
-                    Layout.preferredHeight: 20
-                    Layout.preferredWidth: prSummaryText.implicitWidth + 14
-                    radius: 6
-                    color: root.openPrsCount > 0 ? Qt.rgba(48/255, 209/255, 88/255, 0.14) : Qt.rgba(1, 1, 1, 0.04)
-                    border.width: 1
-                    border.color: root.openPrsCount > 0 ? Qt.rgba(48/255, 209/255, 88/255, 0.40) : Qt.rgba(1, 1, 1, 0.07)
-
-                    Text {
-                        id: prSummaryText
-                        anchors.centerIn: parent
-                        text: root.openPrsCount > 0
-                            ? (root.openPrsCount + (root.openPrsCount === 1 ? " open PR" : " open PRs"))
-                            : (root.publicRepos + " public repos")
-                        color: root.openPrsCount > 0 ? "#30d158" : theme.textDim
-                        font.family: "sans-serif"
-                        font.pixelSize: 9
-                        font.bold: true
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: Quickshell.execDetached(["xdg-open", root.openPrsCount > 0 ? "https://github.com/pulls" : ("https://github.com/" + root.username + "?tab=repositories")])
-                    }
                 }
             }
         }

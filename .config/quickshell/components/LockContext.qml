@@ -332,5 +332,60 @@ Scope {
         }
     }
 
+    // Automatically pick the single countdown with the closest upcoming date
+    readonly property string closestCountdown: {
+        const nowMs = ctx.now ? ctx.now.getTime() : Date.now();
+
+        function findReminderDate(keywords, fallbackDate) {
+            if (ctx.reminders && Array.isArray(ctx.reminders)) {
+                for (let i = 0; i < ctx.reminders.length; i++) {
+                    const r = ctx.reminders[i];
+                    const title = (r.title || "").toLowerCase();
+                    const cat = (r.category || "").toLowerCase();
+                    let matched = false;
+                    for (let k = 0; k < keywords.length; k++) {
+                        if (title.indexOf(keywords[k]) !== -1 || cat === keywords[k]) {
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if (matched && r.date) {
+                        const parts = r.date.split("-");
+                        const y = parseInt(parts[0], 10);
+                        const m = parseInt(parts[1], 10) - 1;
+                        const d = parseInt(parts[2], 10);
+                        let hr = 0, mn = 0;
+                        if (r.time) {
+                            const tparts = r.time.split(":");
+                            hr = parseInt(tparts[0], 10) || 0;
+                            mn = parseInt(tparts[1], 10) || 0;
+                        }
+                        const candidate = new Date(y, m, d, hr, mn, 0);
+                        if (candidate.getTime() > nowMs) return candidate.getTime();
+                    }
+                }
+            }
+            return fallbackDate.getTime();
+        }
+
+        const candidates = [
+            { id: "doomsday",        ts: findReminderDate(["doomsday", "marvel"], new Date(2026, 11, 16, 0, 0, 0)) },
+            { id: "friendly_spidey", ts: findReminderDate(["friendly", "neighborhood"], new Date(2027, 0, 13, 0, 0, 0)) },
+            { id: "nsqk",            ts: findReminderDate(["nsqk", "mosca"], new Date(2027, 1, 27, 20, 0, 0)) },
+            { id: "spiderverse",     ts: findReminderDate(["spider-verse", "spiderverse", "beyond"], new Date(2027, 5, 18, 0, 0, 0)) }
+        ];
+
+        let bestId = "doomsday";
+        let bestDiff = Infinity;
+        for (let i = 0; i < candidates.length; i++) {
+            const diff = candidates[i].ts - nowMs;
+            if (diff > 0 && diff < bestDiff) {
+                bestDiff = diff;
+                bestId = candidates[i].id;
+            }
+        }
+        return bestId;
+    }
+
     readonly property string userName: Quickshell.env("USER") || "ferram"
 }

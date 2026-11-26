@@ -598,6 +598,18 @@ Item {
                 }
             }
         }
+        list.sort((a, b) => {
+            if (!!a.all_day !== !!b.all_day) return a.all_day ? 1 : -1;
+            const toMin = (t) => {
+                if (!t) return 9999;
+                const p = String(t).split(":");
+                if (p.length < 2) return 9999;
+                return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0);
+            };
+            const diff = toMin(a.time) - toMin(b.time);
+            if (diff !== 0) return diff;
+            return (a.title || "").localeCompare(b.title || "");
+        });
         return list;
     }
 
@@ -3129,6 +3141,7 @@ Item {
                                     model: parent.dayItems
                                     Rectangle {
                                         id: remCard
+                                        property bool isHovered: cardMa.containsMouse || delMa.containsMouse
                                         property color catCol: root.getCategoryColor(modelData.category, modelData.title)
                                         property bool hasPhoto: !!(modelData.photo && modelData.photo.trim().length > 0)
                                         property string catLow: (modelData.category || "").toLowerCase()
@@ -3139,10 +3152,10 @@ Item {
                                         width: dayDetailCol.width
                                         height: hasPhoto ? 58 : 50
                                         radius: 8
-                                        color: cardMa.containsMouse
+                                        color: remCard.isHovered
                                             ? Qt.rgba(remCard.catCol.r, remCard.catCol.g, remCard.catCol.b, 0.18)
                                             : Qt.rgba(remCard.catCol.r, remCard.catCol.g, remCard.catCol.b, 0.08)
-                                        border.color: cardMa.containsMouse
+                                        border.color: remCard.isHovered
                                             ? remCard.catCol
                                             : Qt.rgba(remCard.catCol.r, remCard.catCol.g, remCard.catCol.b, 0.30)
                                         border.width: 1
@@ -3357,41 +3370,15 @@ Item {
                                             }
                                         }
 
-                                        // Actions Row (Edit & Delete buttons on hover)
+                                        // Actions Row (Delete button on hover; clicking the card edits)
                                         Row {
                                             id: actionsRow
                                             anchors.right: parent.right
                                             anchors.rightMargin: 8
                                             anchors.verticalCenter: parent.verticalCenter
                                             spacing: 4
-                                            opacity: cardMa.containsMouse ? 1.0 : 0.0
+                                            opacity: remCard.isHovered ? 1.0 : 0.0
                                             Behavior on opacity { NumberAnimation { duration: 140 } }
-
-                                            // Edit Button
-                                            Rectangle {
-                                                width: 24
-                                                height: 24
-                                                radius: 12
-                                                color: editMa.containsMouse ? Qt.rgba(255, 255, 255, 0.18) : Qt.rgba(255, 255, 255, 0.08)
-                                                border.color: editMa.containsMouse ? theme.frost : theme.borderSubtle
-                                                border.width: 1
-
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "󰏫"
-                                                    font.family: "GeistMono Nerd Font Propo"
-                                                    font.pixelSize: 11
-                                                    color: editMa.containsMouse ? "#ffffff" : theme.textSub
-                                                }
-
-                                                MouseArea {
-                                                    id: editMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.startEdit(modelData)
-                                                }
-                                            }
 
                                             // Delete Button
                                             Rectangle {

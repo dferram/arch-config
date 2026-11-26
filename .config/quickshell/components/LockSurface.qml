@@ -1225,6 +1225,7 @@ Item {
             Item {
                 width: 280
                 height: parent.rowH
+                visible: root.ctx.closestCountdown === "doomsday"
                 scale: doomsdayClickMa.pressed ? 0.97 : (doomsdayClickMa.containsMouse ? 1.02 : 1.0)
                 Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
@@ -1251,6 +1252,7 @@ Item {
             Item {
                 width: 310
                 height: parent.rowH
+                visible: root.ctx.closestCountdown === "nsqk"
                 scale: eventClickMa.pressed ? 0.97 : (eventClickMa.containsMouse ? 1.02 : 1.0)
                 Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
@@ -1269,6 +1271,58 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         root.ctx.focusCountdown("nsqk");
+                        input.forceActiveFocus();
+                    }
+                }
+            }
+
+            Item {
+                width: 280
+                height: parent.rowH
+                visible: root.ctx.closestCountdown === "spiderverse"
+                scale: spiderVerseClickMa.pressed ? 0.97 : (spiderVerseClickMa.containsMouse ? 1.02 : 1.0)
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+                LockSpiderVerseCountdownCard {
+                    anchors.fill: parent
+                    reminders: root.ctx.reminders
+                    accent: "#ff2d55"
+                    active: root.showControlPanel
+                }
+
+                MouseArea {
+                    id: spiderVerseClickMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        root.ctx.focusCountdown("spiderverse");
+                        input.forceActiveFocus();
+                    }
+                }
+            }
+
+            Item {
+                width: 280
+                height: parent.rowH
+                visible: root.ctx.closestCountdown === "friendly_spidey"
+                scale: friendlySpideyClickMa.pressed ? 0.97 : (friendlySpideyClickMa.containsMouse ? 1.02 : 1.0)
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+                LockFriendlySpideyCountdownCard {
+                    anchors.fill: parent
+                    reminders: root.ctx.reminders
+                    accent: "#3b82f6"
+                    active: root.showControlPanel
+                }
+
+                MouseArea {
+                    id: friendlySpideyClickMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        root.ctx.focusCountdown("friendly_spidey");
                         input.forceActiveFocus();
                     }
                 }
@@ -1560,6 +1614,34 @@ Item {
                         fullscreen: true
                         reminders: root.ctx.reminders
                         accent: root.accent
+                        active: root.showFocusedCountdown
+                    }
+                }
+            }
+
+            Loader {
+                anchors.fill: parent
+                active: root.showFocusedCountdown && root.ctx.focusedCountdown === "spiderverse"
+                sourceComponent: Component {
+                    LockSpiderVerseCountdownCard {
+                        anchors.fill: parent
+                        fullscreen: true
+                        reminders: root.ctx.reminders
+                        accent: "#ff2d55"
+                        active: root.showFocusedCountdown
+                    }
+                }
+            }
+
+            Loader {
+                anchors.fill: parent
+                active: root.showFocusedCountdown && root.ctx.focusedCountdown === "friendly_spidey"
+                sourceComponent: Component {
+                    LockFriendlySpideyCountdownCard {
+                        anchors.fill: parent
+                        fullscreen: true
+                        reminders: root.ctx.reminders
+                        accent: "#3b82f6"
                         active: root.showFocusedCountdown
                     }
                 }

@@ -19,8 +19,8 @@ Rectangle {
     visible: upcoming.length > 0
 
     readonly property var upcoming: {
-        // Only surface what is imminent: due within the next 2 hours (or up to 15 min late)
-        const from = now.getTime() - 15 * 60000;
+        // Only surface what is imminent: due within the next 2 hours (1 min grace for "Now")
+        const from = now.getTime() - 60000;
         const to = now.getTime() + 120 * 60000;
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
@@ -49,7 +49,6 @@ Rectangle {
     }
     function relative(dt) {
         const mins = Math.round((dt - now) / 60000);
-        if (mins < 0) return "Overdue";
         if (mins < 1) return "Now";
         if (mins < 60) return "in " + mins + " min";
         const sameDay = dt.toDateString() === now.toDateString();

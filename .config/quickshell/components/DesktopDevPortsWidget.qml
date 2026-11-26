@@ -33,6 +33,39 @@ Rectangle {
     property var containersList: []
     property bool dockerRunning: false
 
+    function iconForKey(key, isDocker) {
+        if (key === "docker") return "file://" + Quickshell.shellPath("icons/docker.svg");
+        if (key === "postgresql") return "file://" + Quickshell.shellPath("icons/postgresql.svg");
+        if (key === "node") return "file://" + Quickshell.shellPath("icons/node.svg");
+        if (key === "ollama") return "file://" + Quickshell.shellPath("icons/ollama.svg");
+        if (key === "vite") {
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'><path d='M13 2 3 14h9l-1 8 10-12h-9l1-8z' fill='%23facc15' fill-opacity='0.22'/></svg>";
+        }
+        if (key === "python") {
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3c-3.5 0-4 1.5-4 3.5V9h5v1H6.5C4.5 10 3 11.5 3 14s1.5 4 3.5 4H8v-2.5c0-1.5 1-2.5 2.5-2.5h4c1.5 0 2.5-1 2.5-2.5V6.5C17 4.5 15.5 3 12 3z'/><circle cx='10.5' cy='6' r='0.8' fill='%23facc15' stroke='none'/><path d='M16 10v2.5c0 1.5-1 2.5-2.5 2.5h-4c-1.5 0-2.5 1-2.5 2.5v2c0 1.8 1.5 3 4.5 3s4.5-1.2 4.5-3.2V18h-4v-1h5.5c2 0 3.5-1.5 3.5-4s-1.5-4-3.5-4z' stroke='%23facc15'/></svg>";
+        }
+        if (key === "pgadmin") {
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><ellipse cx='12' cy='5' rx='8' ry='3'/><path d='M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5'/><path d='M4 11v6c0 1.66 3.58 3 8 3'/><circle cx='17.5' cy='17.5' r='2.5' stroke='%23facc15'/><path d='m21 21-1.5-1.5' stroke='%23facc15'/></svg>";
+        }
+        if (key === "sitl") {
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2334d399' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='6' cy='6' r='2.5'/><circle cx='18' cy='6' r='2.5'/><circle cx='6' cy='18' r='2.5'/><circle cx='18' cy='18' r='2.5'/><path d='M8 8l8 8M16 8l-8 8'/><rect x='10' y='10' width='4' height='4' rx='1' fill='%2334d399'/></svg>";
+        }
+        if (key === "redis") {
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f87171' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m12 2 9 4.5-9 4.5-9-4.5Z'/><path d='m3 12 9 4.5 9-4.5'/><path d='m3 17.5 9 4.5 9-4.5'/></svg>";
+        }
+        if (key === "mongodb") {
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2334d399' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22v-4'/><path d='M12 2C9 6 7 9.5 7 13a5 5 0 0 0 10 0c0-3.5-2-7-5-11Z' fill='%2334d399' fill-opacity='0.2'/></svg>";
+        }
+        if (key === "mysql") {
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><ellipse cx='12' cy='5' rx='8' ry='3'/><path d='M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5'/><path d='M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3'/></svg>";
+        }
+        if (key === "web") {
+            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2330d158' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9'/><path d='M3 12h18'/><path d='M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z'/></svg>";
+        }
+        if (isDocker) return "file://" + Quickshell.shellPath("icons/docker.svg");
+        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='6' rx='2'/><rect x='3' y='14' width='18' height='6' rx='2'/><circle cx='7' cy='7' r='1' fill='%2330d158' stroke='none'/><circle cx='7' cy='17' r='1' fill='%2330d158' stroke='none'/></svg>";
+    }
+
     readonly property var combinedItems: {
         let arr = [];
         for (let i = 0; i < containersList.length; i++) {
@@ -42,7 +75,8 @@ Rectangle {
                 "subtitle": containersList[i].image,
                 "badge": "UP",
                 "url": "",
-                "isHttp": false
+                "isHttp": false,
+                "icon": containersList[i].icon || "docker"
             });
         }
         for (let j = 0; j < portsList.length; j++) {
@@ -52,7 +86,8 @@ Rectangle {
                 "subtitle": portsList[j].process,
                 "badge": portsList[j].isHttp ? "OPEN" : "TCP",
                 "url": portsList[j].url,
-                "isHttp": portsList[j].isHttp
+                "isHttp": portsList[j].isHttp,
+                "icon": portsList[j].icon || "port"
             });
         }
         return arr;
@@ -266,11 +301,13 @@ Rectangle {
                     anchors.rightMargin: 9
                     spacing: 6
 
-                    Rectangle {
-                        Layout.preferredWidth: 6
-                        Layout.preferredHeight: 6
-                        radius: 3
-                        color: itemRow.modelData.kind === "docker" ? theme.blueLight : "#30d158"
+                    Image {
+                        Layout.preferredWidth: 16
+                        Layout.preferredHeight: 16
+                        sourceSize: Qt.size(32, 32)
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                        source: root.iconForKey(itemRow.modelData.icon, itemRow.modelData.kind === "docker")
                     }
 
                     Text {

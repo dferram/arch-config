@@ -38,7 +38,7 @@ Rectangle {
         return c;
     }
     readonly property var upcoming: {
-        const from = now.getTime() - 15 * 60000;
+        const from = now.getTime() - 60000;
         const baseDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const list = [];
         for (let i = 0; i < reminders.length; i++) {
@@ -80,7 +80,6 @@ Rectangle {
     }
     function relative(dt) {
         const mins = Math.round((dt - now) / 60000);
-        if (mins < 0) return "Overdue";
         if (mins < 1) return "Now";
         if (mins < 60) return "in " + mins + " min";
         if (dt.toDateString() === now.toDateString()) return "Today · " + Qt.formatDateTime(dt, "h:mm AP");
