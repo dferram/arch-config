@@ -23,6 +23,7 @@ SECTIONS = [
         ('Super + Shift + B', 'Toggle Quickshell top bar & desktop widgets visibility'),
         ('Super + Shift + W', 'Customize desktop widgets (interactive visual grid editor)'),
         ('Super + L', 'Lock session (Quickshell OLED flip clock / Hyprlock)'),
+        ('Super + Shift + L', 'Freeze / unfreeze screen overlay across all monitors'),
     ]),
     ('󱑎  SCREEN TIME & PRODUCTIVITY · TELEMETRY', [
         ('Super + T', 'Open Screen Time Analytics graphical dashboard'),
@@ -109,6 +110,7 @@ SECTIONS = [
         ('clip / paste', 'Copy standard input / print clipboard contents'),
         ('reload', 'Reload Bash environment and alias definitions'),
         ('bar [args] / hypr-bar', 'Toggle, show or hide Quickshell top bar & desktop widgets'),
+        ('lock / freeze', 'Lock session or toggle frozen screen overlay from terminal'),
         ('desktop-widgets [args]', 'Manage desktop widgets from CLI (add, remove, layout, photos)'),
         ('cmds <query>', 'Filter this guide by command, description or section'),
     ]),

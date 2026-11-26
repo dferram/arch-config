@@ -404,18 +404,26 @@ ShellRoot {
 
     property int gridReloadTick: 0
 
-    // Full-screen freeze overlay during area/edit screenshot selection
+    // Full-screen freeze overlay during area/edit screenshot selection or screen freeze
     property bool freezeActive: false
+    property bool freezeGrabInput: false
     property string freezeToken: ""
 
     IpcHandler {
         target: "freeze"
         function open(tok: string) {
+            shell.freezeGrabInput = false;
             shell.freezeToken = (tok && tok.length > 0) ? tok : String(Date.now());
+            shell.freezeActive = true;
+        }
+        function lock() {
+            shell.freezeGrabInput = true;
+            shell.freezeToken = "";
             shell.freezeActive = true;
         }
         function close() {
             shell.freezeActive = false;
+            shell.freezeGrabInput = false;
             shell.freezeToken = "";
         }
     }
@@ -426,6 +434,7 @@ ShellRoot {
         delegate: Component {
             FreezeOverlay {
                 active: shell.freezeActive
+                grabInput: shell.freezeGrabInput
                 token: shell.freezeToken
             }
         }

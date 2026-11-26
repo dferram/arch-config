@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# hypr-freeze:
+# Toggle a full-screen frozen frame overlay across all active monitors using
+# grim and the Quickshell freeze layer (`quickshell:freeze`).
+
+set -u
+
+STATE_FILE="/tmp/.hypr_freeze_token"
+
+is_frozen() {
+    hyprctl layers 2>/dev/null | grep -q "quickshell:freeze"
+}
+
+cleanup_files() {
+    if [ -f "$STATE_FILE" ]; then
+        local old_token
+        old_token=$(cat "$STATE_FILE" 2>/dev/null || true)
+        if [ -n "$old_token" ]; then
+            rm -f /tmp/.shot_freeze_"${old_token}"_*.ppm
+        fi
+        rm -f "$STATE_FILE"
+    fi
+    rm -f /tmp/.shot_freeze_*.ppm
+}
+
+freeze_on() {
+    if is_frozen; then
+        return 0
+    fi
+
+    cleanup_files
+    qs ipc call freeze lock >/dev/null 2>&1
+    hyprctl dispatch 'hl.dsp.submap("frozen")' >/dev/null 2>&1 || true
+    notify-send -a "Input Lock" -t 2000 "Input Locked" "Screen stays live. Press Super + Shift + L to unlock." >/dev/null 2>&1 || true
+}
+
+freeze_off() {
+    hyprctl dispatch 'hl.dsp.submap("reset")' >/dev/null 2>&1 || true
+    qs ipc call freeze close >/dev/null 2>&1 || true
+    cleanup_files
+}
+
+case "${1:-toggle}" in
+    toggle)
+        if is_frozen; then
+            freeze_off
+        else
+            freeze_on
+        fi
+        ;;
+    on|freeze)
+        freeze_on
+        ;;
+    off|unfreeze)
+        freeze_off
+        ;;
+    status)
+        if is_frozen; then
+            echo "frozen"
+        else
+            echo "unfrozen"
+        fi
+        ;;
+    -h|--help|help)
+        echo "Usage: $(basename "$0") [toggle|on|off|status]"
+        ;;
+    *)
+        echo "Usage: $(basename "$0") [toggle|on|off|status]" >&2
+        exit 1
+        ;;
+esac
